@@ -69,6 +69,7 @@ describe('Notification Scheduler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockScheduledNotifications.length = 0;
+    vi.useRealTimers();
   });
 
   describe('scheduleNotificationsForMedication', () => {
@@ -100,6 +101,9 @@ describe('Notification Scheduler', () => {
     });
 
     it('should schedule notification for override time', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-02-03T10:00:00'));
+
       const overrideTime = new Date('2026-02-03T15:00:00');
       
       const med: Medication = {

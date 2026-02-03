@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect } from 'react';
 import { X, AlertTriangle, Clock } from 'lucide-react-native';
-import type { ScheduledDose } from '@/lib/schedule/calculator';
+import { getNextDose, type ScheduledDose } from '@/lib/schedule/calculator';
 import { 
   createIntakeLog, 
   getMedicationById, 
@@ -14,7 +14,9 @@ import {
 import { cancelNotificationForDose, scheduleNotificationsForMedication, cancelNotificationsForMedication } from '@/lib/notifications/scheduler';
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
-import { format, differenceInMinutes, differenceInHours, addHours } from 'date-fns';
+import { format, differenceInMinutes, differenceInHours, isAfter } from 'date-fns';
+import { LateDoseOverlapWarningDialog } from '@/components/dashboard/LateDoseOverlapWarningDialog';
+import { RescheduleNextDoseDialog } from '@/components/dashboard/RescheduleNextDoseDialog';
 
 export interface DoseActionDialogProps {
   visible: boolean;
@@ -30,8 +32,10 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [medication, setMedication] = useState<any>(null);
-  const [showReschedulePrompt, setShowReschedulePrompt] = useState(false);
-  const [pendingLogData, setPendingLogData] = useState<any>(null);
+  const [isLateOverlapWarningOpen, setIsLateOverlapWarningOpen] = useState(false);
+  const [lateOverlapMinutesUntilNext, setLateOverlapMinutesUntilNext] = useState<number | null>(null);
+  const [lateOverlapNextDoseTime, setLateOverlapNextDoseTime] = useState<Date | null>(null);
+  const [isRescheduleNextOpen, setIsRescheduleNextOpen] = useState(false);
 
   useEffect(() => {
     if (dose && visible) {
@@ -39,8 +43,10 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
       setAction('taken');
       setPartialAmount('');
       setNotes('');
-      setShowReschedulePrompt(false);
-      setPendingLogData(null);
+      setIsLateOverlapWarningOpen(false);
+      setLateOverlapMinutesUntilNext(null);
+      setLateOverlapNextDoseTime(null);
+      setIsRescheduleNextOpen(false);
     }
   }, [dose, visible]);
 
@@ -60,53 +66,46 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
   const minutesEarly = differenceInMinutes(dose.time, now);
   const hoursLate = differenceInHours(now, dose.time);
   const isEarly = minutesEarly > 0 && minutesEarly <= 120;
-  const isLate = hoursLate > 2;
+  const isLate = isAfter(now, dose.time);
 
-  const handleLogTakenNow = async () => {
+  function getDosageAmountOrNull(): number | null {
+    if (action !== 'partial') return dose.dosageAmount;
+    if (!partialAmount) return null;
+    const parsed = parseFloat(partialAmount);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  async function logTakenNowWithoutLateWarning(): Promise<void> {
     if (!activeProfile) return;
+
+    const dosageAmount = getDosageAmountOrNull();
+    if (dosageAmount === null) {
+      Alert.alert(i18n.t('common.error'), i18n.t('errors.invalidInput'));
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const dosageAmount = action === 'partial' && partialAmount
-        ? parseFloat(partialAmount)
-        : dose.dosageAmount;
+      const actualTime = new Date();
 
-      // Validate partial amount
-      if (action === 'partial' && (!partialAmount || isNaN(dosageAmount) || dosageAmount <= 0)) {
-        Alert.alert(i18n.t('common.error'), i18n.t('errors.invalidInput'));
-        setIsLoading(false);
-        return;
-      }
-
-      // Create the log
       await createIntakeLog({
         medicationId: dose.medicationId,
         profileId: activeProfile.id,
         scheduledTime: dose.time,
-        actualTime: now,
+        actualTime,
         action,
         dosageAmount,
         notes: notes || undefined,
       });
 
-      // Update inventory if taken or partial
       if (medication && (action === 'taken' || action === 'partial')) {
         const newCount = Math.max(0, medication.inventoryCount - dosageAmount);
         await updateMedicationInventory(dose.medicationId, newCount);
         await loadMedications(activeProfile.id);
       }
 
-      // LTE-003: If taken early, cancel the scheduled reminder
       if (isEarly && action === 'taken') {
         await cancelNotificationForDose(dose.medicationId, dose.time.toISOString());
-      }
-
-      // LTE-001/002: If taken late, show reschedule prompt
-      if (isLate && action === 'taken') {
-        setPendingLogData({ dosageAmount, notes });
-        setShowReschedulePrompt(true);
-        setIsLoading(false);
-        return;
       }
 
       onSuccess();
@@ -117,6 +116,44 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function computeLateOverlapWarning():
+    | { nextDoseTime: Date; minutesUntilNext: number }
+    | null {
+    if (!medication) return null;
+    if (!isLate) return null;
+    if (action !== 'taken' && action !== 'partial') return null;
+
+    const medNoOverride = { ...medication, nextDoseOverrideTime: undefined };
+    const nextDose = getNextDose(medNoOverride, dose.time);
+    if (!nextDose) return null;
+
+    const minutesUntilNext = differenceInMinutes(nextDose.time, now);
+    if (minutesUntilNext < 0) return null;
+    if (minutesUntilNext > 120) return null;
+
+    return { nextDoseTime: nextDose.time, minutesUntilNext };
+  }
+
+  const handleLogTakenNow = async () => {
+    if (!activeProfile) return;
+
+    const dosageAmount = getDosageAmountOrNull();
+    if (dosageAmount === null) {
+      Alert.alert(i18n.t('common.error'), i18n.t('errors.invalidInput'));
+      return;
+    }
+
+    const lateOverlap = computeLateOverlapWarning();
+    if (lateOverlap) {
+      setLateOverlapNextDoseTime(lateOverlap.nextDoseTime);
+      setLateOverlapMinutesUntilNext(lateOverlap.minutesUntilNext);
+      setIsLateOverlapWarningOpen(true);
+      return;
+    }
+
+    await logTakenNowWithoutLateWarning();
   };
 
   const handleLogAtScheduledTime = async () => {
@@ -162,33 +199,38 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
     }
   };
 
-  const handleRescheduleNextDose = async () => {
+  const handleKeepSchedule = async () => {
+    setIsLateOverlapWarningOpen(false);
+    await logTakenNowWithoutLateWarning();
+  };
+
+  const handleStartRescheduleNext = () => {
+    setIsLateOverlapWarningOpen(false);
+    setIsRescheduleNextOpen(true);
+  };
+
+  const handleConfirmRescheduleNext = async (selectedTime: Date) => {
+    if (!activeProfile) return;
     if (!medication) return;
 
     setIsLoading(true);
     try {
-      const overrideTime = addHours(dose.time, hoursLate);
-      await setNextDoseOverrideTime(dose.medicationId, overrideTime);
-      
-      // Reschedule notifications
+      // Apply override for the next dose only
+      await setNextDoseOverrideTime(dose.medicationId, selectedTime);
+
+      // Reschedule notifications for this medication
       await cancelNotificationsForMedication(dose.medicationId);
       await scheduleNotificationsForMedication(medication);
 
-      setShowReschedulePrompt(false);
-      onSuccess();
-      onClose();
+      setIsRescheduleNextOpen(false);
+      // Finally, log this dose as taken now (bypass warning since user is already handling it)
+      await logTakenNowWithoutLateWarning();
     } catch (error) {
-      console.error('Failed to reschedule:', error);
+      console.error('Failed to reschedule next dose:', error);
       Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleKeepSchedule = () => {
-    setShowReschedulePrompt(false);
-    onSuccess();
-    onClose();
   };
 
   const getStatusBanner = () => {
@@ -216,20 +258,10 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <Pressable
-        className="flex-1 justify-center items-center bg-black/50"
-        onPress={onClose}
-      >
-        <Pressable
-          className="bg-background w-11/12 max-w-md rounded-2xl p-6"
-          onPress={(e) => e.stopPropagation()}
-        >
+    <>
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+        <Pressable className="flex-1 justify-center items-center bg-black/50" onPress={onClose}>
+          <Pressable className="bg-background w-11/12 max-w-md rounded-2xl p-6" onPress={(e) => e.stopPropagation()}>
           {/* Header */}
           <View className="flex-row justify-between items-center mb-6">
             <Text className="text-2xl font-bold text-foreground">
@@ -257,39 +289,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
 
           {/* Status Banner */}
           {getStatusBanner()}
-
-          {/* Reschedule Prompt (shown after late logging) */}
-          {showReschedulePrompt && (
-            <View className="mb-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
-              <Text className="text-base font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                {i18n.t('intakeLog.lateDoseTitle')}
-              </Text>
-              <Text className="text-sm text-blue-800 dark:text-blue-200 mb-4">
-                {i18n.t('intakeLog.reschedulePrompt')}
-              </Text>
-              <View className="flex-row gap-2">
-                <Button
-                  variant="outline"
-                  onPress={handleKeepSchedule}
-                  className="flex-1"
-                  disabled={isLoading}
-                >
-                  <Text>{i18n.t('intakeLog.keepSchedule')}</Text>
-                </Button>
-                <Button
-                  onPress={handleRescheduleNextDose}
-                  className="flex-1"
-                  disabled={isLoading}
-                >
-                  <Text className="text-primary-foreground font-semibold">
-                    {i18n.t('intakeLog.rescheduleNext')}
-                  </Text>
-                </Button>
-              </View>
-            </View>
-          )}
-
-          {!showReschedulePrompt && (
+          {!isLateOverlapWarningOpen && !isRescheduleNextOpen && (
             <>
               {/* Action Selection */}
               <Text className="text-sm font-medium text-foreground mb-3">
@@ -345,18 +345,18 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
               </View>
 
               {/* Action Buttons */}
-              <View className="flex-row gap-2">
+              <View className="gap-2">
                 <Button
                   variant="outline"
                   onPress={handleLogAtScheduledTime}
-                  className="flex-1"
+                  className="w-full"
                   disabled={isLoading}
                 >
-                  <Text>{i18n.t('intakeLog.tookAtScheduledTime')}</Text>
+                  <Text className="text-center">{i18n.t('intakeLog.tookAtScheduledTime')}</Text>
                 </Button>
                 <Button
                   onPress={handleLogTakenNow}
-                  className="flex-1"
+                  className="w-full"
                   disabled={isLoading}
                 >
                   <Text className="text-primary-foreground font-semibold">
@@ -366,8 +366,33 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
               </View>
             </>
           )}
+          </Pressable>
         </Pressable>
-      </Pressable>
-    </Modal>
+      </Modal>
+
+      {lateOverlapNextDoseTime && lateOverlapMinutesUntilNext !== null && (
+        <LateDoseOverlapWarningDialog
+          open={isLateOverlapWarningOpen}
+          onOpenChange={setIsLateOverlapWarningOpen}
+          medicationName={dose.medicationName}
+          nextDoseTime={lateOverlapNextDoseTime}
+          minutesUntilNext={lateOverlapMinutesUntilNext}
+          onKeepSchedule={handleKeepSchedule}
+          onRescheduleNext={handleStartRescheduleNext}
+          isLoading={isLoading}
+        />
+      )}
+
+      <RescheduleNextDoseDialog
+        open={isRescheduleNextOpen}
+        onOpenChange={setIsRescheduleNextOpen}
+        now={now}
+        onConfirm={handleConfirmRescheduleNext}
+        onCancel={() => {
+          setIsRescheduleNextOpen(false);
+        }}
+        isLoading={isLoading}
+      />
+    </>
   );
 }

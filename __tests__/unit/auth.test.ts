@@ -24,6 +24,11 @@ vi.mock('expo-local-authentication', () => ({
   isEnrolledAsync: vi.fn(),
   supportedAuthenticationTypesAsync: vi.fn(),
   authenticateAsync: vi.fn(),
+  AuthenticationType: {
+    FINGERPRINT: 1,
+    FACIAL_RECOGNITION: 2,
+    IRIS: 3,
+  },
 }));
 
 // Mock expo-secure-store

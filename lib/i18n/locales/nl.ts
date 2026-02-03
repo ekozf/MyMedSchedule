@@ -234,6 +234,18 @@ export default {
     logIntake: 'Inname Registreren',
     undoLast: 'Laatste Registratie Ongedaan Maken',
     confirmUndo: 'Weet u zeker dat u deze registratie ongedaan wilt maken?',
+    tookAtScheduledTime: 'Ik heb het volgens schema ingenomen',
+    takingNowEarly: 'Ik neem het nu',
+    nextDoseSoonTitle: 'Volgende dosis is binnenkort',
+    nextDoseSoonDescription: 'Uw volgende dosis van {{medicationName}} staat gepland voor {{nextTime}} (over {{minutes}} min). Wilt u alleen de volgende dosis opnieuw plannen?',
+    keepScheduleAction: 'Schema behouden',
+    rescheduleNextDoseAction: 'Volgende dosis verplaatsen',
+    rescheduleNextDoseTitle: 'Volgende dosis verplaatsen',
+    rescheduleNextDoseDescription: 'Dit wijzigt alleen de tijd van de volgende dosis. Alle andere doses blijven hetzelfde.',
+    chooseDateTime: 'Datum en tijd kiezen',
+    noTimeSelected: 'Geen tijd geselecteerd',
+    rescheduleConfirm: 'Verplaatsen bevestigen',
+    rescheduleTimeInvalidPast: 'Kies een tijd in de toekomst.',
   },
   
   settings: {

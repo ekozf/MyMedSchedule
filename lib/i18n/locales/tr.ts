@@ -234,6 +234,18 @@ export default {
     logIntake: 'Alımı Kaydet',
     undoLast: 'Son Kaydı Geri Al',
     confirmUndo: 'Bu kayıt girişini geri almak istediğinizden emin misiniz?',
+    tookAtScheduledTime: 'Planlandığı gibi aldım',
+    takingNowEarly: 'Şimdi alıyorum',
+    nextDoseSoonTitle: 'Sonraki doz çok yakın',
+    nextDoseSoonDescription: '{{medicationName}} için sonraki doz {{nextTime}} zamanında ({{minutes}} dk içinde). Yalnızca bir sonraki dozu yeniden planlamak ister misiniz?',
+    keepScheduleAction: 'Programı koru',
+    rescheduleNextDoseAction: 'Sonraki dozu yeniden planla',
+    rescheduleNextDoseTitle: 'Sonraki dozu yeniden planla',
+    rescheduleNextDoseDescription: 'Bu işlem yalnızca bir sonraki doz zamanını değiştirir. Diğer tüm planlı dozlar aynı kalır.',
+    chooseDateTime: 'Tarih ve saat seç',
+    noTimeSelected: 'Saat seçilmedi',
+    rescheduleConfirm: 'Yeniden planlamayı onayla',
+    rescheduleTimeInvalidPast: 'Lütfen gelecekte bir saat seçin.',
   },
   
   settings: {

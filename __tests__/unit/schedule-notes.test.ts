@@ -3,6 +3,7 @@ import { getDosesForDate } from '@/lib/schedule/calculator';
 import type { Medication } from '@/types';
 
 describe('Schedule Calculator - Notes Field', () => {
+  const baseCreatedAt = new Date('2026-01-01T00:00:00');
   const baseMedication: Medication = {
     id: 'med-1',
     profileId: 'profile-1',
@@ -15,8 +16,8 @@ describe('Schedule Calculator - Notes Field', () => {
     bypassDnd: false,
     isActive: true,
     isPrn: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: baseCreatedAt,
+    updatedAt: baseCreatedAt,
   };
 
   it('should include notes in scheduled doses', () => {

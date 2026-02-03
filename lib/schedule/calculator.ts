@@ -446,18 +446,19 @@ function getTaperingDoses(
 // Get all doses for multiple medications on a specific date
 export function getAllDosesForDate(medications: Medication[], date: Date): ScheduledDose[] {
   const allDoses: ScheduledDose[] = [];
-  const now = new Date();
+  // Use Date.now() so tests can control time deterministically.
+  const now = new Date(Date.now());
   
   for (const medication of medications) {
     if (!medication.isActive) continue;
     
     let doses = getDosesForDate(medication, date);
     
-    // Handle next-dose override: if override exists and falls on this date, replace/insert it
+    // Handle next-dose override: affects ONLY the next scheduled occurrence.
+    // Implementation note: do NOT use proximity-based replacement, since the user may pick an override far from
+    // the original next dose. Instead: remove the base "next dose" occurrence and insert the override occurrence.
     if (medication.nextDoseOverrideTime) {
       const overrideTime = new Date(medication.nextDoseOverrideTime);
-      const overrideDay = startOfDay(overrideTime);
-      const targetDay = startOfDay(date);
       
       // Skip if override is in the past (should be cleared, but handle gracefully)
       if (isBefore(overrideTime, now)) {
@@ -465,38 +466,32 @@ export function getAllDosesForDate(medications: Medication[], date: Date): Sched
         allDoses.push(...doses);
         continue;
       }
-      
-      // If override falls on the target date
-      if (isSameDay(overrideDay, targetDay)) {
-        // Check if there's already a dose at a similar time (within 1 hour)
-        // If so, replace it; otherwise add the override as a new dose
-        let replaced = false;
-        doses = doses.map(dose => {
-          const timeDiff = Math.abs(dose.time.getTime() - overrideTime.getTime());
-          // If dose is within 1 hour of override time, replace it
-          if (timeDiff < 3600000 && !replaced) {
-            replaced = true;
-            return {
-              ...dose,
-              time: overrideTime,
-            };
-          }
-          return dose;
+
+      const baseMedication: Medication = { ...medication, nextDoseOverrideTime: undefined };
+      const originalNext = getNextDose(baseMedication, now);
+
+      // Remove the original next occurrence from its scheduled day
+      if (originalNext && isSameDay(originalNext.time, date)) {
+        doses = doses.filter(d => d.time.getTime() !== originalNext.time.getTime());
+      }
+
+      // Insert the override occurrence on its day
+      if (isSameDay(overrideTime, date)) {
+        const seed = originalNext ?? {
+          medicationId: medication.id,
+          medicationName: medication.name,
+          imageUri: medication.imageUri,
+          notes: medication.notes,
+          time: overrideTime,
+          dosageAmount: medication.dosageAmount,
+          dosageUnit: medication.dosageUnit,
+          isPrn: false,
+        };
+
+        doses.push({
+          ...seed,
+          time: overrideTime,
         });
-        
-        // If no dose was replaced, add override as new dose
-        if (!replaced) {
-          doses.push({
-            medicationId: medication.id,
-            medicationName: medication.name,
-            imageUri: medication.imageUri,
-            notes: medication.notes,
-            time: overrideTime,
-            dosageAmount: medication.dosageAmount,
-            dosageUnit: medication.dosageUnit,
-            isPrn: false,
-          });
-        }
       }
     }
     

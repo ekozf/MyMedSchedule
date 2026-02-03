@@ -890,9 +890,8 @@ describe('Schedule Calculator', () => {
       const overrideDay = startOfDay(overrideTime);
       const now = new Date('2026-02-03T10:00:00'); // Before override
       
-      // Mock Date.now to return a fixed time
-      const originalNow = Date.now;
-      Date.now = vi.fn(() => now.getTime());
+      vi.useFakeTimers();
+      vi.setSystemTime(now);
       
       const med: Medication = {
         ...baseMedication,
@@ -906,8 +905,56 @@ describe('Schedule Calculator', () => {
       expect(doses.length).toBeGreaterThan(0);
       expect(doses.some(d => Math.abs(d.time.getTime() - overrideTime.getTime()) < 60000)).toBe(true);
       
-      // Restore Date.now
-      Date.now = originalNow;
+      vi.useRealTimers();
+    });
+
+    it('should remove the original next occurrence and insert only the override (even if far away)', () => {
+      const now = new Date('2026-02-03T10:00:00');
+      const overrideTime = new Date('2026-02-03T21:00:00'); // far from 09:00
+      const targetDay = startOfDay(overrideTime);
+
+      vi.useFakeTimers();
+      vi.setSystemTime(now);
+
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'once_daily',
+        scheduleConfig: JSON.stringify({ time: '12:00' }), // base next occurrence today at 12:00
+        scheduleStartDate: new Date('2026-02-01T00:00:00'),
+        nextDoseOverrideTime: overrideTime,
+      };
+
+      const doses = getAllDosesForDate([med], targetDay);
+      expect(doses.some(d => d.time.getTime() === new Date('2026-02-03T12:00:00').getTime())).toBe(false);
+      expect(doses.filter(d => d.time.getTime() === overrideTime.getTime())).toHaveLength(1);
+
+      vi.useRealTimers();
+    });
+
+    it('should move the next occurrence across days (remove original day, insert override day)', () => {
+      const now = new Date('2026-02-03T10:00:00');
+      const overrideTime = new Date('2026-02-04T08:30:00'); // next day
+      const originalDay = startOfDay(new Date('2026-02-03T00:00:00'));
+      const overrideDay = startOfDay(overrideTime);
+
+      vi.useFakeTimers();
+      vi.setSystemTime(now);
+
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'once_daily',
+        scheduleConfig: JSON.stringify({ time: '12:00' }), // base next occurrence Feb 3 @ 12:00
+        scheduleStartDate: new Date('2026-02-01T00:00:00'),
+        nextDoseOverrideTime: overrideTime,
+      };
+
+      const day1 = getAllDosesForDate([med], originalDay);
+      expect(day1.some(d => d.time.getTime() === new Date('2026-02-03T12:00:00').getTime())).toBe(false);
+
+      const day2 = getAllDosesForDate([med], overrideDay);
+      expect(day2.filter(d => d.time.getTime() === overrideTime.getTime())).toHaveLength(1);
+
+      vi.useRealTimers();
     });
 
     it('should ignore override if it is in the past', () => {
