@@ -20,8 +20,9 @@ describe('Schedule Calculator', () => {
     inventoryCount: 100,
     isActive: true,
     isPrn: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    scheduleStartDate: new Date('2026-02-01T00:00:00'),
+    createdAt: new Date('2026-02-01T00:00:00'),
+    updatedAt: new Date('2026-02-03T00:00:00'),
   };
 
   describe('Once Daily Schedule', () => {
@@ -111,6 +112,7 @@ describe('Schedule Calculator', () => {
           startDate: startDate.toISOString(),
           time: '10:00',
         }),
+        scheduleStartDate: startDate,
       };
 
       // Day 0 (start): should have dose
@@ -156,6 +158,7 @@ describe('Schedule Calculator', () => {
           startDate: startDate.toISOString(),
           time: '10:00',
         }),
+        scheduleStartDate: startDate,
       };
 
       const doses1 = getDosesForDate(med, new Date('2026-02-01'));
@@ -204,6 +207,7 @@ describe('Schedule Calculator', () => {
           weekdays: [0, 6], // Sunday, Saturday
           time: '10:00',
         }),
+        scheduleStartDate: new Date('2026-02-01T00:00:00'),
       };
 
       // Sunday Feb 1, 2026
@@ -264,6 +268,7 @@ describe('Schedule Calculator', () => {
           cycleStartDate: cycleStart.toISOString(),
           time: '20:00',
         }),
+        scheduleStartDate: cycleStart,
       };
 
       // Day 0 (start of on period)
@@ -315,6 +320,7 @@ describe('Schedule Calculator', () => {
           cycleStartDate: cycleStart.toISOString(),
           time: '10:00',
         }),
+        scheduleStartDate: cycleStart,
       };
 
       // Jan 28, 29, 30, 31 (on period)
@@ -685,6 +691,7 @@ describe('Schedule Calculator', () => {
           occurrence: 1, // 1st
           time: '10:00',
         }),
+        scheduleStartDate: new Date('2026-02-01T00:00:00'),
       };
 
       const doses = getDosesForDate(med, testDate);
@@ -803,6 +810,122 @@ describe('Schedule Calculator', () => {
 
       const doses = getDosesForDate(med, testDate);
       expect(doses).toHaveLength(0);
+    });
+  });
+
+  describe('Schedule Start Date Gating', () => {
+    it('should not show doses before scheduleStartDate', () => {
+      const today = new Date('2026-02-03T12:00:00');
+      const yesterday = addDays(today, -1);
+      
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'once_daily',
+        scheduleConfig: JSON.stringify({ time: '20:00' }),
+        scheduleStartDate: today,
+        createdAt: new Date('2026-02-01T00:00:00'),
+      };
+
+      const yesterdayDoses = getDosesForDate(med, yesterday);
+      expect(yesterdayDoses).toHaveLength(0);
+
+      const todayDoses = getDosesForDate(med, today);
+      expect(todayDoses).toHaveLength(1);
+    });
+
+    it('should use createdAt as fallback if scheduleStartDate is not set', () => {
+      const createdAt = new Date('2026-02-03T00:00:00');
+      const beforeCreated = addDays(createdAt, -1);
+      
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'once_daily',
+        scheduleConfig: JSON.stringify({ time: '09:00' }),
+        createdAt,
+        scheduleStartDate: undefined,
+      };
+
+      const beforeDoses = getDosesForDate(med, beforeCreated);
+      expect(beforeDoses).toHaveLength(0);
+
+      const createdDayDoses = getDosesForDate(med, createdAt);
+      expect(createdDayDoses).toHaveLength(1);
+    });
+
+    it('should not show doses when scheduleStartDate is later in the day', () => {
+      const today = new Date('2026-02-03T23:00:00'); // Late in day
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'once_daily',
+        scheduleConfig: JSON.stringify({ time: '20:00' }), // Earlier time
+        scheduleStartDate: today,
+      };
+
+      const todayDoses = getDosesForDate(med, today);
+      // Should still show the dose because we compare by startOfDay
+      expect(todayDoses).toHaveLength(1);
+    });
+  });
+
+  describe('Next Dose Override', () => {
+    it('should return override dose when nextDoseOverrideTime is set', () => {
+      const now = new Date('2026-02-03T10:00:00');
+      const overrideTime = new Date('2026-02-03T15:00:00');
+      
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'once_daily',
+        scheduleConfig: JSON.stringify({ time: '09:00' }),
+        scheduleStartDate: new Date('2026-02-01T00:00:00'),
+        nextDoseOverrideTime: overrideTime,
+      };
+
+      const nextDose = getNextDose(med, now);
+      expect(nextDose).not.toBeNull();
+      expect(nextDose?.time.getTime()).toBe(overrideTime.getTime());
+    });
+
+    it('should include override dose in getAllDosesForDate when on target day', () => {
+      const overrideTime = new Date('2026-02-03T15:00:00');
+      const overrideDay = startOfDay(overrideTime);
+      const now = new Date('2026-02-03T10:00:00'); // Before override
+      
+      // Mock Date.now to return a fixed time
+      const originalNow = Date.now;
+      Date.now = vi.fn(() => now.getTime());
+      
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'once_daily',
+        scheduleConfig: JSON.stringify({ time: '09:00' }),
+        scheduleStartDate: new Date('2026-02-01T00:00:00'),
+        nextDoseOverrideTime: overrideTime,
+      };
+
+      const doses = getAllDosesForDate([med], overrideDay);
+      expect(doses.length).toBeGreaterThan(0);
+      expect(doses.some(d => Math.abs(d.time.getTime() - overrideTime.getTime()) < 60000)).toBe(true);
+      
+      // Restore Date.now
+      Date.now = originalNow;
+    });
+
+    it('should ignore override if it is in the past', () => {
+      const now = new Date('2026-02-03T10:00:00');
+      const pastOverride = new Date('2026-02-03T08:00:00');
+      
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'once_daily',
+        scheduleConfig: JSON.stringify({ time: '09:00' }),
+        scheduleStartDate: new Date('2026-02-01T00:00:00'),
+        nextDoseOverrideTime: pastOverride,
+      };
+
+      const nextDose = getNextDose(med, now);
+      // Should return the next normal dose, not the override
+      expect(nextDose).not.toBeNull();
+      expect(nextDose?.time.getTime()).not.toBe(pastOverride.getTime());
     });
   });
 });

@@ -57,6 +57,8 @@ export interface Medication {
   bypassDnd: boolean;
   isActive: boolean;
   isPrn: boolean;
+  scheduleStartDate?: Date;
+  nextDoseOverrideTime?: Date;
   createdAt: Date;
   updatedAt: Date;
 }

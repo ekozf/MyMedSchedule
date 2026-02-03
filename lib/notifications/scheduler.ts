@@ -13,6 +13,8 @@ export async function scheduleNotificationsForMedication(medication: Medication)
   await cancelNotificationsForMedication(medication.id);
 
   const today = startOfDay(new Date());
+  const now = new Date();
+  const scheduledTimes = new Set<string>(); // Track scheduled times to avoid duplicates
   
   // Schedule for next 7 days
   for (let i = 0; i < 7; i++) {
@@ -21,7 +23,16 @@ export async function scheduleNotificationsForMedication(medication: Medication)
 
     for (const dose of doses) {
       // Only schedule future doses
-      if (isAfter(dose.time, new Date())) {
+      if (isAfter(dose.time, now)) {
+        const timeKey = dose.time.toISOString();
+        
+        // Skip if we've already scheduled for this exact time
+        if (scheduledTimes.has(timeKey)) {
+          continue;
+        }
+        
+        scheduledTimes.add(timeKey);
+        
         try {
           // Determine notification priority based on bypassDnd setting
           const priority = medication.bypassDnd 
@@ -56,6 +67,49 @@ export async function scheduleNotificationsForMedication(medication: Medication)
       }
     }
   }
+  
+  // Handle next-dose override: schedule notification for override time if it's in the future
+  if (medication.nextDoseOverrideTime) {
+    const overrideTime = new Date(medication.nextDoseOverrideTime);
+    
+    if (isAfter(overrideTime, now)) {
+      const overrideTimeKey = overrideTime.toISOString();
+      
+      // Only schedule if we haven't already scheduled for this time
+      if (!scheduledTimes.has(overrideTimeKey)) {
+        try {
+          const priority = medication.bypassDnd 
+            ? Notifications.AndroidNotificationPriority.MAX 
+            : Notifications.AndroidNotificationPriority.HIGH;
+
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: 'Medication Reminder',
+              body: `Time to take ${medication.name} - ${medication.dosageAmount} ${medication.dosageUnit}`,
+              data: {
+                medicationId: medication.id,
+                medicationName: medication.name,
+                dosageAmount: medication.dosageAmount,
+                dosageUnit: medication.dosageUnit,
+                scheduledTime: overrideTime.toISOString(),
+                imageUri: medication.imageUri,
+                notes: medication.notes,
+              },
+              sound: 'default',
+              priority,
+              categoryIdentifier: 'MEDICATION_REMINDER',
+            },
+            trigger: {
+              date: overrideTime,
+              channelId: 'medication_reminders',
+            },
+          });
+        } catch (error) {
+          console.error('Failed to schedule override notification:', error);
+        }
+      }
+    }
+  }
 }
 
 // Schedule batched notifications for medications at the same time
@@ -64,8 +118,9 @@ export async function scheduleBatchedNotifications(medications: Medication[]): P
   if (activeMedications.length === 0) return;
 
   const today = startOfDay(new Date());
+  const now = new Date();
   
-  // Get all doses for the next 7 days
+  // Get all doses for the next 7 days (getAllDosesForDate already handles schedule start gating and overrides)
   for (let i = 0; i < 7; i++) {
     const date = addDays(today, i);
     const allDoses = getAllDosesForDate(activeMedications, date);
@@ -85,7 +140,7 @@ export async function scheduleBatchedNotifications(medications: Medication[]): P
       const doseTime = new Date(timeKey);
       
       // Only schedule future doses
-      if (!isAfter(doseTime, new Date())) continue;
+      if (!isAfter(doseTime, now)) continue;
       
       try {
         if (doses.length === 1) {
@@ -174,6 +229,21 @@ export async function cancelNotificationsForMedication(medicationId: string): Pr
   
   for (const notification of scheduledNotifications) {
     if (notification.content.data?.medicationId === medicationId) {
+      await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+    }
+  }
+}
+
+// Cancel a specific notification for a dose by medication ID and scheduled time
+export async function cancelNotificationForDose(medicationId: string, scheduledTimeIso: string): Promise<void> {
+  const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+  
+  for (const notification of scheduledNotifications) {
+    const data = notification.content.data;
+    if (
+      data?.medicationId === medicationId &&
+      data?.scheduledTime === scheduledTimeIso
+    ) {
       await Notifications.cancelScheduledNotificationAsync(notification.identifier);
     }
   }

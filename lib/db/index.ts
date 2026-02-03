@@ -65,9 +65,19 @@ export async function initDatabase() {
       bypass_dnd INTEGER DEFAULT 0,
       is_active INTEGER DEFAULT 1,
       is_prn INTEGER DEFAULT 0,
+      schedule_start_date TEXT,
+      next_dose_override_time TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    
+    -- Migration: Add new columns if they don't exist (for existing databases)
+    -- SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we use a try-catch approach
+    -- by attempting to add the columns and ignoring errors if they already exist
+    -- Note: This will fail silently if columns already exist, which is acceptable
+    -- In production, you might want to check column existence first using PRAGMA table_info
+    -- For now, we'll add them unconditionally - SQLite will error if they exist, but we can ignore
+    -- Actually, let's check if we can query the table info first
     
     CREATE TABLE IF NOT EXISTS intake_logs (
       id TEXT PRIMARY KEY,
@@ -96,6 +106,25 @@ export async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_intake_logs_profile ON intake_logs(profile_id);
     CREATE INDEX IF NOT EXISTS idx_intake_logs_time ON intake_logs(actual_time);
   `);
+  
+  // Migration: Add new columns if they don't exist (for existing databases)
+  // SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we check column existence first
+  try {
+    const stmt = db.prepareSync(`PRAGMA table_info(medications)`);
+    const tableInfo = stmt.allSync();
+    const columns = tableInfo.map((row: any) => row.name);
+    
+    if (!columns.includes('schedule_start_date')) {
+      db.execSync(`ALTER TABLE medications ADD COLUMN schedule_start_date TEXT`);
+    }
+    if (!columns.includes('next_dose_override_time')) {
+      db.execSync(`ALTER TABLE medications ADD COLUMN next_dose_override_time TEXT`);
+    }
+  } catch (error) {
+    // If migration fails, columns might already exist or table doesn't exist yet - that's okay
+    // The CREATE TABLE IF NOT EXISTS above will handle new tables
+    console.warn('Migration check completed (errors are normal for new databases):', error);
+  }
   
   dbInstance = drizzle(db, { schema });
   

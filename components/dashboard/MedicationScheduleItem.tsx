@@ -6,8 +6,7 @@ import { format, isAfter, differenceInMinutes, differenceInHours } from 'date-fn
 import { Pill, CheckCircle2, Clock, AlertCircle, XCircle } from 'lucide-react-native';
 import type { ScheduledDose } from '@/lib/schedule/calculator';
 import { useState, useEffect } from 'react';
-import { IntakeLogDialog } from '@/components/medication/IntakeLogDialog';
-import { createIntakeLog, getMedicationById } from '@/lib/db/operations';
+import { DoseActionDialog } from '@/components/dashboard/DoseActionDialog';
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
 
@@ -24,7 +23,6 @@ type DoseStatus = 'upcoming' | 'due' | 'overdue' | 'taken' | 'skipped' | 'partia
 export function MedicationScheduleItem({ dose, isLogged, logAction, onPress, onLog }: MedicationScheduleItemProps) {
   const [dialogVisible, setDialogVisible] = useState(false);
   const { activeProfile } = useStore();
-  const [isLogging, setIsLogging] = useState(false);
   
   // Determine status
   const now = new Date();
@@ -89,27 +87,9 @@ export function MedicationScheduleItem({ dose, isLogged, logAction, onPress, onL
   const statusStyle = getStatusStyle();
   const StatusIcon = statusStyle.icon;
 
-  const handleQuickMarkAsTaken = async () => {
-    if (!activeProfile) return;
-    
-    setIsLogging(true);
-    try {
-      await createIntakeLog({
-        medicationId: dose.medicationId,
-        profileId: activeProfile.id,
-        scheduledTime: dose.time,
-        actualTime: new Date(),
-        action: 'taken',
-        dosageAmount: dose.dosageAmount,
-      });
-      
-      if (onLog) onLog();
-    } catch (error) {
-      console.error('Failed to log intake:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
-    } finally {
-      setIsLogging(false);
-    }
+  const handleQuickMarkAsTaken = () => {
+    // Open dialog for quick action too
+    setDialogVisible(true);
   };
 
   const handleLongPress = () => {
@@ -144,140 +124,13 @@ export function MedicationScheduleItem({ dose, isLogged, logAction, onPress, onL
       // View details
       if (onPress) onPress();
     } else {
-      // Show options for pending/overdue doses
-      showLogOptions();
+      // Open the dose action dialog
+      setDialogVisible(true);
     }
   };
   
-  const showLogOptions = () => {
-    const now = new Date();
-    const minutesEarly = differenceInMinutes(dose.time, now);
-    
-    // Check if dose is early (within 2 hours before scheduled time)
-    if (minutesEarly > 0 && minutesEarly <= 120) {
-      // LTE-003: Taking within 2 hours before scheduled time
-      Alert.alert(
-        dose.medicationName,
-        i18n.t('intakeLog.logDoseOptions'),
-        [
-          {
-            text: i18n.t('intakeLog.tookAtScheduledTime'),
-            onPress: () => handleLogAtScheduledTime(),
-          },
-          {
-            text: i18n.t('intakeLog.takingNowEarly'),
-            onPress: () => handleLogNow(),
-          },
-          {
-            text: i18n.t('common.cancel'),
-            style: 'cancel',
-          },
-        ]
-      );
-    } else if (status === 'overdue') {
-      // Overdue doses (>2 hours late)
-      Alert.alert(
-        dose.medicationName,
-        i18n.t('intakeLog.logDoseOptions'),
-        [
-          {
-            text: i18n.t('intakeLog.tookAtScheduledTime'),
-            onPress: () => handleLogAtScheduledTime(),
-          },
-          {
-            text: i18n.t('intakeLog.takingNowEarly'),
-            onPress: () => handleLogNow(),
-          },
-          {
-            text: i18n.t('common.cancel'),
-            style: 'cancel',
-          },
-        ]
-      );
-    } else {
-      // Normal case: just log at current time
-      handleLogNow();
-    }
-  };
-  
-  const handleLogAtScheduledTime = async () => {
-    if (!activeProfile) return;
-    
-    setIsLogging(true);
-    try {
-      await createIntakeLog({
-        medicationId: dose.medicationId,
-        profileId: activeProfile.id,
-        scheduledTime: dose.time,
-        actualTime: dose.time, // Log at scheduled time
-        action: 'taken',
-        dosageAmount: dose.dosageAmount,
-      });
-      
-      if (onLog) onLog();
-    } catch (error) {
-      console.error('Failed to log intake:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
-    } finally {
-      setIsLogging(false);
-    }
-  };
-  
-  const handleLogNow = async () => {
-    if (!activeProfile) return;
-    
-    setIsLogging(true);
-    try {
-      const now = new Date();
-      const hoursLate = differenceInHours(now, dose.time);
-      
-      await createIntakeLog({
-        medicationId: dose.medicationId,
-        profileId: activeProfile.id,
-        scheduledTime: dose.time,
-        actualTime: now,
-        action: 'taken',
-        dosageAmount: dose.dosageAmount,
-      });
-      
-      // Check if dose was taken late (>2 hours) - LTE-001/002
-      if (hoursLate > 2) {
-        Alert.alert(
-          i18n.t('intakeLog.lateDoseTitle'),
-          i18n.t('intakeLog.lateDoseMessage', { hours: hoursLate }),
-          [
-            { 
-              text: i18n.t('intakeLog.keepSchedule'), 
-              style: 'cancel' 
-            },
-            { 
-              text: i18n.t('intakeLog.rescheduleNext'), 
-              onPress: () => handleRescheduleNextDose(hoursLate)
-            }
-          ]
-        );
-      }
-      
-      if (onLog) onLog();
-    } catch (error) {
-      console.error('Failed to log intake:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
-    } finally {
-      setIsLogging(false);
-    }
-  };
-  
-  const handleRescheduleNextDose = (hoursLate: number) => {
-    // TODO: Implement reschedule logic by updating medication schedule
-    // This would shift all future doses by the delay amount
-    console.log(`Rescheduling next dose by ${hoursLate} hours`);
-    Alert.alert(
-      i18n.t('common.success'),
-      'Future doses have been rescheduled to maintain optimal timing.'
-    );
-  };
-
-  const handleLogSuccess = () => {
+  const handleDialogSuccess = () => {
+    setDialogVisible(false);
     if (onLog) onLog();
   };
 
@@ -286,7 +139,6 @@ export function MedicationScheduleItem({ dose, isLogged, logAction, onPress, onL
       <Pressable
         onPress={handlePress}
         onLongPress={handleLongPress}
-        disabled={isLogging}
       >
         <Card className={`mb-2 border ${statusStyle.bgColor}`}>
           <CardContent className="p-3">
@@ -354,11 +206,11 @@ export function MedicationScheduleItem({ dose, isLogged, logAction, onPress, onL
         </Card>
       </Pressable>
 
-      <IntakeLogDialog
+      <DoseActionDialog
         visible={dialogVisible}
         dose={dose}
         onClose={() => setDialogVisible(false)}
-        onSuccess={handleLogSuccess}
+        onSuccess={handleDialogSuccess}
       />
     </>
   );

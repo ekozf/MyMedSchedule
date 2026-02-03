@@ -1,5 +1,6 @@
 import { eq, and, desc, asc } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
+import { startOfDay } from 'date-fns';
 import { getDatabase } from './index';
 import { profiles, medications, intakeLogs, disclaimerAcknowledgments } from './schema';
 import type { Profile, ProfileSettings, Medication, IntakeLog } from '@/types';
@@ -207,10 +208,36 @@ export interface UpdateMedicationInput {
   isPrn?: boolean;
 }
 
+// Helper to calculate scheduleStartDate from schedule config
+function calculateScheduleStartDate(scheduleType: string, scheduleConfig: any, now: Date): string {
+  // For PRN medications, no schedule start date needed
+  if (scheduleType === 'prn') {
+    return now.toISOString();
+  }
+
+  // For schedule types with explicit start dates, use those
+  if (scheduleType === 'every_x_days' && scheduleConfig?.startDate) {
+    return startOfDay(new Date(scheduleConfig.startDate)).toISOString();
+  }
+  if (scheduleType === 'cycle' && scheduleConfig?.cycleStartDate) {
+    return startOfDay(new Date(scheduleConfig.cycleStartDate)).toISOString();
+  }
+  if (scheduleType === 'tapering' && scheduleConfig?.startDate) {
+    return startOfDay(new Date(scheduleConfig.startDate)).toISOString();
+  }
+
+  // For all other schedule types, use current date/time
+  return now.toISOString();
+}
+
 export async function createMedication(input: CreateMedicationInput): Promise<Medication> {
   const db = getDatabase();
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowISO = now.toISOString();
   const id = generateUUID();
+  
+  // Calculate scheduleStartDate based on schedule config
+  const scheduleStartDateISO = calculateScheduleStartDate(input.scheduleType, input.scheduleConfig, now);
   
   const medicationData = {
     id,
@@ -232,8 +259,10 @@ export async function createMedication(input: CreateMedicationInput): Promise<Me
     bypassDnd: input.bypassDnd ?? false,
     isActive: true,
     isPrn: input.isPrn ?? false,
-    createdAt: now,
-    updatedAt: now,
+    scheduleStartDate: scheduleStartDateISO,
+    nextDoseOverrideTime: null,
+    createdAt: nowISO,
+    updatedAt: nowISO,
   };
   
   await db.insert(medications).values(medicationData);
@@ -258,8 +287,10 @@ export async function createMedication(input: CreateMedicationInput): Promise<Me
     bypassDnd: input.bypassDnd ?? false,
     isActive: true,
     isPrn: input.isPrn ?? false,
-    createdAt: new Date(now),
-    updatedAt: new Date(now),
+    scheduleStartDate: new Date(scheduleStartDateISO),
+    nextDoseOverrideTime: undefined,
+    createdAt: new Date(nowISO),
+    updatedAt: new Date(nowISO),
   };
 }
 
@@ -290,6 +321,8 @@ export async function getMedicationById(id: string): Promise<Medication | null> 
     bypassDnd: med.bypassDnd ?? false,
     isActive: med.isActive ?? true,
     isPrn: med.isPrn ?? false,
+    scheduleStartDate: med.scheduleStartDate ? new Date(med.scheduleStartDate) : undefined,
+    nextDoseOverrideTime: med.nextDoseOverrideTime ? new Date(med.nextDoseOverrideTime) : undefined,
     createdAt: new Date(med.createdAt),
     updatedAt: new Date(med.updatedAt),
   };
@@ -329,6 +362,8 @@ export async function getMedicationsByProfile(profileId: string, activeOnly: boo
     bypassDnd: med.bypassDnd ?? false,
     isActive: med.isActive ?? true,
     isPrn: med.isPrn ?? false,
+    scheduleStartDate: med.scheduleStartDate ? new Date(med.scheduleStartDate) : undefined,
+    nextDoseOverrideTime: med.nextDoseOverrideTime ? new Date(med.nextDoseOverrideTime) : undefined,
     createdAt: new Date(med.createdAt),
     updatedAt: new Date(med.updatedAt),
   }));
@@ -340,10 +375,14 @@ export async function updateMedication(id: string, input: UpdateMedicationInput)
   
   if (!existing) return null;
   
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowISO = now.toISOString();
   const updateData: any = {
-    updatedAt: now,
+    updatedAt: nowISO,
   };
+  
+  // Detect schedule changes
+  const scheduleChanged = input.scheduleType !== undefined || input.scheduleConfig !== undefined;
   
   if (input.name !== undefined) updateData.name = input.name;
   if (input.imageUri !== undefined) updateData.imageUri = input.imageUri;
@@ -363,6 +402,14 @@ export async function updateMedication(id: string, input: UpdateMedicationInput)
   if (input.isActive !== undefined) updateData.isActive = input.isActive;
   if (input.isPrn !== undefined) updateData.isPrn = input.isPrn;
   
+  // If schedule changed, reset scheduleStartDate and clear override
+  if (scheduleChanged) {
+    const newScheduleType = input.scheduleType ?? existing.scheduleType;
+    const newScheduleConfig = input.scheduleConfig ?? JSON.parse(existing.scheduleConfig);
+    updateData.scheduleStartDate = calculateScheduleStartDate(newScheduleType, newScheduleConfig, now);
+    updateData.nextDoseOverrideTime = null; // Clear stale override
+  }
+  
   await db.update(medications).set(updateData).where(eq(medications.id, id));
   
   return getMedicationById(id);
@@ -380,6 +427,24 @@ export async function markMedicationInactive(id: string): Promise<Medication | n
 
 export async function updateMedicationInventory(id: string, newCount: number): Promise<Medication | null> {
   return updateMedication(id, { inventoryCount: newCount });
+}
+
+// Helper functions for managing next dose override
+export async function setNextDoseOverrideTime(medicationId: string, override: Date | null): Promise<Medication | null> {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const updateData: any = {
+    nextDoseOverrideTime: override ? override.toISOString() : null,
+    updatedAt: now,
+  };
+  
+  await db.update(medications).set(updateData).where(eq(medications.id, medicationId));
+  
+  return getMedicationById(medicationId);
+}
+
+export async function clearNextDoseOverrideTime(medicationId: string): Promise<Medication | null> {
+  return setNextDoseOverrideTime(medicationId, null);
 }
 
 // ============================================================================
@@ -425,6 +490,23 @@ export async function createIntakeLog(input: CreateIntakeLogInput): Promise<Inta
   };
   
   await db.insert(intakeLogs).values(logData);
+  
+  // Check if this log matches a next-dose override and clear it if so
+  if (input.scheduledTime) {
+    const medication = await getMedicationById(input.medicationId);
+    if (medication?.nextDoseOverrideTime) {
+      const overrideTime = new Date(medication.nextDoseOverrideTime);
+      const scheduledTime = typeof input.scheduledTime === 'string' 
+        ? new Date(input.scheduledTime) 
+        : input.scheduledTime;
+      
+      // Clear override if scheduledTime matches overrideTime (within 1 minute tolerance)
+      const timeDiff = Math.abs(scheduledTime.getTime() - overrideTime.getTime());
+      if (timeDiff < 60000) { // 1 minute tolerance
+        await clearNextDoseOverrideTime(input.medicationId);
+      }
+    }
+  }
   
   return {
     id,

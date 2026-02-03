@@ -31,6 +31,8 @@ export const medications = sqliteTable('medications', {
   bypassDnd: integer('bypass_dnd', { mode: 'boolean' }).default(false),
   isActive: integer('is_active', { mode: 'boolean' }).default(true),
   isPrn: integer('is_prn', { mode: 'boolean' }).default(false),
+  scheduleStartDate: text('schedule_start_date'),
+  nextDoseOverrideTime: text('next_dose_override_time'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });

@@ -272,7 +272,7 @@ export default function HistoryScreen() {
                     </Text>
                     {log.scheduledTime && (
                       <Text className="text-xs text-muted-foreground mt-1">
-                        {i18n.t('history.scheduledFor')}: {format(new Date(log.scheduledTime), 'HH:mm')}
+                        {i18n.t('history.scheduledFor')}: {format(new Date(log.scheduledTime), 'MMM d, yyyy • HH:mm')}
                       </Text>
                     )}
                   </View>

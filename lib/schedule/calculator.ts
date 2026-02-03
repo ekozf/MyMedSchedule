@@ -88,10 +88,20 @@ export interface ScheduledDose {
   isPrn: boolean;
 }
 
+// Helper to get medication schedule start date
+function getMedicationScheduleStart(medication: Medication): Date {
+  if (medication.scheduleStartDate) {
+    return startOfDay(medication.scheduleStartDate);
+  }
+  return startOfDay(medication.createdAt);
+}
+
 // Helper to parse time string (HH:mm) and set it on a date
 function setTimeOnDate(date: Date, timeString: string): Date {
+  // Create a new date to avoid mutating the input
+  const newDate = new Date(date);
   const [hours, minutes] = timeString.split(':').map(Number);
-  return setMinutes(setHours(date, hours), minutes);
+  return setMinutes(setHours(newDate, hours), minutes);
 }
 
 // Get all doses for a medication on a specific date
@@ -101,6 +111,14 @@ export function getDosesForDate(medication: Medication, date: Date): ScheduledDo
   // PRN medications have no scheduled doses
   if (medication.isPrn) {
     return doses;
+  }
+  
+  // Gate by schedule start date: don't show doses before the schedule was created
+  const scheduleStartDay = getMedicationScheduleStart(medication);
+  const targetDay = startOfDay(date);
+  
+  if (targetDay < scheduleStartDay) {
+    return doses; // Return empty array for dates before schedule start
   }
   
   try {
@@ -149,7 +167,9 @@ function getOnceDailyDoses(
   date: Date,
   config: OnceDailyConfig
 ): ScheduledDose[] {
-  const doseTime = setTimeOnDate(date, config.time);
+  // Ensure we use a fresh date object to avoid mutations
+  const targetDate = startOfDay(date);
+  const doseTime = setTimeOnDate(targetDate, config.time);
   
   return [
     {
@@ -170,12 +190,14 @@ function getMultipleDailyDoses(
   date: Date,
   config: MultipleDailyConfig
 ): ScheduledDose[] {
+  // Ensure we use a fresh date object to avoid mutations
+  const targetDate = startOfDay(date);
   return config.times.map(({ time, dosageAmount }) => ({
     medicationId: medication.id,
     medicationName: medication.name,
     imageUri: medication.imageUri,
     notes: medication.notes,
-    time: setTimeOnDate(date, time),
+    time: setTimeOnDate(targetDate, time),
     dosageAmount: dosageAmount ?? medication.dosageAmount,
     dosageUnit: medication.dosageUnit,
     isPrn: false,
@@ -196,7 +218,7 @@ function getEveryXDaysDoses(
     return [];
   }
   
-  const doseTime = setTimeOnDate(date, config.time);
+  const doseTime = setTimeOnDate(targetDate, config.time);
   
   return [
     {
@@ -217,14 +239,15 @@ function getSpecificWeekdaysDoses(
   date: Date,
   config: SpecificWeekdaysConfig
 ): ScheduledDose[] {
-  const dayOfWeek = date.getDay(); // 0=Sun, 1=Mon, etc.
+  const targetDate = startOfDay(date);
+  const dayOfWeek = targetDate.getDay(); // 0=Sun, 1=Mon, etc.
   
   // Check if today is one of the specified weekdays
   if (!config.weekdays.includes(dayOfWeek)) {
     return [];
   }
   
-  const doseTime = setTimeOnDate(date, config.time);
+  const doseTime = setTimeOnDate(targetDate, config.time);
   
   return [
     {
@@ -245,7 +268,8 @@ function getXthWeekdayDoses(
   date: Date,
   config: XthWeekdayConfig
 ): ScheduledDose[] {
-  const dayOfWeek = date.getDay();
+  const targetDate = startOfDay(date);
+  const dayOfWeek = targetDate.getDay();
   const targetWeekday = config.weekday;
   
   // Check if today is the target weekday
@@ -254,8 +278,8 @@ function getXthWeekdayDoses(
   }
   
   // Get the month's year and month
-  const year = date.getFullYear();
-  const month = date.getMonth();
+  const year = targetDate.getFullYear();
+  const month = targetDate.getMonth();
   
   // Find all instances of this weekday in the current month
   const instancesInMonth: Date[] = [];
@@ -269,22 +293,22 @@ function getXthWeekdayDoses(
   }
   
   // Determine which occurrence we're looking for
-  let targetDate: Date | null = null;
+  let targetOccurrenceDate: Date | null = null;
   
   if (config.occurrence === 5) {
     // "Last" occurrence
-    targetDate = instancesInMonth[instancesInMonth.length - 1];
+    targetOccurrenceDate = instancesInMonth[instancesInMonth.length - 1];
   } else if (config.occurrence >= 1 && config.occurrence <= 4) {
     // 1st, 2nd, 3rd, or 4th occurrence
-    targetDate = instancesInMonth[config.occurrence - 1] || null;
+    targetOccurrenceDate = instancesInMonth[config.occurrence - 1] || null;
   }
   
   // Check if today is the target occurrence
-  if (!targetDate || !isSameDay(date, targetDate)) {
+  if (!targetOccurrenceDate || !isSameDay(targetDate, targetOccurrenceDate)) {
     return [];
   }
   
-  const doseTime = setTimeOnDate(date, config.time);
+  const doseTime = setTimeOnDate(targetDate, config.time);
   
   return [
     {
@@ -322,7 +346,7 @@ function getCycleDoses(
     return [];
   }
   
-  const doseTime = setTimeOnDate(date, config.time);
+  const doseTime = setTimeOnDate(targetDate, config.time);
   
   return [
     {
@@ -403,7 +427,7 @@ function getTaperingDoses(
     return [];
   }
   
-  const doseTime = setTimeOnDate(date, config.time);
+  const doseTime = setTimeOnDate(targetDate, config.time);
   
   return [
     {
@@ -422,11 +446,60 @@ function getTaperingDoses(
 // Get all doses for multiple medications on a specific date
 export function getAllDosesForDate(medications: Medication[], date: Date): ScheduledDose[] {
   const allDoses: ScheduledDose[] = [];
+  const now = new Date();
   
   for (const medication of medications) {
     if (!medication.isActive) continue;
     
-    const doses = getDosesForDate(medication, date);
+    let doses = getDosesForDate(medication, date);
+    
+    // Handle next-dose override: if override exists and falls on this date, replace/insert it
+    if (medication.nextDoseOverrideTime) {
+      const overrideTime = new Date(medication.nextDoseOverrideTime);
+      const overrideDay = startOfDay(overrideTime);
+      const targetDay = startOfDay(date);
+      
+      // Skip if override is in the past (should be cleared, but handle gracefully)
+      if (isBefore(overrideTime, now)) {
+        // Override is stale, skip it
+        allDoses.push(...doses);
+        continue;
+      }
+      
+      // If override falls on the target date
+      if (isSameDay(overrideDay, targetDay)) {
+        // Check if there's already a dose at a similar time (within 1 hour)
+        // If so, replace it; otherwise add the override as a new dose
+        let replaced = false;
+        doses = doses.map(dose => {
+          const timeDiff = Math.abs(dose.time.getTime() - overrideTime.getTime());
+          // If dose is within 1 hour of override time, replace it
+          if (timeDiff < 3600000 && !replaced) {
+            replaced = true;
+            return {
+              ...dose,
+              time: overrideTime,
+            };
+          }
+          return dose;
+        });
+        
+        // If no dose was replaced, add override as new dose
+        if (!replaced) {
+          doses.push({
+            medicationId: medication.id,
+            medicationName: medication.name,
+            imageUri: medication.imageUri,
+            notes: medication.notes,
+            time: overrideTime,
+            dosageAmount: medication.dosageAmount,
+            dosageUnit: medication.dosageUnit,
+            isPrn: false,
+          });
+        }
+      }
+    }
+    
     allDoses.push(...doses);
   }
   
@@ -440,6 +513,23 @@ export function getAllDosesForDate(medications: Medication[], date: Date): Sched
 export function getNextDose(medication: Medication, afterTime: Date = new Date()): ScheduledDose | null {
   if (medication.isPrn || !medication.isActive) {
     return null;
+  }
+  
+  // If there's a next-dose override and it's in the future, return it
+  if (medication.nextDoseOverrideTime) {
+    const overrideTime = new Date(medication.nextDoseOverrideTime);
+    if (isAfter(overrideTime, afterTime)) {
+      return {
+        medicationId: medication.id,
+        medicationName: medication.name,
+        imageUri: medication.imageUri,
+        notes: medication.notes,
+        time: overrideTime,
+        dosageAmount: medication.dosageAmount,
+        dosageUnit: medication.dosageUnit,
+        isPrn: false,
+      };
+    }
   }
   
   // Check doses for the next 30 days
