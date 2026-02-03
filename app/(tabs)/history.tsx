@@ -1,0 +1,231 @@
+import { View, ScrollView, RefreshControl } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { Card, CardContent } from '@/components/ui/card';
+import { Select } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { useState, useEffect } from 'react';
+import { useStore } from '@/store';
+import { getIntakeLogsByProfile, getMedicationsByProfile } from '@/lib/db/operations';
+import type { IntakeLog, Medication } from '@/types';
+import { format, subDays } from 'date-fns';
+import { Calendar } from 'lucide-react-native';
+import i18n from '@/lib/i18n';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
+
+export default function HistoryScreen() {
+  const { activeProfile } = useStore();
+  const [logs, setLogs] = useState<IntakeLog[]>([]);
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [filteredLogs, setFilteredLogs] = useState<IntakeLog[]>([]);
+  const [selectedMedication, setSelectedMedication] = useState<string>('all');
+  const [selectedAction, setSelectedAction] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<string>('7');
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Load data on first mount
+  useEffect(() => {
+    loadData();
+  }, [activeProfile]);
+
+  // Refresh data when screen comes into focus (e.g., after logging intake from dashboard)
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [activeProfile])
+  );
+
+  useEffect(() => {
+    applyFilters();
+  }, [logs, selectedMedication, selectedAction, dateRange]);
+
+  const loadData = async (showRefreshing = false) => {
+    if (!activeProfile) return;
+    
+    if (showRefreshing) {
+      setRefreshing(true);
+    }
+    
+    try {
+      const [fetchedLogs, fetchedMeds] = await Promise.all([
+        getIntakeLogsByProfile(activeProfile.id),
+        getMedicationsByProfile(activeProfile.id),
+      ]);
+      
+      setLogs(fetchedLogs);
+      setMedications(fetchedMeds);
+    } catch (error) {
+      console.error('Failed to load history:', error);
+    } finally {
+      if (showRefreshing) {
+        setRefreshing(false);
+      }
+    }
+  };
+
+  const onRefresh = () => {
+    loadData(true);
+  };
+
+  const applyFilters = () => {
+    let filtered = [...logs];
+
+    // Filter by date range
+    if (dateRange !== 'all') {
+      const days = parseInt(dateRange);
+      const cutoffDate = subDays(new Date(), days);
+      filtered = filtered.filter(log => new Date(log.actualTime) >= cutoffDate);
+    }
+
+    // Filter by medication
+    if (selectedMedication !== 'all') {
+      filtered = filtered.filter(log => log.medicationId === selectedMedication);
+    }
+
+    // Filter by action
+    if (selectedAction !== 'all') {
+      filtered = filtered.filter(log => log.action === selectedAction);
+    }
+
+    // Sort by most recent first
+    filtered.sort((a, b) => new Date(b.actualTime).getTime() - new Date(a.actualTime).getTime());
+
+    setFilteredLogs(filtered);
+  };
+
+  const getMedicationName = (medicationId: string) => {
+    const med = medications.find(m => m.id === medicationId);
+    return med?.name || 'Unknown';
+  };
+
+  const getActionBadge = (action: string) => {
+    switch (action) {
+      case 'taken':
+        return <Badge label={i18n.t('history.actions.taken')} variant="default" />;
+      case 'skipped':
+        return <Badge label={i18n.t('history.actions.skipped')} variant="secondary" />;
+      case 'partial':
+        return <Badge label={i18n.t('history.actions.partial')} variant="warning" />;
+      default:
+        return null;
+    }
+  };
+
+  const medicationOptions = [
+    { label: i18n.t('history.allMedications'), value: 'all' },
+    ...medications.map(med => ({ label: med.name, value: med.id })),
+  ];
+
+  const actionOptions = [
+    { label: i18n.t('history.allActions'), value: 'all' },
+    { label: i18n.t('history.actions.taken'), value: 'taken' },
+    { label: i18n.t('history.actions.skipped'), value: 'skipped' },
+    { label: i18n.t('history.actions.partial'), value: 'partial' },
+  ];
+
+  const dateRangeOptions = [
+    { label: i18n.t('history.last7Days'), value: '7' },
+    { label: i18n.t('history.last30Days'), value: '30' },
+    { label: i18n.t('history.last90Days'), value: '90' },
+    { label: 'All Time', value: 'all' },
+  ];
+
+  if (logs.length === 0) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background p-4">
+        <View className="w-20 h-20 rounded-full bg-muted items-center justify-center mb-4">
+          <Calendar size={40} className="text-muted-foreground" />
+        </View>
+        <Text className="text-lg font-semibold text-foreground mb-2">
+          {i18n.t('history.noHistory')}
+        </Text>
+        <Text className="text-sm text-muted-foreground text-center">
+          {i18n.t('history.startLoggingPrompt')}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View className="flex-1 bg-background">
+      {/* Header */}
+      <View className="p-4 border-b border-border">
+        <Text className="text-2xl font-bold text-foreground mb-4">
+          {i18n.t('history.title')}
+        </Text>
+
+        {/* Filters */}
+        <View className="gap-3">
+          <Select
+            options={dateRangeOptions}
+            value={dateRange}
+            onValueChange={setDateRange}
+            placeholder="Select date range"
+          />
+          <View className="flex-row gap-2">
+            <View className="flex-1">
+              <Select
+                options={medicationOptions}
+                value={selectedMedication}
+                onValueChange={setSelectedMedication}
+                placeholder={i18n.t('history.filterByMedication')}
+              />
+            </View>
+            <View className="flex-1">
+              <Select
+                options={actionOptions}
+                value={selectedAction}
+                onValueChange={setSelectedAction}
+                placeholder={i18n.t('history.filterByAction')}
+              />
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* History List */}
+      <ScrollView 
+        className="flex-1 p-4"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {filteredLogs.length === 0 ? (
+          <View className="items-center justify-center py-12">
+            <Text className="text-muted-foreground">No logs match the filters</Text>
+          </View>
+        ) : (
+          filteredLogs.map(log => (
+            <Card key={log.id} className="mb-3">
+              <CardContent className="p-4">
+                <View className="flex-row justify-between items-start mb-2">
+                  <View className="flex-1">
+                    <Text className="text-lg font-semibold text-foreground mb-1">
+                      {getMedicationName(log.medicationId)}
+                    </Text>
+                    <Text className="text-sm text-muted-foreground">
+                      {format(new Date(log.actualTime), 'MMM d, yyyy • HH:mm')}
+                    </Text>
+                  </View>
+                  {getActionBadge(log.action)}
+                </View>
+
+                {log.dosageAmount > 0 && (
+                  <Text className="text-sm text-muted-foreground mb-1">
+                    Amount: {log.dosageAmount}
+                  </Text>
+                )}
+
+                {log.notes && (
+                  <Text className="text-sm text-muted-foreground italic mt-2">
+                    {log.notes}
+                  </Text>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </ScrollView>
+    </View>
+  );
+}

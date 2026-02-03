@@ -7,7 +7,10 @@
     "android": "expo start -c --android",
     "ios": "expo start -c --ios",
     "web": "expo start -c --web",
-    "clean": "rm -rf .expo node_modules"
+    "clean": "rm -rf .expo node_modules",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
   },
   "dependencies": {
     "@react-navigation/native": "^7.0.0",
@@ -15,13 +18,27 @@
     "@rn-primitives/slot": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "drizzle-orm": "^0.45.1",
     "expo": "~54.0.29",
     "expo-constants": "~18.0.12",
+    "expo-crypto": "~15.0.8",
+    "expo-device": "~8.0.10",
+    "expo-document-picker": "~14.0.8",
+    "expo-file-system": "~19.0.21",
+    "expo-image-picker": "~17.0.10",
     "expo-linking": "~8.0.10",
+    "expo-local-authentication": "~17.0.8",
+    "expo-localization": "~17.0.8",
+    "expo-notifications": "~0.32.16",
     "expo-router": "~6.0.19",
+    "expo-secure-store": "~15.0.8",
+    "expo-sharing": "~14.0.8",
     "expo-splash-screen": "~31.0.12",
+    "expo-sqlite": "~16.0.10",
     "expo-status-bar": "~3.0.9",
     "expo-system-ui": "~6.0.9",
+    "i18n-js": "^4.5.1",
     "lucide-react-native": "^0.545.0",
     "nativewind": "^4.2.1",
     "react": "19.1.0",
@@ -35,14 +52,26 @@
     "react-native-worklets": "0.5.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^3.4.14",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^4.3.6",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
+    "@testing-library/jest-native": "^5.4.3",
+    "@testing-library/react-native": "^13.3.3",
     "@types/react": "~19.1.10",
+    "@types/react-test-renderer": "^19.1.0",
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/ui": "^4.0.18",
+    "drizzle-kit": "^0.31.8",
+    "jsdom": "^28.0.0",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.6.14",
-    "typescript": "~5.9.2"
+    "react-test-renderer": "^19.2.4",
+    "typescript": "~5.9.2",
+    "vitest": "^4.0.18",
+    "vitest-react-native": "^0.1.5"
   },
   "private": true
 }

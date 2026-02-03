@@ -1,0 +1,144 @@
+import { z } from 'zod';
+
+// Basic medication fields
+export const medicationBasicSchema = z.object({
+  name: z.string().min(1, 'Please enter a name for the medication').max(100, 'Medication name is too long (max 100 characters)'),
+  dosageAmount: z.number().positive('Please enter how much of the medication to take (must be greater than 0)'),
+  dosageUnit: z.enum([
+    'grams',
+    'milligrams',
+    'milliliters',
+    'pills',
+    'puffs',
+    'drops',
+    'patches',
+    'units',
+  ]),
+  imageUri: z.string().optional(),
+  notes: z.string().max(500, 'Notes are too long (max 500 characters)').optional(),
+});
+
+// Inventory fields
+export const inventorySchema = z.object({
+  inventoryCount: z.number().min(0, 'Please enter a valid inventory count (cannot be negative)').optional(),
+  packageSize: z.number().positive('Please enter how many doses are in a full package').optional(),
+});
+
+// Safety fields
+export const safetySchema = z.object({
+  maxDailyDose: z.number().positive('Please enter the maximum doses allowed per day').optional(),
+  minHoursBetweenDoses: z.number().positive('Please enter the minimum hours between doses').optional(),
+  expirationDate: z.date().optional(),
+  bypassDnd: z.boolean().optional(),
+});
+
+// Refill reminder
+export const refillReminderSchema = z.object({
+  refillReminderType: z.enum(['days', 'doses']).optional(),
+  refillReminderValue: z.number().positive('Please enter a valid reminder value').optional(),
+});
+
+// Schedule configurations
+export const onceDailyConfigSchema = z.object({
+  time: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter the time in 24-hour format (e.g., 09:00)'),
+});
+
+export const multipleDailyConfigSchema = z.object({
+  times: z.array(
+    z.object({
+      time: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter the time in 24-hour format (e.g., 09:00)'),
+      dosageAmount: z.number().positive('Please enter a valid dosage amount').optional(),
+    })
+  ).min(1, 'Please add at least one scheduled time').max(12, 'You can schedule up to 12 times per day'),
+});
+
+export const everyXDaysConfigSchema = z.object({
+  intervalDays: z.number().int().min(1, 'Please enter how many days between doses (at least 1 day)').max(365, 'Interval cannot exceed 365 days'),
+  startDate: z.string().datetime('Please select a valid start date'),
+  time: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter the time in 24-hour format (e.g., 09:00)'),
+});
+
+export const specificWeekdaysConfigSchema = z.object({
+  weekdays: z.array(z.number().int().min(0).max(6)).min(1, 'Please select at least one day of the week'),
+  time: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter the time in 24-hour format (e.g., 09:00)'),
+});
+
+export const cycleConfigSchema = z.object({
+  daysOn: z.number().int().min(1, 'Please enter how many days to take the medication (must be at least 1 day)').max(365, 'Days on cannot exceed 365'),
+  daysOff: z.number().int().min(0, 'Please enter how many days to pause the medication (0 or more days)').max(365, 'Days off cannot exceed 365'),
+  cycleStartDate: z.string().datetime('Please select a valid start date for the medication cycle'),
+  time: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter the time in 24-hour format (e.g., 20:00)'),
+});
+
+export const everyXHoursConfigSchema = z.object({
+  intervalHours: z.number().int().min(1, 'Please enter how many hours between doses (at least 1 hour)').max(24, 'Interval cannot exceed 24 hours'),
+  firstDoseTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter the time for the first dose in 24-hour format (e.g., 09:00)'),
+});
+
+export const prnConfigSchema = z.object({
+  lowInventoryAlert: z.number().int().positive('Please enter when to alert for low inventory').optional(),
+});
+
+// Complete medication schema
+export const medicationSchema = medicationBasicSchema
+  .merge(inventorySchema)
+  .merge(safetySchema)
+  .merge(refillReminderSchema)
+  .extend({
+    scheduleType: z.enum([
+      'once_daily',
+      'multiple_daily',
+      'every_x_days',
+      'specific_weekdays',
+      'cycle',
+      'every_x_hours',
+      'prn',
+    ]),
+    scheduleConfig: z.any(), // Validated separately based on scheduleType
+    isPrn: z.boolean().optional(),
+  });
+
+// Validate schedule config based on type
+export function validateScheduleConfig(scheduleType: string, config: any): { success: boolean; error?: string } {
+  try {
+    switch (scheduleType) {
+      case 'once_daily':
+        onceDailyConfigSchema.parse(config);
+        break;
+      case 'multiple_daily':
+        multipleDailyConfigSchema.parse(config);
+        break;
+      case 'every_x_days':
+        everyXDaysConfigSchema.parse(config);
+        break;
+      case 'specific_weekdays':
+        specificWeekdaysConfigSchema.parse(config);
+        break;
+      case 'cycle':
+        cycleConfigSchema.parse(config);
+        break;
+      case 'every_x_hours':
+        everyXHoursConfigSchema.parse(config);
+        break;
+      case 'prn':
+        prnConfigSchema.parse(config);
+        break;
+      default:
+        return { success: false, error: 'Invalid schedule type' };
+    }
+    return { success: true };
+  } catch (error: any) {
+    // Provide detailed error message from Zod
+    if (error.issues && error.issues.length > 0) {
+      const firstIssue = error.issues[0];
+      const field = firstIssue.path.join('.');
+      return { 
+        success: false, 
+        error: firstIssue.message 
+      };
+    }
+    return { success: false, error: 'Please check all schedule fields and make sure they are filled in correctly' };
+  }
+}
+
+export type MedicationFormData = z.infer<typeof medicationSchema>;
