@@ -53,11 +53,17 @@ export default function DashboardScreen() {
     }
   };
 
-  const isDoseLogged = (dose: any) => {
-    return intakeLogs.some(log => 
+  const getDoseLogInfo = (dose: any): { isLogged: boolean; action?: 'taken' | 'skipped' | 'partial' } => {
+    const log = intakeLogs.find(log => 
       log.medicationId === dose.medicationId &&
-      log.scheduledTime === dose.time.toISOString()
+      log.scheduledTime?.toISOString() === dose.time.toISOString()
     );
+    
+    if (log) {
+      return { isLogged: true, action: log.action };
+    }
+    
+    return { isLogged: false };
   };
   
   const dateLabel = isToday(selectedDate)
@@ -101,14 +107,18 @@ export default function DashboardScreen() {
                 {i18n.t('dashboard.dosesScheduled', { count: doses.length })}
               </Text>
               
-              {doses.map((dose, index) => (
-                <MedicationScheduleItem
-                  key={`${dose.medicationId}-${index}`}
-                  dose={dose}
-                  isLogged={isDoseLogged(dose)}
-                  onLog={loadIntakeLogs}
-                />
-              ))}
+              {doses.map((dose, index) => {
+                const logInfo = getDoseLogInfo(dose);
+                return (
+                  <MedicationScheduleItem
+                    key={`${dose.medicationId}-${index}`}
+                    dose={dose}
+                    isLogged={logInfo.isLogged}
+                    logAction={logInfo.action}
+                    onLog={loadIntakeLogs}
+                  />
+                );
+              })}
             </>
           )}
         </View>

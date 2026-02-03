@@ -1,20 +1,26 @@
-import { View, ScrollView, Alert } from 'react-native';
+import { View, ScrollView, Alert, Switch } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SchedulePicker } from '@/components/medication/SchedulePicker';
-import { useState } from 'react';
-import { router } from 'expo-router';
+import { useState, useEffect } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useStore } from '@/store';
-import { createMedication } from '@/lib/db/operations';
+import { getMedicationById, updateMedication } from '@/lib/db/operations';
 import { validateScheduleConfig } from '@/lib/validation/medication';
-import { scheduleNotificationsForMedication, scheduleRefillReminder } from '@/lib/notifications/scheduler';
-import { requestNotificationPermissions } from '@/lib/notifications/permissions';
+import { 
+  scheduleNotificationsForMedication, 
+  cancelNotificationsForMedication,
+  scheduleRefillReminder 
+} from '@/lib/notifications/scheduler';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Image as ImageIcon } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
+import type { Medication } from '@/types';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
 
 const getDosageUnitOptions = () => [
   { label: `${i18n.t('medications.units.g')} (g)`, value: 'grams' },
@@ -39,9 +45,16 @@ const getScheduleTypeOptions = () => [
   { label: i18n.t('medications.scheduleTypes.prn'), value: 'prn' },
 ];
 
-export default function AddMedicationScreen() {
+const getRefillReminderTypeOptions = () => [
+  { label: i18n.t('medications.refillReminderTypes.days'), value: 'days' },
+  { label: i18n.t('medications.refillReminderTypes.doses'), value: 'doses' },
+];
+
+export default function EditMedicationScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { activeProfile, loadMedications } = useStore();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   
   // Basic fields
   const [name, setName] = useState('');
@@ -58,8 +71,60 @@ export default function AddMedicationScreen() {
   const [inventoryCount, setInventoryCount] = useState('0');
   const [packageSize, setPackageSize] = useState('');
   
+  // Advanced settings
+  const [expirationDate, setExpirationDate] = useState<Date | undefined>();
+  const [showExpirationPicker, setShowExpirationPicker] = useState(false);
+  const [expirationReminderDays, setExpirationReminderDays] = useState('');
+  const [refillReminderType, setRefillReminderType] = useState<'days' | 'doses' | undefined>();
+  const [refillReminderValue, setRefillReminderValue] = useState('');
+  const [maxDailyDose, setMaxDailyDose] = useState('');
+  const [minHoursBetweenDoses, setMinHoursBetweenDoses] = useState('');
+  const [bypassDnd, setBypassDnd] = useState(false);
+  
   // Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    loadMedicationData();
+  }, [id]);
+
+  async function loadMedicationData() {
+    if (!id) return;
+    
+    try {
+      setIsLoading(true);
+      const med = await getMedicationById(id);
+      
+      if (!med) {
+        Alert.alert(i18n.t('common.error'), i18n.t('medications.loadError'));
+        router.back();
+        return;
+      }
+      
+      // Populate form fields
+      setName(med.name);
+      setDosageAmount(med.dosageAmount.toString());
+      setDosageUnit(med.dosageUnit);
+      setImageUri(med.imageUri);
+      setNotes(med.notes || '');
+      setScheduleType(med.scheduleType);
+      setScheduleConfig(JSON.parse(med.scheduleConfig));
+      setInventoryCount(med.inventoryCount.toString());
+      setPackageSize(med.packageSize?.toString() || '');
+      setExpirationDate(med.expirationDate);
+      setExpirationReminderDays(''); // Would need to be stored separately
+      setRefillReminderType(med.refillReminderType);
+      setRefillReminderValue(med.refillReminderValue?.toString() || '');
+      setMaxDailyDose(med.maxDailyDose?.toString() || '');
+      setMinHoursBetweenDoses(med.minHoursBetweenDoses?.toString() || '');
+      setBypassDnd(med.bypassDnd);
+    } catch (error) {
+      console.error('Failed to load medication:', error);
+      Alert.alert(i18n.t('common.error'), i18n.t('medications.loadError'));
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const handlePickImage = async () => {
     try {
@@ -121,16 +186,14 @@ export default function AddMedicationScreen() {
       return;
     }
     
-    if (!activeProfile) {
-      Alert.alert('Error', 'No active profile');
+    if (!activeProfile || !id) {
       return;
     }
     
-    setIsLoading(true);
+    setIsSaving(true);
     
     try {
-      const newMedication = await createMedication({
-        profileId: activeProfile.id,
+      const updatedMed = await updateMedication(id, {
         name: name.trim(),
         imageUri,
         notes: notes.trim() || undefined,
@@ -140,31 +203,45 @@ export default function AddMedicationScreen() {
         scheduleConfig,
         inventoryCount: parseFloat(inventoryCount) || 0,
         packageSize: packageSize ? parseFloat(packageSize) : undefined,
+        expirationDate: expirationDate,
+        refillReminderType: refillReminderType || undefined,
+        refillReminderValue: refillReminderValue ? parseFloat(refillReminderValue) : undefined,
+        maxDailyDose: maxDailyDose ? parseFloat(maxDailyDose) : undefined,
+        minHoursBetweenDoses: minHoursBetweenDoses ? parseFloat(minHoursBetweenDoses) : undefined,
+        bypassDnd,
         isPrn: scheduleType === 'prn',
       });
       
-      // Request notification permissions and schedule notifications
-      const hasPermission = await requestNotificationPermissions();
-      if (hasPermission) {
-        if (scheduleType !== 'prn') {
-          await scheduleNotificationsForMedication(newMedication);
-        }
-        // Schedule refill reminder if configured
-        await scheduleRefillReminder(newMedication);
-      }
+              // Reschedule notifications
+              if (updatedMed && updatedMed.isActive) {
+                await cancelNotificationsForMedication(id);
+                if (scheduleType !== 'prn') {
+                  await scheduleNotificationsForMedication(updatedMed);
+                }
+                // Update refill reminder
+                await scheduleRefillReminder(updatedMed);
+              }
       
       // Reload medications
       await loadMedications(activeProfile.id);
       
-      // Navigate back
+      // Navigate back to detail
       router.back();
     } catch (error) {
-      console.error('Failed to create medication:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('medications.saveError'));
+      console.error('Failed to update medication:', error);
+      Alert.alert(i18n.t('common.error'), i18n.t('medications.updateError'));
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <Text className="text-muted-foreground">{i18n.t('common.loading')}</Text>
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-background">
@@ -245,7 +322,6 @@ export default function AddMedicationScreen() {
               value={scheduleType}
               onValueChange={(value) => {
                 setScheduleType(value);
-                // Reset config when type changes - no default values
                 setScheduleConfig({});
               }}
             />
@@ -260,26 +336,130 @@ export default function AddMedicationScreen() {
         </Card>
         
         {/* Inventory */}
+        {scheduleType !== 'prn' && (
+          <Card className="mb-4">
+            <CardHeader>
+              <CardTitle>{i18n.t('medications.inventoryInfo')}</CardTitle>
+            </CardHeader>
+            <CardContent className="gap-4">
+              <Input
+                label={i18n.t('medications.inventoryLabel')}
+                value={inventoryCount}
+                onChangeText={setInventoryCount}
+                placeholder="0"
+                keyboardType="decimal-pad"
+              />
+              
+              <Input
+                label={i18n.t('medications.packageSizeLabel')}
+                value={packageSize}
+                onChangeText={setPackageSize}
+                placeholder="e.g., 30"
+                keyboardType="decimal-pad"
+              />
+              
+              {/* Refill Reminder */}
+              <View className="gap-2">
+                <Text className="text-sm font-medium text-foreground">
+                  {i18n.t('medications.refillReminderLabel')}
+                </Text>
+                <Select
+                  options={getRefillReminderTypeOptions()}
+                  value={refillReminderType || ''}
+                  onValueChange={(value) => setRefillReminderType(value as any)}
+                  placeholder={i18n.t('medications.refillReminderType')}
+                />
+                {refillReminderType && (
+                  <Input
+                    label={i18n.t('medications.refillReminderValue')}
+                    value={refillReminderValue}
+                    onChangeText={setRefillReminderValue}
+                    placeholder="e.g., 7"
+                    keyboardType="numeric"
+                  />
+                )}
+              </View>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Advanced Settings */}
         <Card className="mb-4">
           <CardHeader>
-            <CardTitle>{i18n.t('medications.inventoryInfo')}</CardTitle>
+            <CardTitle>{i18n.t('medications.advancedSettings')}</CardTitle>
           </CardHeader>
           <CardContent className="gap-4">
+            {/* Expiration Date */}
+            <View className="gap-2">
+              <Text className="text-sm font-medium text-foreground">
+                {i18n.t('medications.expirationDateLabel')}
+              </Text>
+              <Button 
+                variant="outline" 
+                onPress={() => setShowExpirationPicker(true)}
+              >
+                <Text>
+                  {expirationDate 
+                    ? format(expirationDate, 'MMM d, yyyy')
+                    : 'Select date'
+                  }
+                </Text>
+              </Button>
+              {showExpirationPicker && (
+                <DateTimePicker
+                  value={expirationDate || new Date()}
+                  mode="date"
+                  minimumDate={new Date()}
+                  onChange={(event, date) => {
+                    setShowExpirationPicker(false);
+                    if (date) setExpirationDate(date);
+                  }}
+                />
+              )}
+              {expirationDate && (
+                <Button 
+                  variant="ghost" 
+                  onPress={() => setExpirationDate(undefined)}
+                  className="self-start"
+                >
+                  <Text className="text-xs text-muted-foreground">Clear date</Text>
+                </Button>
+              )}
+            </View>
+            
+            {/* Max Daily Dose */}
             <Input
-              label={i18n.t('medications.inventoryLabel')}
-              value={inventoryCount}
-              onChangeText={setInventoryCount}
-              placeholder="0"
+              label={i18n.t('medications.maxDailyDoseLabel')}
+              value={maxDailyDose}
+              onChangeText={setMaxDailyDose}
+              placeholder={i18n.t('medications.maxDailyDosePlaceholder')}
               keyboardType="decimal-pad"
             />
             
+            {/* Min Hours Between Doses */}
             <Input
-              label="Package Size"
-              value={packageSize}
-              onChangeText={setPackageSize}
-              placeholder="e.g., 30 pills per package"
+              label={i18n.t('medications.minHoursBetweenLabel')}
+              value={minHoursBetweenDoses}
+              onChangeText={setMinHoursBetweenDoses}
+              placeholder={i18n.t('medications.minHoursBetweenPlaceholder')}
               keyboardType="decimal-pad"
             />
+            
+            {/* Bypass DnD */}
+            <View className="flex-row items-center justify-between py-2">
+              <View className="flex-1 pr-4">
+                <Text className="text-sm font-medium text-foreground mb-1">
+                  {i18n.t('medications.bypassDndLabel')}
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  {i18n.t('medications.bypassDndDescription')}
+                </Text>
+              </View>
+              <Switch
+                value={bypassDnd}
+                onValueChange={setBypassDnd}
+              />
+            </View>
           </CardContent>
         </Card>
       </ScrollView>
@@ -289,18 +469,18 @@ export default function AddMedicationScreen() {
           <Button
             variant="outline"
             onPress={() => router.back()}
-            disabled={isLoading}
+            disabled={isSaving}
             className="flex-1"
           >
-            <Text>Cancel</Text>
+            <Text>{i18n.t('common.cancel')}</Text>
           </Button>
           <Button
             onPress={handleSave}
-            disabled={isLoading}
+            disabled={isSaving}
             className="flex-1"
           >
             <Text className="text-primary-foreground font-semibold">
-              {isLoading ? 'Saving...' : 'Save Medication'}
+              {isSaving ? i18n.t('common.loading') : i18n.t('common.save')}
             </Text>
           </Button>
         </View>

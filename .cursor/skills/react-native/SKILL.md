@@ -1,5 +1,5 @@
 
-  You are an expert in TypeScript, React Native, Expo, and Mobile UI development.
+  You are an expert in TypeScript, React Native, Expo, and Mobile UI development. You use bun.
 
   Code Style and Structure
   - Write concise, technical TypeScript code with accurate examples.

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { startOfDay, isAfter, isBefore } from 'date-fns';
 
 // Basic medication fields
 export const medicationBasicSchema = z.object({
@@ -54,7 +55,11 @@ export const multipleDailyConfigSchema = z.object({
 
 export const everyXDaysConfigSchema = z.object({
   intervalDays: z.number().int().min(1, 'Please enter how many days between doses (at least 1 day)').max(365, 'Interval cannot exceed 365 days'),
-  startDate: z.string().datetime('Please select a valid start date'),
+  startDate: z.string().datetime('Please select a valid start date').refine((date) => {
+    const selectedDate = startOfDay(new Date(date));
+    const today = startOfDay(new Date());
+    return !isBefore(selectedDate, today);
+  }, 'Start date cannot be in the past'),
   time: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter the time in 24-hour format (e.g., 09:00)'),
 });
 
@@ -63,16 +68,38 @@ export const specificWeekdaysConfigSchema = z.object({
   time: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter the time in 24-hour format (e.g., 09:00)'),
 });
 
+export const xthWeekdayConfigSchema = z.object({
+  weekday: z.number().int().min(0).max(6, 'Please select a valid weekday'),
+  occurrence: z.number().int().min(1).max(5, 'Please select occurrence (1st-4th or Last)'),
+  time: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter the time in 24-hour format (e.g., 09:00)'),
+});
+
 export const cycleConfigSchema = z.object({
   daysOn: z.number().int().min(1, 'Please enter how many days to take the medication (must be at least 1 day)').max(365, 'Days on cannot exceed 365'),
   daysOff: z.number().int().min(0, 'Please enter how many days to pause the medication (0 or more days)').max(365, 'Days off cannot exceed 365'),
-  cycleStartDate: z.string().datetime('Please select a valid start date for the medication cycle'),
+  cycleStartDate: z.string().datetime('Please select a valid start date for the medication cycle').refine((date) => {
+    const selectedDate = startOfDay(new Date(date));
+    const today = startOfDay(new Date());
+    return !isBefore(selectedDate, today);
+  }, 'Cycle start date cannot be in the past'),
   time: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter the time in 24-hour format (e.g., 20:00)'),
 });
 
 export const everyXHoursConfigSchema = z.object({
   intervalHours: z.number().int().min(1, 'Please enter how many hours between doses (at least 1 hour)').max(24, 'Interval cannot exceed 24 hours'),
   firstDoseTime: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter the time for the first dose in 24-hour format (e.g., 09:00)'),
+});
+
+export const taperingConfigSchema = z.object({
+  startDose: z.number().positive('Please enter the starting dose (must be greater than 0)'),
+  decrementAmount: z.number().positive('Please enter how much to decrease (must be greater than 0)'),
+  decrementIntervalDays: z.number().int().min(1, 'Please enter how many days between decreases (at least 1 day)'),
+  startDate: z.string().datetime('Please select a valid start date').refine((date) => {
+    const selectedDate = startOfDay(new Date(date));
+    const today = startOfDay(new Date());
+    return !isBefore(selectedDate, today);
+  }, 'Start date cannot be in the past'),
+  time: z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Please enter the time in 24-hour format (e.g., 09:00)'),
 });
 
 export const prnConfigSchema = z.object({
@@ -90,8 +117,10 @@ export const medicationSchema = medicationBasicSchema
       'multiple_daily',
       'every_x_days',
       'specific_weekdays',
+      'xth_weekday',
       'cycle',
       'every_x_hours',
+      'tapering',
       'prn',
     ]),
     scheduleConfig: z.any(), // Validated separately based on scheduleType
@@ -114,11 +143,17 @@ export function validateScheduleConfig(scheduleType: string, config: any): { suc
       case 'specific_weekdays':
         specificWeekdaysConfigSchema.parse(config);
         break;
+      case 'xth_weekday':
+        xthWeekdayConfigSchema.parse(config);
+        break;
       case 'cycle':
         cycleConfigSchema.parse(config);
         break;
       case 'every_x_hours':
         everyXHoursConfigSchema.parse(config);
+        break;
+      case 'tapering':
+        taperingConfigSchema.parse(config);
         break;
       case 'prn':
         prnConfigSchema.parse(config);

@@ -1,6 +1,10 @@
 import * as Notifications from 'expo-notifications';
-import { createIntakeLog } from '@/lib/db/operations';
-import { getActiveProfile } from '@/lib/db/operations';
+import { 
+  createIntakeLog, 
+  getActiveProfile,
+  getMedicationById,
+  updateMedicationInventory 
+} from '@/lib/db/operations';
 
 // Set up how notifications should be handled when the app is in the foreground
 export function setupNotificationHandler() {
@@ -66,14 +70,22 @@ async function handleTakeAction(data: any) {
     const profile = await getActiveProfile();
     if (!profile) return;
 
+    // Create intake log
     await createIntakeLog({
       medicationId: data.medicationId,
       profileId: profile.id,
       scheduledTime: data.scheduledTime,
-      actualTime: new Date().toISOString(),
+      actualTime: new Date(),
       action: 'taken',
       dosageAmount: data.dosageAmount,
     });
+
+    // Update inventory
+    const medication = await getMedicationById(data.medicationId);
+    if (medication) {
+      const newCount = Math.max(0, medication.inventoryCount - data.dosageAmount);
+      await updateMedicationInventory(medication.id, newCount);
+    }
   } catch (error) {
     console.error('Failed to log intake from notification:', error);
   }
@@ -111,9 +123,9 @@ async function handleSkipAction(data: any) {
       medicationId: data.medicationId,
       profileId: profile.id,
       scheduledTime: data.scheduledTime,
-      actualTime: new Date().toISOString(),
+      actualTime: new Date(),
       action: 'skipped',
-      dosageAmount: 0,
+      dosageAmount: data.dosageAmount,
     });
   } catch (error) {
     console.error('Failed to log skip from notification:', error);

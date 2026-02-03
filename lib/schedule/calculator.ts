@@ -36,6 +36,12 @@ export interface SpecificWeekdaysConfig {
   time: string;
 }
 
+export interface XthWeekdayConfig {
+  weekday: number; // 0=Sun, 1=Mon, etc.
+  occurrence: number; // 1=1st, 2=2nd, 3=3rd, 4=4th, 5=Last
+  time: string;
+}
+
 export interface CycleConfig {
   daysOn: number;
   daysOff: number;
@@ -48,6 +54,14 @@ export interface EveryXHoursConfig {
   firstDoseTime: string; // HH:mm format
 }
 
+export interface TaperingConfig {
+  startDose: number;
+  decrementAmount: number;
+  decrementIntervalDays: number;
+  startDate: string; // ISO string
+  time: string;
+}
+
 export interface PrnConfig {
   lowInventoryAlert?: number;
 }
@@ -57,8 +71,10 @@ export type ScheduleConfig =
   | MultipleDailyConfig
   | EveryXDaysConfig
   | SpecificWeekdaysConfig
+  | XthWeekdayConfig
   | CycleConfig
   | EveryXHoursConfig
+  | TaperingConfig
   | PrnConfig;
 
 export interface ScheduledDose {
@@ -103,11 +119,17 @@ export function getDosesForDate(medication: Medication, date: Date): ScheduledDo
       case 'specific_weekdays':
         return getSpecificWeekdaysDoses(medication, date, config as SpecificWeekdaysConfig);
       
+      case 'xth_weekday':
+        return getXthWeekdayDoses(medication, date, config as XthWeekdayConfig);
+      
       case 'cycle':
         return getCycleDoses(medication, date, config as CycleConfig);
       
       case 'every_x_hours':
         return getEveryXHoursDoses(medication, date, config as EveryXHoursConfig);
+      
+      case 'tapering':
+        return getTaperingDoses(medication, date, config as TaperingConfig);
       
       case 'prn':
         return []; // PRN has no scheduled doses
@@ -218,6 +240,66 @@ function getSpecificWeekdaysDoses(
   ];
 }
 
+function getXthWeekdayDoses(
+  medication: Medication,
+  date: Date,
+  config: XthWeekdayConfig
+): ScheduledDose[] {
+  const dayOfWeek = date.getDay();
+  const targetWeekday = config.weekday;
+  
+  // Check if today is the target weekday
+  if (dayOfWeek !== targetWeekday) {
+    return [];
+  }
+  
+  // Get the month's year and month
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  
+  // Find all instances of this weekday in the current month
+  const instancesInMonth: Date[] = [];
+  const firstDayOfMonth = new Date(year, month, 1);
+  const lastDayOfMonth = new Date(year, month + 1, 0);
+  
+  for (let d = new Date(firstDayOfMonth); d <= lastDayOfMonth; d = addDays(d, 1)) {
+    if (d.getDay() === targetWeekday) {
+      instancesInMonth.push(new Date(d));
+    }
+  }
+  
+  // Determine which occurrence we're looking for
+  let targetDate: Date | null = null;
+  
+  if (config.occurrence === 5) {
+    // "Last" occurrence
+    targetDate = instancesInMonth[instancesInMonth.length - 1];
+  } else if (config.occurrence >= 1 && config.occurrence <= 4) {
+    // 1st, 2nd, 3rd, or 4th occurrence
+    targetDate = instancesInMonth[config.occurrence - 1] || null;
+  }
+  
+  // Check if today is the target occurrence
+  if (!targetDate || !isSameDay(date, targetDate)) {
+    return [];
+  }
+  
+  const doseTime = setTimeOnDate(date, config.time);
+  
+  return [
+    {
+      medicationId: medication.id,
+      medicationName: medication.name,
+      imageUri: medication.imageUri,
+      notes: medication.notes,
+      time: doseTime,
+      dosageAmount: medication.dosageAmount,
+      dosageUnit: medication.dosageUnit,
+      isPrn: false,
+    },
+  ];
+}
+
 function getCycleDoses(
   medication: Medication,
   date: Date,
@@ -298,6 +380,45 @@ function getEveryXHoursDoses(
   return doses;
 }
 
+function getTaperingDoses(
+  medication: Medication,
+  date: Date,
+  config: TaperingConfig
+): ScheduledDose[] {
+  const startDate = startOfDay(parseISO(config.startDate));
+  const targetDate = startOfDay(date);
+  const daysSinceStart = differenceInDays(targetDate, startDate);
+  
+  // If date is before start, no dose
+  if (daysSinceStart < 0) {
+    return [];
+  }
+  
+  // Calculate current dosage based on tapering schedule
+  const decrementsCounted = Math.floor(daysSinceStart / config.decrementIntervalDays);
+  const currentDose = config.startDose - (decrementsCounted * config.decrementAmount);
+  
+  // If dose has reached zero or below, no more doses (medication should be marked inactive)
+  if (currentDose <= 0) {
+    return [];
+  }
+  
+  const doseTime = setTimeOnDate(date, config.time);
+  
+  return [
+    {
+      medicationId: medication.id,
+      medicationName: medication.name,
+      imageUri: medication.imageUri,
+      notes: medication.notes,
+      time: doseTime,
+      dosageAmount: currentDose,
+      dosageUnit: medication.dosageUnit,
+      isPrn: false,
+    },
+  ];
+}
+
 // Get all doses for multiple medications on a specific date
 export function getAllDosesForDate(medications: Medication[], date: Date): ScheduledDose[] {
   const allDoses: ScheduledDose[] = [];
@@ -363,6 +484,13 @@ export function getScheduleDescription(medication: Medication): string {
         const selectedDays = weekdays.map(d => dayNames[d]).join(', ');
         return `On ${selectedDays}`;
       
+      case 'xth_weekday':
+        const xthConfig = config as XthWeekdayConfig;
+        const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const occurrenceNames = ['', '1st', '2nd', '3rd', '4th', 'Last'];
+        const occurrenceName = occurrenceNames[xthConfig.occurrence] || `${xthConfig.occurrence}th`;
+        return `${occurrenceName} ${weekdayNames[xthConfig.weekday]} of month`;
+      
       case 'cycle':
         const { daysOn, daysOff } = config as CycleConfig;
         return `${daysOn} days on, ${daysOff} days off`;
@@ -370,6 +498,10 @@ export function getScheduleDescription(medication: Medication): string {
       case 'every_x_hours':
         const { intervalHours } = config as EveryXHoursConfig;
         return `Every ${intervalHours} hour${intervalHours > 1 ? 's' : ''}`;
+      
+      case 'tapering':
+        const taperingConfig = config as TaperingConfig;
+        return `Tapering: Start ${taperingConfig.startDose}, reduce ${taperingConfig.decrementAmount} every ${taperingConfig.decrementIntervalDays} days`;
       
       default:
         return 'Custom schedule';

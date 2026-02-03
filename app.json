@@ -67,7 +67,8 @@
           "color": "#ffffff",
           "defaultChannel": "medication_reminders"
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,20 +1,29 @@
-import { View, ScrollView, RefreshControl } from 'react-native';
+import { View, ScrollView, RefreshControl, Pressable, Alert } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store';
-import { getIntakeLogsByProfile, getMedicationsByProfile } from '@/lib/db/operations';
+import { 
+  getIntakeLogsByProfile, 
+  getMedicationsByProfile,
+  deleteIntakeLog,
+  updateMedicationInventory,
+  getMedicationById
+} from '@/lib/db/operations';
 import type { IntakeLog, Medication } from '@/types';
 import { format, subDays } from 'date-fns';
-import { Calendar } from 'lucide-react-native';
+import { Calendar, Edit3, Trash2, Plus } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
+import { EditLogDialog } from '@/components/medication/EditLogDialog';
+import { RetroactiveLogDialog } from '@/components/medication/RetroactiveLogDialog';
 
 export default function HistoryScreen() {
-  const { activeProfile } = useStore();
+  const { activeProfile, loadMedications } = useStore();
   const [logs, setLogs] = useState<IntakeLog[]>([]);
   const [medications, setMedications] = useState<Medication[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<IntakeLog[]>([]);
@@ -22,6 +31,8 @@ export default function HistoryScreen() {
   const [selectedAction, setSelectedAction] = useState<string>('all');
   const [dateRange, setDateRange] = useState<string>('7');
   const [refreshing, setRefreshing] = useState(false);
+  const [editingLog, setEditingLog] = useState<IntakeLog | null>(null);
+  const [showRetroactiveDialog, setShowRetroactiveDialog] = useState(false);
 
   // Load data on first mount
   useEffect(() => {
@@ -111,6 +122,47 @@ export default function HistoryScreen() {
     }
   };
 
+  const handleDeleteLog = async (log: IntakeLog) => {
+    Alert.alert(
+      i18n.t('intakeLog.deleteLog'),
+      i18n.t('intakeLog.deleteDescription'),
+      [
+        { text: i18n.t('common.cancel'), style: 'cancel' },
+        {
+          text: i18n.t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Restore inventory if it was a taken or partial dose
+              if (log.action === 'taken' || log.action === 'partial') {
+                const medication = await getMedicationById(log.medicationId);
+                if (medication) {
+                  const newCount = medication.inventoryCount + log.dosageAmount;
+                  await updateMedicationInventory(log.medicationId, newCount);
+                  
+                  // Reload medications
+                  if (activeProfile) {
+                    await loadMedications(activeProfile.id);
+                  }
+                }
+              }
+
+              await deleteIntakeLog(log.id);
+              await loadData();
+            } catch (error) {
+              console.error('Failed to delete log:', error);
+              Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToDelete'));
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEditLog = (log: IntakeLog) => {
+    setEditingLog(log);
+  };
+
   const medicationOptions = [
     { label: i18n.t('history.allMedications'), value: 'all' },
     ...medications.map(med => ({ label: med.name, value: med.id })),
@@ -150,9 +202,21 @@ export default function HistoryScreen() {
     <View className="flex-1 bg-background">
       {/* Header */}
       <View className="p-4 border-b border-border">
-        <Text className="text-2xl font-bold text-foreground mb-4">
-          {i18n.t('history.title')}
-        </Text>
+        <View className="flex-row justify-between items-center mb-4">
+          <Text className="text-2xl font-bold text-foreground">
+            {i18n.t('history.title')}
+          </Text>
+          <Button 
+            onPress={() => setShowRetroactiveDialog(true)}
+            size="sm"
+            className="flex-row gap-2"
+          >
+            <Plus size={16} className="text-primary-foreground" />
+            <Text className="text-primary-foreground font-medium">
+              {i18n.t('intakeLog.logRetroactive')}
+            </Text>
+          </Button>
+        </View>
 
         {/* Filters */}
         <View className="gap-3">
@@ -206,13 +270,18 @@ export default function HistoryScreen() {
                     <Text className="text-sm text-muted-foreground">
                       {format(new Date(log.actualTime), 'MMM d, yyyy • HH:mm')}
                     </Text>
+                    {log.scheduledTime && (
+                      <Text className="text-xs text-muted-foreground mt-1">
+                        {i18n.t('history.scheduledFor')}: {format(new Date(log.scheduledTime), 'HH:mm')}
+                      </Text>
+                    )}
                   </View>
                   {getActionBadge(log.action)}
                 </View>
 
                 {log.dosageAmount > 0 && (
                   <Text className="text-sm text-muted-foreground mb-1">
-                    Amount: {log.dosageAmount}
+                    {i18n.t('history.amount')}: {log.dosageAmount}
                   </Text>
                 )}
 
@@ -221,11 +290,54 @@ export default function HistoryScreen() {
                     {log.notes}
                   </Text>
                 )}
+
+                {/* Action Buttons */}
+                <View className="flex-row gap-2 mt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onPress={() => handleEditLog(log)}
+                    className="flex-1 flex-row gap-2"
+                  >
+                    <Edit3 size={14} className="text-foreground" />
+                    <Text className="text-xs">{i18n.t('common.edit')}</Text>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onPress={() => handleDeleteLog(log)}
+                    className="flex-1 flex-row gap-2"
+                  >
+                    <Trash2 size={14} className="text-destructive" />
+                    <Text className="text-xs text-destructive">{i18n.t('common.delete')}</Text>
+                  </Button>
+                </View>
               </CardContent>
             </Card>
           ))
         )}
       </ScrollView>
+
+      <EditLogDialog
+        visible={editingLog !== null}
+        log={editingLog}
+        medications={medications}
+        onClose={() => setEditingLog(null)}
+        onSuccess={() => {
+          setEditingLog(null);
+          loadData();
+        }}
+      />
+
+      <RetroactiveLogDialog
+        visible={showRetroactiveDialog}
+        medications={medications.filter(m => m.isActive)}
+        onClose={() => setShowRetroactiveDialog(false)}
+        onSuccess={() => {
+          setShowRetroactiveDialog(false);
+          loadData();
+        }}
+      />
     </View>
   );
 }

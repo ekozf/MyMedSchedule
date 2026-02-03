@@ -490,6 +490,113 @@ export async function deleteIntakeLog(id: string): Promise<boolean> {
   return true;
 }
 
+export interface UpdateIntakeLogInput {
+  scheduledTime?: Date;
+  actualTime?: Date;
+  action?: 'taken' | 'skipped' | 'partial';
+  dosageAmount?: number;
+  notes?: string;
+}
+
+export async function updateIntakeLog(id: string, input: UpdateIntakeLogInput): Promise<IntakeLog | null> {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const updateData: any = {
+    updatedAt: now,
+  };
+  
+  if (input.scheduledTime !== undefined) {
+    updateData.scheduledTime = input.scheduledTime?.toISOString();
+  }
+  if (input.actualTime !== undefined) {
+    updateData.actualTime = input.actualTime.toISOString();
+  }
+  if (input.action !== undefined) updateData.action = input.action;
+  if (input.dosageAmount !== undefined) updateData.dosageAmount = input.dosageAmount;
+  if (input.notes !== undefined) updateData.notes = input.notes;
+  
+  await db.update(intakeLogs).set(updateData).where(eq(intakeLogs.id, id));
+  
+  // Fetch and return updated log
+  const result = await db.select().from(intakeLogs).where(eq(intakeLogs.id, id)).limit(1);
+  if (result.length === 0) return null;
+  
+  const log = result[0];
+  return {
+    id: log.id,
+    medicationId: log.medicationId,
+    profileId: log.profileId,
+    scheduledTime: log.scheduledTime ? new Date(log.scheduledTime) : undefined,
+    actualTime: new Date(log.actualTime),
+    action: log.action as any,
+    dosageAmount: log.dosageAmount,
+    notes: log.notes || undefined,
+    createdAt: new Date(log.createdAt),
+    updatedAt: new Date(log.updatedAt),
+  };
+}
+
+// ============================================================================
+// Inventory Adjustment Operations
+// ============================================================================
+
+export interface InventoryAdjustment {
+  id: string;
+  medicationId: string;
+  adjustmentType: 'add' | 'remove' | 'set';
+  amount: number;
+  previousCount: number;
+  newCount: number;
+  reason?: string;
+  createdAt: Date;
+}
+
+export interface CreateInventoryAdjustmentInput {
+  medicationId: string;
+  adjustmentType: 'add' | 'remove' | 'set';
+  amount: number;
+  previousCount: number;
+  newCount: number;
+  reason?: string;
+}
+
+export async function createInventoryAdjustment(input: CreateInventoryAdjustmentInput): Promise<InventoryAdjustment> {
+  const db = getDatabase();
+  const now = new Date().toISOString();
+  const id = generateUUID();
+  
+  const adjustmentData = {
+    id,
+    medicationId: input.medicationId,
+    adjustmentType: input.adjustmentType,
+    amount: input.amount,
+    previousCount: input.previousCount,
+    newCount: input.newCount,
+    reason: input.reason,
+    createdAt: now,
+  };
+  
+  await db.insert(medications.prototype).values(adjustmentData);
+  
+  return {
+    id,
+    medicationId: input.medicationId,
+    adjustmentType: input.adjustmentType,
+    amount: input.amount,
+    previousCount: input.previousCount,
+    newCount: input.newCount,
+    reason: input.reason,
+    createdAt: new Date(now),
+  };
+}
+
+export async function getInventoryAdjustmentsByMedication(medicationId: string): Promise<InventoryAdjustment[]> {
+  const db = getDatabase();
+  // Note: inventory_adjustments table would need to be added to schema
+  // For now, this is a placeholder implementation
+  return [];
+}
+
 // ============================================================================
 // Disclaimer Operations
 // ============================================================================

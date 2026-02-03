@@ -226,4 +226,74 @@ describe('Schedule Validation', () => {
       expect(result.success).toBe(false);
     });
   });
+
+  describe('Xth Weekday Validation', () => {
+    it('should validate correct configuration', () => {
+      const config = {
+        weekday: 2,
+        occurrence: 3,
+        time: '10:00',
+      };
+      const result = validateScheduleConfig('xth_weekday', config);
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject invalid weekday', () => {
+      const config = {
+        weekday: 7,
+        occurrence: 1,
+        time: '10:00',
+      };
+      const result = validateScheduleConfig('xth_weekday', config);
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject invalid occurrence', () => {
+      const config = {
+        weekday: 2,
+        occurrence: 6,
+        time: '10:00',
+      };
+      const result = validateScheduleConfig('xth_weekday', config);
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('Tapering Validation', () => {
+    it('should validate correct configuration', () => {
+      const config = {
+        startDose: 4,
+        decrementAmount: 1,
+        decrementIntervalDays: 7,
+        startDate: new Date().toISOString(),
+        time: '09:00',
+      };
+      const result = validateScheduleConfig('tapering', config);
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject zero or negative start dose', () => {
+      const config = {
+        startDose: 0,
+        decrementAmount: 1,
+        decrementIntervalDays: 7,
+        startDate: new Date().toISOString(),
+        time: '09:00',
+      };
+      const result = validateScheduleConfig('tapering', config);
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject invalid decrement interval', () => {
+      const config = {
+        startDose: 4,
+        decrementAmount: 1,
+        decrementIntervalDays: 0,
+        startDate: new Date().toISOString(),
+        time: '09:00',
+      };
+      const result = validateScheduleConfig('tapering', config);
+      expect(result.success).toBe(false);
+    });
+  });
 });

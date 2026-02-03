@@ -638,5 +638,171 @@ describe('Schedule Calculator', () => {
       const desc = getScheduleDescription(med);
       expect(desc).toBe('As needed (PRN)');
     });
+
+    it('should describe Xth weekday schedule', () => {
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'xth_weekday',
+        scheduleConfig: JSON.stringify({
+          weekday: 2, // Tuesday
+          occurrence: 3, // 3rd
+          time: '10:00',
+        }),
+      };
+
+      const desc = getScheduleDescription(med);
+      expect(desc).toBe('3rd Tuesday of month');
+    });
+
+    it('should describe tapering schedule', () => {
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'tapering',
+        scheduleConfig: JSON.stringify({
+          startDose: 4,
+          decrementAmount: 1,
+          decrementIntervalDays: 7,
+          startDate: new Date().toISOString(),
+          time: '09:00',
+        }),
+      };
+
+      const desc = getScheduleDescription(med);
+      expect(desc).toContain('Tapering');
+      expect(desc).toContain('Start 4');
+    });
+  });
+
+  describe('Xth Weekday Schedule', () => {
+    it('should generate dose on the 1st Monday of the month', () => {
+      // February 2026: 1st Monday is Feb 2nd
+      const testDate = new Date('2026-02-02T00:00:00');
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'xth_weekday',
+        scheduleConfig: JSON.stringify({
+          weekday: 1, // Monday
+          occurrence: 1, // 1st
+          time: '10:00',
+        }),
+      };
+
+      const doses = getDosesForDate(med, testDate);
+      expect(doses).toHaveLength(1);
+      expect(doses[0].time.getDate()).toBe(2);
+    });
+
+    it('should not generate dose on other Mondays of the month', () => {
+      // February 2026: 2nd Monday is Feb 9th
+      const testDate = new Date('2026-02-09T00:00:00');
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'xth_weekday',
+        scheduleConfig: JSON.stringify({
+          weekday: 1, // Monday
+          occurrence: 1, // 1st
+          time: '10:00',
+        }),
+      };
+
+      const doses = getDosesForDate(med, testDate);
+      expect(doses).toHaveLength(0);
+    });
+
+    it('should handle "last" occurrence', () => {
+      // February 2026: Last Tuesday is Feb 24th
+      const testDate = new Date('2026-02-24T00:00:00');
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'xth_weekday',
+        scheduleConfig: JSON.stringify({
+          weekday: 2, // Tuesday
+          occurrence: 5, // Last
+          time: '14:00',
+        }),
+      };
+
+      const doses = getDosesForDate(med, testDate);
+      expect(doses).toHaveLength(1);
+    });
+  });
+
+  describe('Tapering Schedule', () => {
+    it('should generate dose with correct amount on start date', () => {
+      const startDate = new Date('2026-02-03T00:00:00');
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'tapering',
+        scheduleConfig: JSON.stringify({
+          startDose: 4,
+          decrementAmount: 1,
+          decrementIntervalDays: 7,
+          startDate: startDate.toISOString(),
+          time: '09:00',
+        }),
+      };
+
+      const doses = getDosesForDate(med, startDate);
+      expect(doses).toHaveLength(1);
+      expect(doses[0].dosageAmount).toBe(4);
+    });
+
+    it('should decrease dosage after decrement interval', () => {
+      const startDate = new Date('2026-02-03T00:00:00');
+      const testDate = new Date('2026-02-10T00:00:00'); // 7 days later
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'tapering',
+        scheduleConfig: JSON.stringify({
+          startDose: 4,
+          decrementAmount: 1,
+          decrementIntervalDays: 7,
+          startDate: startDate.toISOString(),
+          time: '09:00',
+        }),
+      };
+
+      const doses = getDosesForDate(med, testDate);
+      expect(doses).toHaveLength(1);
+      expect(doses[0].dosageAmount).toBe(3);
+    });
+
+    it('should return no doses when tapering reaches zero', () => {
+      const startDate = new Date('2026-02-03T00:00:00');
+      const testDate = new Date('2026-03-03T00:00:00'); // 28 days later (4 decrements)
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'tapering',
+        scheduleConfig: JSON.stringify({
+          startDose: 4,
+          decrementAmount: 1,
+          decrementIntervalDays: 7,
+          startDate: startDate.toISOString(),
+          time: '09:00',
+        }),
+      };
+
+      const doses = getDosesForDate(med, testDate);
+      expect(doses).toHaveLength(0); // Should be 0 after 4 decrements
+    });
+
+    it('should not generate dose before start date', () => {
+      const startDate = new Date('2026-02-10T00:00:00');
+      const testDate = new Date('2026-02-05T00:00:00'); // Before start
+      const med: Medication = {
+        ...baseMedication,
+        scheduleType: 'tapering',
+        scheduleConfig: JSON.stringify({
+          startDose: 4,
+          decrementAmount: 1,
+          decrementIntervalDays: 7,
+          startDate: startDate.toISOString(),
+          time: '09:00',
+        }),
+      };
+
+      const doses = getDosesForDate(med, testDate);
+      expect(doses).toHaveLength(0);
+    });
   });
 });

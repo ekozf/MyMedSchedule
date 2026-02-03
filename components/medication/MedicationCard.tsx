@@ -6,6 +6,8 @@ import { Clock, Pill } from 'lucide-react-native';
 import type { Medication } from '@/types';
 import { getNextDose, getScheduleDescription } from '@/lib/schedule/calculator';
 import { format } from 'date-fns';
+import { router } from 'expo-router';
+import i18n from '@/lib/i18n';
 
 export interface MedicationCardProps {
   medication: Medication;
@@ -18,9 +20,17 @@ export function MedicationCard({ medication, onPress }: MedicationCardProps) {
   const isLowInventory = medication.inventoryCount < 5 && medication.inventoryCount > 0;
   const isExpired = medication.expirationDate && new Date(medication.expirationDate) < new Date();
   
+  const handlePress = () => {
+    if (onPress) {
+      onPress();
+    } else {
+      router.push(`/medication/${medication.id}`);
+    }
+  };
+  
   return (
     <Card className="mb-3">
-      <Pressable onPress={onPress}>
+      <Pressable onPress={handlePress}>
         <CardContent className="p-4">
           <View className="flex-row gap-4">
             {/* Medication Image */}
@@ -67,10 +77,10 @@ export function MedicationCard({ medication, onPress }: MedicationCardProps) {
               {(isLowInventory || isExpired) && (
                 <View className="flex-row gap-2 mt-2">
                   {isLowInventory && (
-                    <Badge label="Low Inventory" variant="warning" />
+                    <Badge label={i18n.t('medications.lowInventory')} variant="warning" />
                   )}
                   {isExpired && (
-                    <Badge label="Expired" variant="destructive" />
+                    <Badge label={i18n.t('medications.expired')} variant="destructive" />
                   )}
                 </View>
               )}
@@ -78,7 +88,7 @@ export function MedicationCard({ medication, onPress }: MedicationCardProps) {
               {/* Inventory Count */}
               {!medication.isPrn && (
                 <Text className="text-xs text-muted-foreground mt-2">
-                  Inventory: {medication.inventoryCount} {medication.dosageUnit}
+                  {i18n.t('medications.inventory', { count: medication.inventoryCount, unit: medication.dosageUnit })}
                 </Text>
               )}
             </View>
