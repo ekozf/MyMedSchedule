@@ -1,11 +1,21 @@
-import { View, ScrollView, Alert, Switch, Platform } from 'react-native';
+import {
+  View,
+  ScrollView,
+  Alert,
+  Switch,
+  Platform,
+  Keyboard,
+  KeyboardEvent,
+  Dimensions,
+  TextInput,
+} from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SchedulePicker } from '@/components/medication/SchedulePicker';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useStore } from '@/store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -59,6 +69,12 @@ export default function EditMedicationScreen() {
   const { activeProfile, loadMedications } = useStore();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewLayoutRef = useRef<{ y: number; height: number }>({ y: 0, height: 0 });
+  const activeInputRef = useRef<TextInput | null>(null);
+  const inputRefs = useRef<Map<string, TextInput>>(new Map());
+  const currentScrollY = useRef(0);
 
   // Basic fields
   const [name, setName] = useState('');
@@ -92,9 +108,101 @@ export default function EditMedicationScreen() {
 
   const dateFnsLocale = getDateFnsLocale();
 
+  const setInputRef = (key: string) => (ref: TextInput | null) => {
+    if (ref) {
+      inputRefs.current.set(key, ref);
+    }
+  };
+
+  const handleInputFocus = (key: string) => () => {
+    const inputRef = inputRefs.current.get(key);
+    if (!inputRef) return;
+
+    activeInputRef.current = inputRef;
+
+    // Wait for keyboard to show before measuring and scrolling
+    setTimeout(
+      () => {
+        if (!inputRef || keyboardHeight === 0) return;
+
+        // Measure input position in window
+        inputRef.measureInWindow((x, y, width, height) => {
+          const windowHeight = Dimensions.get('window').height;
+          const inputBottom = y + height;
+
+          // Calculate the visible area (bottom of screen minus keyboard)
+          const visibleScreenBottom = windowHeight - keyboardHeight;
+
+          // Add margin above keyboard (50px buffer)
+          const targetBottom = visibleScreenBottom - 50;
+
+          // Check if input would be covered by keyboard
+          if (inputBottom > targetBottom) {
+            // Calculate how much we need to scroll down
+            // Add input height + extra margin to ensure full input is visible
+            const scrollDownAmount = inputBottom - targetBottom + height + 20;
+
+            // Add to current scroll position
+            const newScrollY = currentScrollY.current + scrollDownAmount;
+
+            scrollViewRef.current?.scrollTo({
+              y: Math.max(0, newScrollY),
+              animated: true,
+            });
+          }
+        });
+      },
+      Platform.OS === 'ios' ? 100 : 300
+    );
+  };
+
   useEffect(() => {
     loadMedicationData();
   }, [id]);
+
+  useEffect(() => {
+    // Listen to keyboard events
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e: KeyboardEvent) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        // Re-check active input position after keyboard is shown
+        if (activeInputRef.current) {
+          const inputRef = activeInputRef.current;
+          setTimeout(() => {
+            if (!inputRef) return;
+            inputRef.measureInWindow((x, y, width, height) => {
+              const windowHeight = Dimensions.get('window').height;
+              const inputBottom = y + height;
+              const visibleScreenBottom = windowHeight - e.endCoordinates.height;
+              const targetBottom = visibleScreenBottom - 50;
+              if (inputBottom > targetBottom) {
+                const scrollDownAmount = inputBottom - targetBottom + height + 20;
+                const newScrollY = currentScrollY.current + scrollDownAmount;
+                scrollViewRef.current?.scrollTo({
+                  y: Math.max(0, newScrollY),
+                  animated: true,
+                });
+              }
+            });
+          }, 100);
+        }
+      }
+    );
+
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        activeInputRef.current = null;
+      }
+    );
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
+    };
+  }, []);
 
   async function loadMedicationData() {
     if (!id) return;
@@ -266,9 +374,22 @@ export default function EditMedicationScreen() {
   return (
     <View className="flex-1 bg-background">
       <ScrollView
+        ref={scrollViewRef}
         className="flex-1 px-4"
         style={{ paddingTop: insets.top + 16 }}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}>
+        contentContainerStyle={{
+          paddingBottom: keyboardHeight > 0 ? keyboardHeight + 40 : insets.bottom + 100,
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        onLayout={(event) => {
+          const { y, height } = event.nativeEvent.layout;
+          scrollViewLayoutRef.current = { y, height };
+        }}
+        onScroll={(e) => {
+          currentScrollY.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}>
         {/* Basic Information */}
         <Card className="mb-4">
           <CardHeader>
@@ -276,15 +397,18 @@ export default function EditMedicationScreen() {
           </CardHeader>
           <CardContent className="gap-4">
             <Input
+              ref={setInputRef('name')}
               label={`${i18n.t('medications.nameLabel')} *`}
               value={name}
               onChangeText={setName}
               placeholder={i18n.t('medications.namePlaceholder')}
               error={errors.name}
+              onFocus={handleInputFocus('name')}
             />
 
             <View className="flex-row gap-2">
               <Input
+                ref={setInputRef('dosageAmount')}
                 label={`${i18n.t('medications.dosageLabel')} *`}
                 value={dosageAmount}
                 onChangeText={setDosageAmount}
@@ -292,6 +416,7 @@ export default function EditMedicationScreen() {
                 keyboardType="decimal-pad"
                 error={errors.dosageAmount}
                 containerClassName="flex-1"
+                onFocus={handleInputFocus('dosageAmount')}
               />
 
               <Select
@@ -325,12 +450,14 @@ export default function EditMedicationScreen() {
             </View>
 
             <Input
+              ref={setInputRef('notes')}
               label={i18n.t('medications.notesOptional')}
               value={notes}
               onChangeText={setNotes}
               placeholder={i18n.t('medications.notesPlaceholder')}
               multiline
               numberOfLines={3}
+              onFocus={handleInputFocus('notes')}
             />
           </CardContent>
         </Card>
@@ -373,19 +500,23 @@ export default function EditMedicationScreen() {
           </CardHeader>
           <CardContent className="gap-4">
             <Input
+              ref={setInputRef('inventoryCount')}
               label={i18n.t('medications.inventoryLabel')}
               value={inventoryCount}
               onChangeText={setInventoryCount}
               placeholder="0"
               keyboardType="decimal-pad"
+              onFocus={handleInputFocus('inventoryCount')}
             />
 
             <Input
+              ref={setInputRef('packageSize')}
               label={i18n.t('medications.packageSizeLabel')}
               value={packageSize}
               onChangeText={setPackageSize}
               placeholder="e.g., 30"
               keyboardType="decimal-pad"
+              onFocus={handleInputFocus('packageSize')}
             />
 
             {/* Refill Reminder */}
@@ -411,11 +542,13 @@ export default function EditMedicationScreen() {
               />
               {refillReminderType && refillReminderType !== 'none' && (
                 <Input
+                  ref={setInputRef('refillReminderValue')}
                   label={i18n.t('medications.refillReminderValue')}
                   value={refillReminderValue}
                   onChangeText={setRefillReminderValue}
                   placeholder="e.g., 7"
                   keyboardType="numeric"
+                  onFocus={handleInputFocus('refillReminderValue')}
                 />
               )}
             </View>
@@ -477,20 +610,24 @@ export default function EditMedicationScreen() {
 
             {/* Max Daily Dose */}
             <Input
+              ref={setInputRef('maxDailyDose')}
               label={i18n.t('medications.maxDailyDoseLabel')}
               value={maxDailyDose}
               onChangeText={setMaxDailyDose}
               placeholder={i18n.t('medications.maxDailyDosePlaceholder')}
               keyboardType="decimal-pad"
+              onFocus={handleInputFocus('maxDailyDose')}
             />
 
             {/* Min Hours Between Doses */}
             <Input
+              ref={setInputRef('minHoursBetweenDoses')}
               label={i18n.t('medications.minHoursBetweenLabel')}
               value={minHoursBetweenDoses}
               onChangeText={setMinHoursBetweenDoses}
               placeholder={i18n.t('medications.minHoursBetweenPlaceholder')}
               keyboardType="decimal-pad"
+              onFocus={handleInputFocus('minHoursBetweenDoses')}
             />
 
             {/* Bypass DnD */}

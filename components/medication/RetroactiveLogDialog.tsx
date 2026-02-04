@@ -1,9 +1,9 @@
-import { View, Modal, Pressable, Alert, ScrollView, Platform } from 'react-native';
+import { View, Modal, Pressable, Alert, ScrollView, Platform, Keyboard } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X } from 'lucide-react-native';
 import { createIntakeLogAndUpdateInventory, InventoryInsufficientError } from '@/lib/db/operations';
 import { useStore } from '@/store';
@@ -36,6 +36,30 @@ export function RetroactiveLogDialog({
   const [actualTime, setActualTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    // Listen to keyboard events
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
+    };
+  }, []);
 
   const selectedMedication = medications.find((m) => m.id === medicationId);
 
@@ -175,7 +199,12 @@ export function RetroactiveLogDialog({
       <View className="flex-1 justify-end bg-black/50">
         <Pressable className="flex-1" onPress={onClose} />
         <View className="max-h-[85%] rounded-t-3xl bg-background">
-          <ScrollView className="p-6">
+          <ScrollView
+            ref={scrollViewRef}
+            className="p-6"
+            contentContainerStyle={{ paddingBottom: keyboardHeight > 0 ? keyboardHeight + 40 : 24 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
             {/* Header */}
             <View className="mb-6 flex-row items-center justify-between">
               <View>

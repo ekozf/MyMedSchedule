@@ -1,9 +1,9 @@
-import { View, Modal, Pressable, ScrollView, Alert } from 'react-native';
+import { View, Modal, Pressable, ScrollView, Alert, Keyboard, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Package, Plus, Minus, Edit3 } from 'lucide-react-native';
 import { updateMedicationInventory, getMedicationById } from '@/lib/db/operations';
 import { scheduleRefillReminder } from '@/lib/notifications/scheduler';
@@ -31,6 +31,30 @@ export function InventoryManager({
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    // Listen to keyboard events
+    const keyboardWillShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+
+    const keyboardWillHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardWillShowListener.remove();
+      keyboardWillHideListener.remove();
+    };
+  }, []);
 
   if (!medication) return null;
 
@@ -134,7 +158,14 @@ export function InventoryManager({
       <View className="flex-1 justify-end bg-black/50">
         <Pressable className="flex-1" onPress={onClose} />
         <View className="max-h-[85%] rounded-t-3xl bg-background">
-          <ScrollView className="p-6" contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
+          <ScrollView
+            ref={scrollViewRef}
+            className="p-6"
+            contentContainerStyle={{
+              paddingBottom: keyboardHeight > 0 ? keyboardHeight + 40 : insets.bottom + 24,
+            }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
             {/* Header */}
             <View className="mb-6 flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
