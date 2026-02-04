@@ -2,9 +2,17 @@ import { useMemo, useState } from 'react';
 import { Platform, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, isAfter, setHours, setMinutes } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Text } from '@/components/ui/text';
 import i18n from '@/lib/i18n';
 
@@ -25,6 +33,7 @@ export function RescheduleNextDoseDialog({
   onCancel,
   isLoading,
 }: RescheduleNextDoseDialogProps) {
+  const dateFnsLocale = getDateFnsLocale();
   const [pickedDate, setPickedDate] = useState<Date | null>(null);
   const [pickedTime, setPickedTime] = useState<Date | null>(null); // date portion ignored; hours/minutes used
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -41,8 +50,8 @@ export function RescheduleNextDoseDialog({
 
   const timeLabel = useMemo(() => {
     if (!selectedTime) return i18n.t('intakeLog.noTimeSelected');
-    return format(selectedTime, 'MMM d, yyyy • HH:mm');
-  }, [selectedTime]);
+    return format(selectedTime, 'PPp', { locale: dateFnsLocale });
+  }, [selectedTime, dateFnsLocale]);
 
   const canConfirm = Boolean(selectedTime && isAfter(selectedTime, now));
 
@@ -73,8 +82,7 @@ export function RescheduleNextDoseDialog({
                 setDateDraft(now);
               }}
               disabled={isLoading}
-              className="flex-1"
-            >
+              className="flex-1">
               <Text>{i18n.t('intakeLog.selectDate')}</Text>
             </Button>
             <Button
@@ -85,8 +93,7 @@ export function RescheduleNextDoseDialog({
                 setTimeDraft(now);
               }}
               disabled={isLoading}
-              className="flex-1"
-            >
+              className="flex-1">
               <Text>{i18n.t('intakeLog.selectTime')}</Text>
             </Button>
           </View>
@@ -96,11 +103,13 @@ export function RescheduleNextDoseDialog({
           </View>
 
           {selectedTime && !isAfter(selectedTime, now) && (
-            <Text className="text-sm text-destructive">{i18n.t('intakeLog.rescheduleTimeInvalidPast')}</Text>
+            <Text className="text-sm text-destructive">
+              {i18n.t('intakeLog.rescheduleTimeInvalidPast')}
+            </Text>
           )}
 
           {isDatePickerOpen && (
-            <View className="rounded-xl overflow-hidden">
+            <View className="overflow-hidden rounded-xl">
               <DateTimePicker
                 value={dateDraft}
                 mode="date"
@@ -126,8 +135,7 @@ export function RescheduleNextDoseDialog({
                     setIsDatePickerOpen(false);
                   }}
                   className="mt-2"
-                  disabled={isLoading}
-                >
+                  disabled={isLoading}>
                   <Text>{i18n.t('common.confirm')}</Text>
                 </Button>
               )}
@@ -135,7 +143,7 @@ export function RescheduleNextDoseDialog({
           )}
 
           {isTimePickerOpen && (
-            <View className="rounded-xl overflow-hidden">
+            <View className="overflow-hidden rounded-xl">
               <DateTimePicker
                 value={timeDraft}
                 mode="time"
@@ -162,8 +170,7 @@ export function RescheduleNextDoseDialog({
                     setIsTimePickerOpen(false);
                   }}
                   className="mt-2"
-                  disabled={isLoading}
-                >
+                  disabled={isLoading}>
                   <Text>{i18n.t('common.confirm')}</Text>
                 </Button>
               )}
@@ -177,9 +184,10 @@ export function RescheduleNextDoseDialog({
               if (!selectedTime) return;
               onConfirm(selectedTime);
             }}
-            disabled={isLoading || !canConfirm}
-          >
-            <Text className="text-primary-foreground font-semibold">{i18n.t('intakeLog.rescheduleConfirm')}</Text>
+            disabled={isLoading || !canConfirm}>
+            <Text className="font-semibold text-primary-foreground">
+              {i18n.t('intakeLog.rescheduleConfirm')}
+            </Text>
           </Button>
           <Button variant="outline" onPress={onCancel} disabled={isLoading}>
             <Text>{i18n.t('common.cancel')}</Text>
@@ -189,4 +197,3 @@ export function RescheduleNextDoseDialog({
     </Dialog>
   );
 }
-

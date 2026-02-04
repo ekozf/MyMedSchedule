@@ -20,7 +20,7 @@ const trOverrides = {
     success: 'Başarılı',
     warning: 'Uyarı',
   },
-  
+
   auth: {
     setupTitle: 'İlaçlarınızı Güvenceye Alın',
     setupDescription: 'İlaç verilerinizi nasıl korumak istediğinizi seçin',
@@ -28,17 +28,17 @@ const trOverrides = {
     usePin: 'PIN Kodu Kullan',
     skipForNow: 'Şimdilik Atla',
     enterPin: 'PIN Girin',
-    confirmPin: 'PIN\'i Onaylayın',
-    pinMismatch: 'PIN\'ler eşleşmiyor',
+    confirmPin: "PIN'i Onaylayın",
+    pinMismatch: "PIN'ler eşleşmiyor",
     pinTooShort: 'PIN en az 4 haneli olmalıdır',
     unlockApp: 'Uygulamanın Kilidini Aç',
-    biometricPrompt: 'MyMedSchedule\'ün Kilidini Aç',
+    biometricPrompt: "MyMedSchedule'ün Kilidini Aç",
     authFailed: 'Kimlik doğrulama başarısız',
     yourMedicationsProtected: 'İlaçlarınız korunuyor',
     useToUnlock: 'Kilidi açmak için {{method}} kullanın',
     unlockWith: '{{method}} ile Kilidi Aç',
     authenticating: 'Doğrulanıyor...',
-    enterYourPin: 'PIN\'inizi girin',
+    enterYourPin: "PIN'inizi girin",
     verifying: 'Doğrulanıyor...',
     unlock: 'Kilidi Aç',
     incorrectPin: 'Yanlış PIN',
@@ -46,8 +46,10 @@ const trOverrides = {
     pinNumbersOnly: 'PIN sadece rakamlardan oluşmalıdır',
     createPin: 'PIN Oluştur',
     setupMethod: '{{method}} Ayarla',
-    skipAuthWarning: 'Kimlik doğrulamayı atlamak istediğinizden emin misiniz? İlaç verileriniz korunmayacak.',
-    disableAuthWarning: 'Kimlik doğrulamayı devre dışı bırakmak istediğinizden emin misiniz? İlaç verileriniz korunmayacak.',
+    skipAuthWarning:
+      'Kimlik doğrulamayı atlamak istediğinizden emin misiniz? İlaç verileriniz korunmayacak.',
+    disableAuthWarning:
+      'Kimlik doğrulamayı devre dışı bırakmak istediğinizden emin misiniz? İlaç verileriniz korunmayacak.',
     skipAuthentication: 'Kimlik Doğrulamayı Atla',
     disable: 'Devre Dışı Bırak',
     faceId: 'Face ID',
@@ -56,57 +58,72 @@ const trOverrides = {
     biometric: 'Biyometrik',
     pinCode: 'PIN Kodu',
     pinDescription: 'Uygulamanın kilidini açmak için 4-6 haneli bir PIN oluşturun',
-    biometricDescription: 'Uygulamayı hızlı ve güvenli bir şekilde açmak için cihazınızın {{method}} özelliğini kullanın',
+    biometricDescription:
+      'Uygulamayı hızlı ve güvenli bir şekilde açmak için cihazınızın {{method}} özelliğini kullanın',
     skipDescription: 'Kimlik doğrulamayı daha sonra ayarlardan ayarlayabilirsiniz (önerilmez)',
     skipAuth: 'Kimlik Doğrulamayı Atla',
     setupBiometric: 'Biyometrik Ayarla',
     setupPin: 'PIN Ayarla',
-    setPinButton: 'PIN\'i Ayarla',
+    setPinButton: "PIN'i Ayarla",
     settingUp: 'Ayarlanıyor...',
   },
-  
+
   disclaimer: {
     title: 'Önemli: Bu Uygulamayı Kullanmadan Önce Lütfen Okuyun',
-    subtitle: 'By using this application, you acknowledge and agree to the following:',
+    subtitle: 'Bu uygulamayı kullanarak, aşağıdakileri kabul ve onaylamış olursunuz:',
     acknowledge: 'Yukarıdakilerin hepsini okudum ve anladım',
     dataPrivacyTitle: 'Veri ve Gizlilik',
     medicalDisclaimerTitle: 'Tıbbi Sorumluluk Reddi',
     userResponsibilityTitle: 'Kullanıcı Sorumluluğu',
     technicalConsiderationsTitle: 'Teknik Hususlar',
-    buttonClose: 'Close',
-    buttonContinue: 'Continue',
-    buttonProcessing: 'Processing...',
-    
+    buttonClose: 'Kapat',
+    buttonContinue: 'Devam Et',
+    buttonProcessing: 'İşleniyor...',
+
     dataPrivacy: {
-      noDataCollection: 'We do not collect any data. Absolutely nothing.',
-      fullyLocal: 'This app is fully local; there is no cloud save or online backup.',
-      secureStorage: 'Your data is stored securely and encrypted on your device. Nobody else can access it, not even the developer.',
-      exportUnencrypted: 'Exporting your data puts the data you have saved into that document, and it is completely unencrypted. It is your own responsibility to keep it safe.',
-      dataLoss: 'Because data is encrypted on your device, if you lose your phone or delete the app, your data is gone forever. We cannot recover it for you. Please use the \'Export Backup\' feature regularly.',
+      noDataCollection: 'Hiçbir veri toplamıyoruz. Kesinlikle hiçbir şey.',
+      fullyLocal: 'Bu uygulama tamamen yereldir; bulut kaydı veya çevrimiçi yedekleme yoktur.',
+      secureStorage:
+        'Verileriniz cihazınızda güvenli ve şifreli olarak saklanır. Geliştirici dahil kimse erişemez.',
+      exportUnencrypted:
+        'Verilerinizi dışa aktarmak, kaydettiğiniz verileri o belgeye koyar ve tamamen şifrelenmemiştir. Güvenliğini sağlamak kendi sorumluluğunuzdadır.',
+      dataLoss:
+        "Veriler cihazınızda şifrelendiği için telefonunuzu kaybederseniz veya uygulamayı silerseniz verileriniz sonsuza kadar kaybolur. Sizin için kurtaramayız. Lütfen 'Yedekleme Dışa Aktar' özelliğini düzenli olarak kullanın.",
     },
-    
+
     medical: {
-      notAdvising: 'We are NOT advising or diagnosing anything. We are just a digital replacement for a paper calendar or diary.',
-      noInstructions: 'This app does NOT tell you when or what to take. It just reminds you of the things you decided on your own to put in the app.',
-      noInteractionCheck: 'We do NOT check for interactions between medications or overdose risks.',
-      notResponsible: 'We are NOT responsible for any medication you do or don\'t decide to take.',
-      digitalVersion: 'This is strictly a digital version of what you would use to keep track of your medication in real life outside of this app.',
+      notAdvising:
+        'Herhangi bir şey tavsiye etmiyor veya teşhis koymuyoruz. Sadece bir kağıt takvim veya günlüğün dijital yedeğiyiz.',
+      noInstructions:
+        'Bu uygulama size ne zaman veya ne alacağınızı SÖYLEMEZ. Sadece kendi başınıza uygulamaya koymaya karar verdiğiniz şeyleri hatırlatır.',
+      noInteractionCheck:
+        'İlaçlar arasındaki etkileşimleri veya aşırı doz risklerini kontrol ETMİYORUZ.',
+      notResponsible:
+        'Almaya karar verdiğiniz veya vermediğiniz herhangi bir ilaçtan sorumlu DEĞİLİZ.',
+      digitalVersion:
+        'Bu, gerçek hayatta bu uygulamanın dışında ilaçlarınızı takip etmek için kullanacağınız şeyin kesinlikle dijital bir versiyonudur.',
     },
-    
+
     userResponsibility: {
-      inputErrors: 'Just like in real life, making a mistake during an input in the app is your own fault. We are not responsible for faults that you made in the app.',
-      yourResponsibility: 'Anything you put in and mark in the app is fully your own responsibility. We do not guarantee anything by using this app.',
-      yourChoice: 'Everything you do and put in the app is your own choice.',
-      reminderTool: 'We are just a reminder app. This is strictly a reminder tool.',
+      inputErrors:
+        'Gerçek hayatta olduğu gibi, uygulamada bir giriş sırasında hata yapmak kendi hatanızdır. Uygulamada yaptığınız hatalardan sorumlu değiliz.',
+      yourResponsibility:
+        'Uygulamaya koyduğunuz ve işaretlediğiniz her şey tamamen kendi sorumluluğunuzdadır. Bu uygulamayı kullanarak hiçbir şeyi garanti etmiyoruz.',
+      yourChoice: 'Uygulamada yaptığınız ve koyduğunuz her şey kendi seçiminizdir.',
+      reminderTool:
+        'Biz sadece bir hatırlatma uygulamasıyız. Bu kesinlikle bir hatırlatma aracıdır.',
     },
-    
+
     technical: {
-      timeZones: 'Reminders/Notifications are based on your phone\'s current time. If you travel across time zones, your reminders will be based on the current device time.',
-      batteryOptimization: 'Android and iOS Battery Optimization settings may delay or suppress notifications. You are responsible for whitelisting this app in your phone\'s battery settings.',
-      clockChanges: 'Reminders rely on your device\'s internal clock. Manually changing your time or date may result in missed or premature reminders.',
+      timeZones:
+        'Hatırlatmalar/Bildirimler telefonunuzun mevcut saatine dayanır. Saat dilimleri arasında seyahat ederseniz, hatırlatmalarınız mevcut cihaz saatine dayalı olacaktır.',
+      batteryOptimization:
+        'Android ve iOS Pil Optimizasyonu ayarları bildirimleri geciktirebilir veya engelleyebilir. Bu uygulamayı telefonunuzun pil ayarlarında beyaz listeye almak sizin sorumluluğunuzdadır.',
+      clockChanges:
+        'Hatırlatmalar cihazınızın dahili saatine dayanır. Saatinizi veya tarihinizi manuel olarak değiştirmek, kaçırılan veya erken hatırlatmalara neden olabilir.',
     },
   },
-  
+
   onboarding: {
     createProfileTitle: 'Profilinizi Oluşturun',
     createProfileDescription: 'İlaçlarınızı yönetmeye başlamak için profilinizi oluşturun',
@@ -118,7 +135,8 @@ const trOverrides = {
     creatingProfile: 'Profil Oluşturuluyor...',
     camera: 'Kamera',
     gallery: 'Galeri',
-    additionalProfilesNote: 'Daha sonra aile üyeleri veya bakım verdiğiniz kişiler için ek profiller oluşturabilirsiniz',
+    additionalProfilesNote:
+      'Daha sonra aile üyeleri veya bakım verdiğiniz kişiler için ek profiller oluşturabilirsiniz',
     enterNameError: 'Lütfen bir isim girin',
     createProfileError: 'Profil oluşturulamadı. Lütfen tekrar deneyin.',
     permissionRequired: 'İzin Gerekli',
@@ -131,14 +149,14 @@ const trOverrides = {
     takePhoto: 'Fotoğraf Çek',
     chooseFromLibrary: 'Kütüphaneden Seç',
   },
-  
+
   tabs: {
     dashboard: 'Ana Sayfa',
     medications: 'İlaçlar',
     history: 'Geçmiş',
     settings: 'Ayarlar',
   },
-  
+
   dashboard: {
     today: 'Bugün',
     noMedicationsScheduled: 'Planlanmış İlaç Yok',
@@ -147,7 +165,7 @@ const trOverrides = {
     dosesScheduled: '{{count}} doz planlandı',
     dosesScheduled_other: '{{count}} doz planlandı',
   },
-  
+
   medications: {
     title: 'İlaçlar',
     addNew: 'İlaç Ekle',
@@ -166,11 +184,15 @@ const trOverrides = {
     packageSizeLabel: 'Paket Boyutu',
     addImage: 'Görsel Ekle',
     changeImage: 'Görsel Değiştir',
-    next: 'Sonraki: {{time}}',
+    next: 'Sonraki',
+    nextColon: 'Sonraki:',
     prn: 'Gerektiğinde',
     lowInventory: 'Düşük Envanter',
     expired: 'Süresi Doldu',
     inventory: 'Envanter: {{count}} {{unit}}',
+    amount: 'Miktar',
+    amountOfMedications: '{{count}} ilaç',
+    amountOfMedications_other: '{{count}} ilaç',
     basicInfo: 'Temel Bilgiler',
     scheduleInfo: 'Program',
     inventoryInfo: 'Envanter',
@@ -182,17 +204,20 @@ const trOverrides = {
     saveMedication: 'İlacı Kaydet',
     medicationSingular: 'ilaç',
     medicationPlural: 'ilaç',
-    
+
     scheduleTypes: {
       once_daily: 'Günde Bir Kez',
-      multiple_daily: 'Günde Birden Fazla',
-      every_x_days: 'Her X Günde Bir',
-      specific_weekdays: 'Belirli Haftanın Günleri',
+      multiple_daily: 'Günde Birden Fazla Kez',
+      xth_weekday: "Ayın X'inci Günü (Aylık)",
       cycle: 'Döngü (X gün kullan, Y gün ara)',
       every_x_hours: 'Her X Saatte Bir',
+      tapering: 'Azaltma (Kademeli Azalma)',
       prn: 'Gerektiğinde',
+      daily: 'Günlük',
+      every_x_days: 'X Günde Bir',
+      specific_weekdays: 'Belirli Haftanın Günleri',
     },
-    
+
     scheduleLabels: {
       time: 'Saat',
       times: 'Saatler',
@@ -205,7 +230,7 @@ const trOverrides = {
       intervalHours: 'Aralık (saat)',
       firstDoseTime: 'İlk Doz Saati',
     },
-    
+
     weekdays: {
       sunday: 'Pazar',
       monday: 'Pazartesi',
@@ -215,7 +240,15 @@ const trOverrides = {
       friday: 'Cuma',
       saturday: 'Cumartesi',
     },
-    
+
+    occurrences: {
+      first: "1'inci",
+      second: "2'nci",
+      third: "3'üncü",
+      fourth: "4'üncü",
+      last: 'Son',
+    },
+
     weekdaysShort: {
       sun: 'Paz',
       mon: 'Pzt',
@@ -225,11 +258,11 @@ const trOverrides = {
       fri: 'Cum',
       sat: 'Cmt',
     },
-    
+
     units: {
-      mg: 'mg',
-      g: 'g',
-      ml: 'ml',
+      grams: 'g',
+      milligrams: 'mg',
+      milliliters: 'ml',
       pills: 'hap',
       puffs: 'puf',
       drops: 'damla',
@@ -237,19 +270,19 @@ const trOverrides = {
       units: 'birim',
     },
   },
-  
+
   history: {
     title: 'Alım Geçmişi',
-    noHistory: 'Henüz Alım Geçmişi Yok',
-    startLoggingPrompt: 'Geçmişinizi görmek için ilaçlarınızı almaya başlayın',
-    filterByMedication: 'İlaca Göre Filtrele',
-    filterByAction: 'İşleme Göre Filtrele',
-    allMedications: 'Tüm İlaçlar',
-    allActions: 'Tüm İşlemler',
     last7Days: 'Son 7 Gün',
     last30Days: 'Son 30 Gün',
     last90Days: 'Son 90 Gün',
+    allTime: 'Tüm Zamanlar',
     customRange: 'Özel Aralık',
+    allMedications: 'Tüm İlaçlar',
+    allActions: 'Tüm İşlemler',
+    selectDateRange: 'Tarih aralığı seç',
+    filterByMedication: 'İlaca Göre Filtrele',
+    filterByAction: 'İşleme Göre Filtrele',
     actions: {
       taken: 'Alındı',
       skipped: 'Atlandı',
@@ -258,8 +291,49 @@ const trOverrides = {
     adherence: 'Uyum',
     missedDoses: 'Kaçırılan Dozlar',
     exportPdf: 'PDF Olarak Dışa Aktar',
+    scheduledFor: 'Planlanma zamanı',
+    takenAt: 'Alınma zamanı',
+    logged: 'Kaydedildi',
+    amount: 'Miktar',
+    noLogsMatch: 'Filtrelere uyan kayıt yok',
   },
-  
+
+  schedulePicker: {
+    scheduleTime: 'Planlama Zamanı',
+    scheduleTimes: 'Planlama Zamanları',
+    selectTime: 'Saat seç',
+    addTime: 'Zaman Ekle',
+    repeatEveryXDays: 'Her X günde bir tekrarla',
+    repeatEveryXDaysPlaceholder: 'örn., 1',
+    startDate: 'Başlangıç Tarihi',
+    time: 'Saat',
+    selectDays: 'Günleri Seç',
+    occurrence: 'Oluşum',
+    selectOccurrence: 'Oluşum seç',
+    weekday: 'Haftanın Günü',
+    selectWeekday: 'Haftanın gününü seç',
+    xthWeekdayExample: "Örnek: Her ayın 3. Salı günü saat 14:00'de",
+    daysOn: 'Kullanım Günleri',
+    daysOnPlaceholder: 'örn., 21',
+    daysOff: 'Ara Günleri',
+    daysOffPlaceholder: 'örn., 7',
+    cycleStartDate: 'Döngü Başlangıç Tarihi',
+    repeatEveryXHours: 'Her X saatte bir tekrarla',
+    repeatEveryXHoursPlaceholder: 'örn., 8',
+    firstDoseTime: 'İlk doz zamanı',
+    startingDose: 'Başlangıç Dozu',
+    startingDosePlaceholder: 'örn., 4',
+    decreaseBy: 'Azaltma Miktarı',
+    decreaseByPlaceholder: 'örn., 1',
+    everyXDays: 'Her X Günde',
+    everyXDaysPlaceholder: 'örn., 7',
+    taperingExample: 'Örnek: 4mg ile başla, her 7 günde 1mg azalt (4→3→2→1→0)',
+    prnDescription:
+      'Gerektiğinde ilaçların planlanmış dozları yoktur. Aldığınızda kaydedebilirsiniz.',
+    lowInventoryAlert: 'Düşük stok uyarısı (isteğe bağlı)',
+    lowInventoryAlertPlaceholder: 'örn., 5',
+  },
+
   intakeLog: {
     markAsTaken: 'Alındı Olarak İşaretle',
     markAsSkipped: 'Atlandı Olarak İşaretle',
@@ -267,24 +341,49 @@ const trOverrides = {
     addNotes: 'Not Ekle (isteğe bağlı)',
     notesPlaceholder: 'Neden atlandı veya kısmi?',
     amountTaken: 'Alınan Miktar',
-    partialAmountPlaceholder: 'e.g., {{example}}',
+    partialAmountPlaceholder: 'örn., {{example}}',
     logIntake: 'Alımı Kaydet',
     undoLast: 'Son Kaydı Geri Al',
     confirmUndo: 'Bu kayıt girişini geri almak istediğinizden emin misiniz?',
+    selectTime: 'Saat Seç',
+    selectDate: 'Tarih Seç',
+    selectAction: 'İşlem Seç',
+    logRetroactive: 'Geçmiş Doz Kaydet',
+    retroactiveDescription: 'Daha önce aldığınız bir dozu kaydedin',
+    timeLabel: 'Saat',
+    dateLabel: 'Tarih',
+    cannotLogFuture: 'Gelecek zaman için alım kaydedilemez',
+    editLog: 'Kaydı Düzenle',
+    deleteLog: 'Kaydı Sil',
+    confirmDelete: 'Bu kayıt girişini silmek istediğinizden emin misiniz?',
+    deleteDescription: 'Bu işlem kaydı kaldıracak ve uygunsa envanteri geri yükleyecektir.',
+    standardDoseNote: 'Standart doz: {{amount}} {{unit}}',
+    selectMedicationPlaceholder: 'İlaç seçin',
+    lateDoseTitle: 'Geç Doz Kaydedildi',
+    lateDoseMessage:
+      'Bu doz {{hours}} saat geç alındı. Optimal zamanlamayı korumak için bir sonraki dozunuzu yeniden planlamak ister misiniz?',
+    lateDoseMessageShort: '{{hours}} saat geç',
+    keepSchedule: 'Orijinal Programı Koru',
+    rescheduleNext: 'Sonraki Dozu Yeniden Planla',
+    logDoseOptions: 'Doz Kayıt Seçenekleri',
     tookAtScheduledTime: 'Planlandığı gibi aldım',
     takingNowEarly: 'Şimdi alıyorum',
+    earlyDoseMessage: 'Bu dozu {{minutes}} dakika erken alıyorsunuz.',
+    earlyDoseTitle: 'Erken Doz',
     nextDoseSoonTitle: 'Sonraki doz çok yakın',
-    nextDoseSoonDescription: '{{medicationName}} için sonraki doz {{nextTime}} zamanında ({{minutes}} dk içinde). Yalnızca bir sonraki dozu yeniden planlamak ister misiniz?',
+    nextDoseSoonDescription:
+      '{{medicationName}} için sonraki doz {{nextTime}} zamanında ({{minutes}} dk içinde). Yalnızca bir sonraki dozu yeniden planlamak ister misiniz?',
     keepScheduleAction: 'Programı koru',
     rescheduleNextDoseAction: 'Sonraki dozu yeniden planla',
     rescheduleNextDoseTitle: 'Sonraki dozu yeniden planla',
-    rescheduleNextDoseDescription: 'Bu işlem yalnızca bir sonraki doz zamanını değiştirir. Diğer tüm planlı dozlar aynı kalır.',
+    rescheduleNextDoseDescription:
+      'Bu işlem yalnızca bir sonraki doz zamanını değiştirir. Diğer tüm planlı dozlar aynı kalır.',
     chooseDateTime: 'Tarih ve saat seç',
     noTimeSelected: 'Saat seçilmedi',
     rescheduleConfirm: 'Yeniden planlamayı onayla',
     rescheduleTimeInvalidPast: 'Lütfen gelecekte bir saat seçin.',
   },
-  
+
   settings: {
     title: 'Ayarlar',
     profiles: 'Profiller',
@@ -300,30 +399,77 @@ const trOverrides = {
     appDescription: 'MyMedSchedule - Gizlilik odaklı ilaç takip uygulamanız',
     exportData: 'Verileri Dışa Aktar',
     importData: 'Verileri İçe Aktar',
-    
+
     authMethods: {
       biometric: 'Biyometrik',
       pin: 'PIN',
       none: 'Devre Dışı',
     },
-    
+
+    edit: 'Düzenle',
+    name: 'İsim',
+    enterName: 'Profil adı girin',
+    enterNamePlaceholder: 'İsminizi girin',
+    camera: 'Kamera',
+    gallery: 'Galeri',
+    permissionRequired: 'İzin Gerekli',
+    cameraPermission: 'Lütfen kameranıza erişim izni verin',
+    photoLibraryPermission: 'Lütfen fotoğraf kitaplığınıza erişim izni verin',
+    failedToPickImage: 'Resim seçilemedi',
+    failedToTakePhoto: 'Fotoğraf çekilemedi',
+    pleaseEnterName: 'Lütfen bir isim girin',
+    saveChanges: 'Değişiklikleri Kaydet',
+    saving: 'Kaydediliyor...',
+    createProfile: 'Profil Oluştur',
+    creating: 'Oluşturuluyor...',
+    cannotDelete: 'Silinemez',
+    cannotDeleteActiveMessage: 'Aktif profil silinemez. Lütfen önce başka bir profile geçin.',
+    deleteConfirmMessageFull:
+      'Bu profili silmek istediğinizden emin misiniz? Bu, bu profile bağlı tüm ilaçları da silecektir.',
+    failedToDelete: 'Profil silinemedi',
+    failedToUpdate: 'Profil güncellenemedi. Lütfen tekrar deneyin.',
+    failedToCreate: 'Profil oluşturulamadı. Lütfen tekrar deneyin.',
+    loading: 'Yükleniyor...',
     languages: {
       en: 'English',
       tr: 'Türkçe',
       nl: 'Nederlands',
     },
   },
-  
+
   profile: {
     switchProfile: 'Profil Değiştir',
     editProfile: 'Profili Düzenle',
+    edit: 'Düzenle',
+    name: 'İsim',
+    enterName: 'Profil adı girin',
+    enterNamePlaceholder: 'İsminizi girin',
+    camera: 'Kamera',
+    gallery: 'Galeri',
+    permissionRequired: 'İzin Gerekli',
+    cameraPermission: 'Lütfen kameranıza erişim izni verin',
+    photoLibraryPermission: 'Lütfen fotoğraf kitaplığınıza erişim izni verin',
+    failedToPickImage: 'Resim seçilemedi',
+    failedToTakePhoto: 'Fotoğraf çekilemedi',
+    pleaseEnterName: 'Lütfen bir isim girin',
+    saveChanges: 'Değişiklikleri Kaydet',
+    saving: 'Kaydediliyor...',
+    createProfile: 'Profil Oluştur',
+    creating: 'Oluşturuluyor...',
+    cannotDelete: 'Silinemez',
+    cannotDeleteActiveMessage: 'Aktif profil silinemez. Lütfen önce başka bir profile geçin.',
+    deleteConfirmMessageFull: 'Bu profili silmek istediğinizden emin misiniz? Bu, bu profile bağlı tüm ilaçları da silecektir.',
+    failedToDelete: 'Profil silinemedi',
+    failedToUpdate: 'Profil güncellenemedi. Lütfen tekrar deneyin.',
+    failedToCreate: 'Profil oluşturulamadı. Lütfen tekrar deneyin.',
     deleteProfile: 'Profili Sil',
     deleteConfirmTitle: 'Profili Sil',
     deleteConfirmMessage: 'Emin misiniz? Bu, bu profildeki tüm ilaçları silecektir.',
     cannotDeleteActive: 'Aktif profil silinemez',
     active: 'Aktif',
+    loading: 'Yükleniyor...',
   },
-  
+
   notifications: {
     medicationReminder: 'İlaç Hatırlatıcısı',
     timeToTake: '{{medication}} alma zamanı',
@@ -342,7 +488,7 @@ const trOverrides = {
       skip: 'Skip',
     },
   },
-  
+
   errors: {
     generic: 'Bir şeyler yanlış gitti',
     networkError: 'Ağ hatası oluştu',
@@ -353,7 +499,7 @@ const trOverrides = {
     failedToLoad: 'Veri yükleme başarısız',
     permissionDenied: 'İzin reddedildi',
   },
-  
+
   validation: {
     required: 'Gerekli',
     invalidTime: 'Geçersiz saat formatı (HH:mm)',

@@ -20,7 +20,7 @@ const nlOverrides = {
     success: 'Gelukt',
     warning: 'Waarschuwing',
   },
-  
+
   auth: {
     setupTitle: 'Beveilig Uw Medicijnen',
     setupDescription: 'Kies hoe u uw medicatiegegevens wilt beschermen',
@@ -29,7 +29,7 @@ const nlOverrides = {
     skipForNow: 'Nu Overslaan',
     enterPin: 'Voer PIN in',
     confirmPin: 'Bevestig PIN',
-    pinMismatch: 'PIN\'s komen niet overeen',
+    pinMismatch: "PIN's komen niet overeen",
     pinTooShort: 'PIN moet minimaal 4 cijfers zijn',
     unlockApp: 'Ontgrendel App',
     biometricPrompt: 'Ontgrendel MyMedSchedule',
@@ -46,8 +46,10 @@ const nlOverrides = {
     pinNumbersOnly: 'PIN mag alleen cijfers bevatten',
     createPin: 'PIN Aanmaken',
     setupMethod: '{{method}} Instellen',
-    skipAuthWarning: 'Weet u zeker dat u authenticatie wilt overslaan? Uw medicatiegegevens worden niet beschermd.',
-    disableAuthWarning: 'Weet u zeker dat u authenticatie wilt uitschakelen? Uw medicatiegegevens worden niet beschermd.',
+    skipAuthWarning:
+      'Weet u zeker dat u authenticatie wilt overslaan? Uw medicatiegegevens worden niet beschermd.',
+    disableAuthWarning:
+      'Weet u zeker dat u authenticatie wilt uitschakelen? Uw medicatiegegevens worden niet beschermd.',
     skipAuthentication: 'Authenticatie Overslaan',
     disable: 'Uitschakelen',
     faceId: 'Face ID',
@@ -56,7 +58,8 @@ const nlOverrides = {
     biometric: 'Biometrisch',
     pinCode: 'PIN-code',
     pinDescription: 'Maak een 4-6 cijferige PIN om de app te ontgrendelen',
-    biometricDescription: 'Gebruik de {{method}} van uw apparaat om de app snel en veilig te ontgrendelen',
+    biometricDescription:
+      'Gebruik de {{method}} van uw apparaat om de app snel en veilig te ontgrendelen',
     skipDescription: 'U kunt later authenticatie instellen in instellingen (niet aanbevolen)',
     skipAuth: 'Authenticatie Overslaan',
     setupBiometric: 'Biometrisch Instellen',
@@ -64,49 +67,62 @@ const nlOverrides = {
     setPinButton: 'PIN Instellen',
     settingUp: 'Instellen...',
   },
-  
+
   disclaimer: {
     title: 'Belangrijk: Lees Dit Voor U Deze App Gebruikt',
-    subtitle: 'By using this application, you acknowledge and agree to the following:',
+    subtitle: 'Door deze applicatie te gebruiken, erkent en accepteert u het volgende:',
     acknowledge: 'Ik heb het bovenstaande gelezen en begrepen',
     dataPrivacyTitle: 'Gegevens en Privacy',
     medicalDisclaimerTitle: 'Medische Disclaimer',
     userResponsibilityTitle: 'Gebruikersverantwoordelijkheid',
     technicalConsiderationsTitle: 'Technische Overwegingen',
-    buttonClose: 'Close',
-    buttonContinue: 'Continue',
-    buttonProcessing: 'Processing...',
-    
+    buttonClose: 'Sluiten',
+    buttonContinue: 'Doorgaan',
+    buttonProcessing: 'Verwerken...',
+
     dataPrivacy: {
-      noDataCollection: 'We do not collect any data. Absolutely nothing.',
-      fullyLocal: 'This app is fully local; there is no cloud save or online backup.',
-      secureStorage: 'Your data is stored securely and encrypted on your device. Nobody else can access it, not even the developer.',
-      exportUnencrypted: 'Exporting your data puts the data you have saved into that document, and it is completely unencrypted. It is your own responsibility to keep it safe.',
-      dataLoss: 'Because data is encrypted on your device, if you lose your phone or delete the app, your data is gone forever. We cannot recover it for you. Please use the \'Export Backup\' feature regularly.',
+      noDataCollection: 'We verzamelen geen gegevens. Absoluut niets.',
+      fullyLocal: 'Deze app is volledig lokaal; er is geen cloud-opslag of online back-up.',
+      secureStorage:
+        'Uw gegevens worden veilig en versleuteld opgeslagen op uw apparaat. Niemand anders kan er toegang toe krijgen, zelfs de ontwikkelaar niet.',
+      exportUnencrypted:
+        'Het exporteren van uw gegevens plaatst de gegevens die u hebt opgeslagen in dat document, en het is volledig onversleuteld. Het is uw eigen verantwoordelijkheid om het veilig te bewaren.',
+      dataLoss:
+        "Omdat gegevens versleuteld zijn op uw apparaat, zijn uw gegevens voor altijd verloren als u uw telefoon verliest of de app verwijdert. We kunnen het niet voor u herstellen. Gebruik regelmatig de functie 'Back-up Exporteren'.",
     },
-    
+
     medical: {
-      notAdvising: 'We are NOT advising or diagnosing anything. We are just a digital replacement for a paper calendar or diary.',
-      noInstructions: 'This app does NOT tell you when or what to take. It just reminds you of the things you decided on your own to put in the app.',
-      noInteractionCheck: 'We do NOT check for interactions between medications or overdose risks.',
-      notResponsible: 'We are NOT responsible for any medication you do or don\'t decide to take.',
-      digitalVersion: 'This is strictly a digital version of what you would use to keep track of your medication in real life outside of this app.',
+      notAdvising:
+        'We adviseren of diagnosticeren NIETS. We zijn slechts een digitale vervanging voor een papieren kalender of dagboek.',
+      noInstructions:
+        'Deze app vertelt u NIET wanneer of wat u moet innemen. Het herinnert u alleen aan de dingen die u zelf heeft besloten in de app te zetten.',
+      noInteractionCheck:
+        "We controleren NIET op interacties tussen medicijnen of overdosisrisico's.",
+      notResponsible:
+        'We zijn NIET verantwoordelijk voor medicijnen die u wel of niet besluit in te nemen.',
+      digitalVersion:
+        'Dit is strikt een digitale versie van wat u zou gebruiken om uw medicatie bij te houden in het echte leven buiten deze app.',
     },
-    
+
     userResponsibility: {
-      inputErrors: 'Just like in real life, making a mistake during an input in the app is your own fault. We are not responsible for faults that you made in the app.',
-      yourResponsibility: 'Anything you put in and mark in the app is fully your own responsibility. We do not guarantee anything by using this app.',
-      yourChoice: 'Everything you do and put in the app is your own choice.',
-      reminderTool: 'We are just a reminder app. This is strictly a reminder tool.',
+      inputErrors:
+        'Net zoals in het echte leven, is een fout maken tijdens een invoer in de app uw eigen fout. We zijn niet verantwoordelijk voor fouten die u in de app maakt.',
+      yourResponsibility:
+        'Alles wat u invoert en markeert in de app is volledig uw eigen verantwoordelijkheid. We garanderen niets door deze app te gebruiken.',
+      yourChoice: 'Alles wat u doet en invoert in de app is uw eigen keuze.',
+      reminderTool: 'We zijn gewoon een herinneringsapp. Dit is strikt een herinneringshulpmiddel.',
     },
-    
+
     technical: {
-      timeZones: 'Reminders/Notifications are based on your phone\'s current time. If you travel across time zones, your reminders will be based on the current device time.',
-      batteryOptimization: 'Android and iOS Battery Optimization settings may delay or suppress notifications. You are responsible for whitelisting this app in your phone\'s battery settings.',
-      clockChanges: 'Reminders rely on your device\'s internal clock. Manually changing your time or date may result in missed or premature reminders.',
+      timeZones:
+        'Herinneringen/Meldingen zijn gebaseerd op de huidige tijd van uw telefoon. Als u door tijdzones reist, zijn uw herinneringen gebaseerd op de huidige apparaattijd.',
+      batteryOptimization:
+        'Android en iOS Batterijoptimalisatie-instellingen kunnen meldingen vertragen of onderdrukken. U bent verantwoordelijk voor het whitelisten van deze app in de batterij-instellingen van uw telefoon.',
+      clockChanges:
+        'Herinneringen zijn afhankelijk van de interne klok van uw apparaat. Het handmatig wijzigen van uw tijd or datum kan resulteren in gemiste of voortijdige herinneringen.',
     },
   },
-  
+
   onboarding: {
     createProfileTitle: 'Maak Uw Profiel',
     createProfileDescription: 'Stel uw profiel in om te beginnen met het beheren van uw medicijnen',
@@ -118,7 +134,8 @@ const nlOverrides = {
     creatingProfile: 'Profiel Aanmaken...',
     camera: 'Camera',
     gallery: 'Galerij',
-    additionalProfilesNote: 'U kunt later extra profielen aanmaken voor familieleden of anderen voor wie u zorgt',
+    additionalProfilesNote:
+      'U kunt later extra profielen aanmaken voor familieleden of anderen voor wie u zorgt',
     enterNameError: 'Voer alstublieft een naam in',
     createProfileError: 'Profiel aanmaken mislukt. Probeer het opnieuw.',
     permissionRequired: 'Toestemming Vereist',
@@ -131,14 +148,14 @@ const nlOverrides = {
     takePhoto: 'Foto Maken',
     chooseFromLibrary: 'Kiezen uit Bibliotheek',
   },
-  
+
   tabs: {
     dashboard: 'Dashboard',
     medications: 'Medicijnen',
     history: 'Geschiedenis',
     settings: 'Instellingen',
   },
-  
+
   dashboard: {
     today: 'Vandaag',
     noMedicationsScheduled: 'Geen Medicijnen Gepland',
@@ -147,7 +164,7 @@ const nlOverrides = {
     dosesScheduled: '{{count}} dosis gepland',
     dosesScheduled_other: '{{count}} doses gepland',
   },
-  
+
   medications: {
     title: 'Medicijnen',
     addNew: 'Medicijn Toevoegen',
@@ -166,11 +183,15 @@ const nlOverrides = {
     packageSizeLabel: 'Verpakkingsgrootte',
     addImage: 'Afbeelding Toevoegen',
     changeImage: 'Afbeelding Wijzigen',
-    next: 'Volgende: {{time}}',
+    next: 'Volgende',
+    nextColon: 'Volgende:',
     prn: 'Zo Nodig',
     lowInventory: 'Lage Voorraad',
     expired: 'Verlopen',
     inventory: 'Voorraad: {{count}} {{unit}}',
+    amount: 'Hoeveelheid',
+    amountOfMedications: '{{count}} medicijn',
+    amountOfMedications_other: '{{count}} medicijnen',
     basicInfo: 'Basisinformatie',
     scheduleInfo: 'Schema',
     inventoryInfo: 'Voorraad',
@@ -182,17 +203,20 @@ const nlOverrides = {
     saveMedication: 'Medicijn Opslaan',
     medicationSingular: 'medicijn',
     medicationPlural: 'medicijnen',
-    
+
     scheduleTypes: {
-      once_daily: 'Eenmaal Daags',
-      multiple_daily: 'Meerdere Keren Daags',
-      every_x_days: 'Elke X Dagen',
-      specific_weekdays: 'Specifieke Weekdagen',
+      once_daily: 'Eenmaal Dagelijks',
+      multiple_daily: 'Meerdere Keren Dagelijks',
+      xth_weekday: 'Xe Dag van de Week (Maandelijks)',
       cycle: 'Cyclus (X dagen aan, Y dagen uit)',
       every_x_hours: 'Elke X Uur',
+      tapering: 'Afbouwen (Geleidelijke Vermindering)',
       prn: 'Zo Nodig',
+      daily: 'Dagelijks',
+      every_x_days: 'Elke X Dagen',
+      specific_weekdays: 'Specifieke Weekdagen',
     },
-    
+
     scheduleLabels: {
       time: 'Tijd',
       times: 'Tijden',
@@ -205,7 +229,7 @@ const nlOverrides = {
       intervalHours: 'Interval (uren)',
       firstDoseTime: 'Eerste Dosis Tijd',
     },
-    
+
     weekdays: {
       sunday: 'Zondag',
       monday: 'Maandag',
@@ -215,7 +239,15 @@ const nlOverrides = {
       friday: 'Vrijdag',
       saturday: 'Zaterdag',
     },
-    
+
+    occurrences: {
+      first: '1e',
+      second: '2e',
+      third: '3e',
+      fourth: '4e',
+      last: 'Laatste',
+    },
+
     weekdaysShort: {
       sun: 'Zo',
       mon: 'Ma',
@@ -225,11 +257,11 @@ const nlOverrides = {
       fri: 'Vr',
       sat: 'Za',
     },
-    
+
     units: {
-      mg: 'mg',
-      g: 'g',
-      ml: 'ml',
+      grams: 'g',
+      milligrams: 'mg',
+      milliliters: 'ml',
       pills: 'pillen',
       puffs: 'pufjes',
       drops: 'druppels',
@@ -237,19 +269,19 @@ const nlOverrides = {
       units: 'eenheden',
     },
   },
-  
+
   history: {
     title: 'Innamegeschiedenis',
-    noHistory: 'Nog Geen Innamegeschiedenis',
-    startLoggingPrompt: 'Begin met het innemen van uw medicijnen om uw geschiedenis te zien',
-    filterByMedication: 'Filteren op Medicijn',
-    filterByAction: 'Filteren op Actie',
-    allMedications: 'Alle Medicijnen',
-    allActions: 'Alle Acties',
     last7Days: 'Laatste 7 Dagen',
     last30Days: 'Laatste 30 Dagen',
     last90Days: 'Laatste 90 Dagen',
+    allTime: 'Altijd',
     customRange: 'Aangepast Bereik',
+    allMedications: 'Alle Medicijnen',
+    allActions: 'Alle Acties',
+    selectDateRange: 'Selecteer datumbereik',
+    filterByMedication: 'Filteren op Medicijn',
+    filterByAction: 'Filteren op Actie',
     actions: {
       taken: 'Ingenomen',
       skipped: 'Overgeslagen',
@@ -258,8 +290,49 @@ const nlOverrides = {
     adherence: 'Therapietrouw',
     missedDoses: 'Gemiste Doses',
     exportPdf: 'Exporteren naar PDF',
+    scheduledFor: 'Gepland voor',
+    takenAt: 'Ingenomen om',
+    logged: 'Geregistreerd',
+    amount: 'Hoeveelheid',
+    noLogsMatch: 'Geen registraties komen overeen met de filters',
   },
-  
+
+  schedulePicker: {
+    scheduleTime: 'Planningstijd',
+    scheduleTimes: 'Planningstijden',
+    selectTime: 'Tijd selecteren',
+    addTime: 'Tijd Toevoegen',
+    repeatEveryXDays: 'Herhaal elke X dagen',
+    repeatEveryXDaysPlaceholder: 'bijv., 1',
+    startDate: 'Startdatum',
+    time: 'Tijd',
+    selectDays: 'Dagen Selecteren',
+    occurrence: 'Voorkomen',
+    selectOccurrence: 'Voorkomen selecteren',
+    weekday: 'Weekdag',
+    selectWeekday: 'Weekdag selecteren',
+    xthWeekdayExample: 'Voorbeeld: Elke 3e dinsdag van de maand om 14:00',
+    daysOn: 'Dagen Aan',
+    daysOnPlaceholder: 'bijv., 21',
+    daysOff: 'Dagen Uit',
+    daysOffPlaceholder: 'bijv., 7',
+    cycleStartDate: 'Cyclus Startdatum',
+    repeatEveryXHours: 'Herhaal elke X uur',
+    repeatEveryXHoursPlaceholder: 'bijv., 8',
+    firstDoseTime: 'Eerste dosis tijd',
+    startingDose: 'Startdosis',
+    startingDosePlaceholder: 'bijv., 4',
+    decreaseBy: 'Verminderen Met',
+    decreaseByPlaceholder: 'bijv., 1',
+    everyXDays: 'Elke X Dagen',
+    everyXDaysPlaceholder: 'bijv., 7',
+    taperingExample: 'Voorbeeld: Begin met 4mg, verlaag met 1mg elke 7 dagen (4→3→2→1→0)',
+    prnDescription:
+      'Zo-nodig medicijnen hebben geen geplande doses. U kunt registreren wanneer u ze inneemt.',
+    lowInventoryAlert: 'Lage voorraadwaarschuwing (optioneel)',
+    lowInventoryAlertPlaceholder: 'bijv., 5',
+  },
+
   intakeLog: {
     markAsTaken: 'Markeren als Ingenomen',
     markAsSkipped: 'Markeren als Overgeslagen',
@@ -267,24 +340,50 @@ const nlOverrides = {
     addNotes: 'Notities Toevoegen (optioneel)',
     notesPlaceholder: 'Waarom overgeslagen of gedeeltelijk?',
     amountTaken: 'Ingenomen Hoeveelheid',
-    partialAmountPlaceholder: 'e.g., {{example}}',
+    partialAmountPlaceholder: 'bijv., {{example}}',
     logIntake: 'Inname Registreren',
     undoLast: 'Laatste Registratie Ongedaan Maken',
     confirmUndo: 'Weet u zeker dat u deze registratie ongedaan wilt maken?',
+    selectTime: 'Tijd Selecteren',
+    selectDate: 'Datum Selecteren',
+    selectAction: 'Actie Selecteren',
+    logRetroactive: 'Eerdere Dosis Registreren',
+    retroactiveDescription: 'Registreer een dosis die u eerder hebt ingenomen',
+    timeLabel: 'Tijd',
+    dateLabel: 'Datum',
+    cannotLogFuture: 'Kan geen inname registreren voor toekomstige tijd',
+    editLog: 'Registratie Bewerken',
+    deleteLog: 'Registratie Verwijderen',
+    confirmDelete: 'Weet u zeker dat u deze registratie wilt verwijderen?',
+    deleteDescription:
+      'Dit verwijdert de registratie en herstelt indien van toepassing de voorraad.',
+    standardDoseNote: 'Standaard dosis: {{amount}} {{unit}}',
+    selectMedicationPlaceholder: 'Selecteer medicijn',
+    lateDoseTitle: 'Late Dosis Geregistreerd',
+    lateDoseMessage:
+      'Deze dosis werd {{hours}} uur te laat ingenomen. Wilt u uw volgende dosis opnieuw plannen om optimale timing te behouden?',
+    lateDoseMessageShort: '{{hours}} uur te laat',
+    keepSchedule: 'Oorspronkelijk Schema Behouden',
+    rescheduleNext: 'Volgende Dosis Verplaatsen',
+    logDoseOptions: 'Dosis Registratie Opties',
     tookAtScheduledTime: 'Ik heb het volgens schema ingenomen',
     takingNowEarly: 'Ik neem het nu',
+    earlyDoseMessage: 'U neemt deze dosis {{minutes}} minuten te vroeg.',
+    earlyDoseTitle: 'Vroege Dosis',
     nextDoseSoonTitle: 'Volgende dosis is binnenkort',
-    nextDoseSoonDescription: 'Uw volgende dosis van {{medicationName}} staat gepland voor {{nextTime}} (over {{minutes}} min). Wilt u alleen de volgende dosis opnieuw plannen?',
+    nextDoseSoonDescription:
+      'Uw volgende dosis van {{medicationName}} staat gepland voor {{nextTime}} (over {{minutes}} min). Wilt u alleen de volgende dosis opnieuw plannen?',
     keepScheduleAction: 'Schema behouden',
     rescheduleNextDoseAction: 'Volgende dosis verplaatsen',
     rescheduleNextDoseTitle: 'Volgende dosis verplaatsen',
-    rescheduleNextDoseDescription: 'Dit wijzigt alleen de tijd van de volgende dosis. Alle andere doses blijven hetzelfde.',
+    rescheduleNextDoseDescription:
+      'Dit wijzigt alleen de tijd van de volgende dosis. Alle andere doses blijven hetzelfde.',
     chooseDateTime: 'Datum en tijd kiezen',
     noTimeSelected: 'Geen tijd geselecteerd',
     rescheduleConfirm: 'Verplaatsen bevestigen',
     rescheduleTimeInvalidPast: 'Kies een tijd in de toekomst.',
   },
-  
+
   settings: {
     title: 'Instellingen',
     profiles: 'Profielen',
@@ -300,30 +399,78 @@ const nlOverrides = {
     appDescription: 'MyMedSchedule - Uw privacy-gerichte medicijntracker',
     exportData: 'Gegevens Exporteren',
     importData: 'Gegevens Importeren',
-    
+
     authMethods: {
       biometric: 'Biometrisch',
       pin: 'PIN',
       none: 'Uitgeschakeld',
     },
-    
+
+    edit: 'Bewerken',
+    name: 'Naam',
+    enterName: 'Voer profielnaam in',
+    enterNamePlaceholder: 'Voer uw naam in',
+    camera: 'Camera',
+    gallery: 'Galerij',
+    permissionRequired: 'Toestemming Vereist',
+    cameraPermission: 'Geef alstublieft toegang tot uw camera',
+    photoLibraryPermission: 'Geef alstublieft toegang tot uw fotobibliotheek',
+    failedToPickImage: 'Afbeelding selecteren mislukt',
+    failedToTakePhoto: 'Foto maken mislukt',
+    pleaseEnterName: 'Voer alstublieft een naam in',
+    saveChanges: 'Wijzigingen Opslaan',
+    saving: 'Opslaan...',
+    createProfile: 'Profiel Aanmaken',
+    creating: 'Aanmaken...',
+    cannotDelete: 'Kan Niet Verwijderen',
+    cannotDeleteActiveMessage:
+      'Kan het actieve profiel niet verwijderen. Schakel eerst over naar een ander profiel.',
+    deleteConfirmMessageFull:
+      'Weet u zeker dat u dit profiel wilt verwijderen? Dit verwijdert ook alle medicijnen die aan dit profiel zijn gekoppeld.',
+    failedToDelete: 'Profiel verwijderen mislukt',
+    failedToUpdate: 'Profiel bijwerken mislukt. Probeer het opnieuw.',
+    failedToCreate: 'Profiel aanmaken mislukt. Probeer het opnieuw.',
+    loading: 'Laden...',
     languages: {
       en: 'English',
       tr: 'Türkçe',
       nl: 'Nederlands',
     },
   },
-  
+
   profile: {
     switchProfile: 'Profiel Wisselen',
     editProfile: 'Profiel Bewerken',
+    edit: 'Bewerken',
+    name: 'Naam',
+    enterName: 'Voer profielnaam in',
+    enterNamePlaceholder: 'Voer uw naam in',
+    camera: 'Camera',
+    gallery: 'Galerij',
+    permissionRequired: 'Toestemming Vereist',
+    cameraPermission: 'Geef alstublieft toegang tot uw camera',
+    photoLibraryPermission: 'Geef alstublieft toegang tot uw fotobibliotheek',
+    failedToPickImage: 'Afbeelding selecteren mislukt',
+    failedToTakePhoto: 'Foto maken mislukt',
+    pleaseEnterName: 'Voer alstublieft een naam in',
+    saveChanges: 'Wijzigingen Opslaan',
+    saving: 'Opslaan...',
+    createProfile: 'Profiel Aanmaken',
+    creating: 'Aanmaken...',
+    cannotDelete: 'Kan Niet Verwijderen',
+    cannotDeleteActiveMessage: 'Kan het actieve profiel niet verwijderen. Schakel eerst over naar een ander profiel.',
+    deleteConfirmMessageFull: 'Weet u zeker dat u dit profiel wilt verwijderen? Dit verwijdert ook alle medicijnen die aan dit profiel zijn gekoppeld.',
+    failedToDelete: 'Profiel verwijderen mislukt',
+    failedToUpdate: 'Profiel bijwerken mislukt. Probeer het opnieuw.',
+    failedToCreate: 'Profiel aanmaken mislukt. Probeer het opnieuw.',
     deleteProfile: 'Profiel Verwijderen',
     deleteConfirmTitle: 'Profiel Verwijderen',
     deleteConfirmMessage: 'Weet u het zeker? Dit verwijdert alle medicijnen voor dit profiel.',
     cannotDeleteActive: 'Kan het actieve profiel niet verwijderen',
     active: 'Actief',
+    loading: 'Laden...',
   },
-  
+
   notifications: {
     medicationReminder: 'Medicijnherinnering',
     timeToTake: 'Tijd om {{medication}} in te nemen',
@@ -342,7 +489,7 @@ const nlOverrides = {
       skip: 'Skip',
     },
   },
-  
+
   errors: {
     generic: 'Er is iets misgegaan',
     networkError: 'Netwerkfout opgetreden',
@@ -353,7 +500,7 @@ const nlOverrides = {
     failedToLoad: 'Laden van gegevens mislukt',
     permissionDenied: 'Toestemming geweigerd',
   },
-  
+
   validation: {
     required: 'Verplicht',
     invalidTime: 'Ongeldig tijdformaat (HH:mm)',

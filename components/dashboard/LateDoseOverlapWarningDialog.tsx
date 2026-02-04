@@ -1,9 +1,17 @@
 import { View } from 'react-native';
 import { AlertTriangle } from 'lucide-react-native';
 import { format } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Text } from '@/components/ui/text';
 import i18n from '@/lib/i18n';
 
@@ -28,6 +36,8 @@ export function LateDoseOverlapWarningDialog({
   onRescheduleNext,
   isLoading,
 }: LateDoseOverlapWarningDialogProps) {
+  const dateFnsLocale = getDateFnsLocale();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-11/12 max-w-md" showClose>
@@ -41,7 +51,7 @@ export function LateDoseOverlapWarningDialog({
               <DialogDescription>
                 {i18n.t('intakeLog.nextDoseSoonDescription', {
                   medicationName,
-                  nextTime: format(nextDoseTime, 'MMM d, yyyy • HH:mm'),
+                  nextTime: format(nextDoseTime, 'PPp', { locale: dateFnsLocale }),
                   minutes: minutesUntilNext,
                 })}
               </DialogDescription>
@@ -51,7 +61,7 @@ export function LateDoseOverlapWarningDialog({
 
         <DialogFooter className="flex-col gap-2">
           <Button onPress={onRescheduleNext} disabled={isLoading}>
-            <Text className="text-primary-foreground font-semibold">
+            <Text className="font-semibold text-primary-foreground">
               {i18n.t('intakeLog.rescheduleNextDoseAction')}
             </Text>
           </Button>
@@ -63,4 +73,3 @@ export function LateDoseOverlapWarningDialog({
     </Dialog>
   );
 }
-

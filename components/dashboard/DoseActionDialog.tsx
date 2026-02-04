@@ -5,11 +5,11 @@ import { Input } from '@/components/ui/input';
 import { useState, useEffect } from 'react';
 import { X, AlertTriangle, Clock } from 'lucide-react-native';
 import { getNextDose, type ScheduledDose } from '@/lib/schedule/calculator';
-import { 
-  createIntakeLog, 
-  getMedicationById, 
+import {
+  createIntakeLog,
+  getMedicationById,
   updateMedicationInventory,
-  setNextDoseOverrideTime
+  setNextDoseOverrideTime,
 } from '@/lib/db/operations';
 import {
   cancelNotificationForDose,
@@ -19,6 +19,7 @@ import {
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
 import { format, differenceInMinutes, differenceInHours, isAfter } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 import { LateDoseOverlapWarningDialog } from '@/components/dashboard/LateDoseOverlapWarningDialog';
 import { RescheduleNextDoseDialog } from '@/components/dashboard/RescheduleNextDoseDialog';
 
@@ -30,6 +31,7 @@ export interface DoseActionDialogProps {
 }
 
 export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActionDialogProps) {
+  const dateFnsLocale = getDateFnsLocale();
   const { activeProfile, loadMedications } = useStore();
   const [action, setAction] = useState<'taken' | 'skipped' | 'partial'>('taken');
   const [partialAmount, setPartialAmount] = useState('');
@@ -37,7 +39,9 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
   const [isLoading, setIsLoading] = useState(false);
   const [medication, setMedication] = useState<any>(null);
   const [isLateOverlapWarningOpen, setIsLateOverlapWarningOpen] = useState(false);
-  const [lateOverlapMinutesUntilNext, setLateOverlapMinutesUntilNext] = useState<number | null>(null);
+  const [lateOverlapMinutesUntilNext, setLateOverlapMinutesUntilNext] = useState<number | null>(
+    null
+  );
   const [lateOverlapNextDoseTime, setLateOverlapNextDoseTime] = useState<Date | null>(null);
   const [isRescheduleNextOpen, setIsRescheduleNextOpen] = useState(false);
 
@@ -124,9 +128,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
     }
   }
 
-  function computeLateOverlapWarning():
-    | { nextDoseTime: Date; minutesUntilNext: number }
-    | null {
+  function computeLateOverlapWarning(): { nextDoseTime: Date; minutesUntilNext: number } | null {
     if (!medication) return null;
     if (!isLate) return null;
     if (action !== 'taken' && action !== 'partial') return null;
@@ -167,9 +169,8 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
 
     setIsLoading(true);
     try {
-      const dosageAmount = action === 'partial' && partialAmount
-        ? parseFloat(partialAmount)
-        : dose.dosageAmount;
+      const dosageAmount =
+        action === 'partial' && partialAmount ? parseFloat(partialAmount) : dose.dosageAmount;
 
       // Validate partial amount
       if (action === 'partial' && (!partialAmount || isNaN(dosageAmount) || dosageAmount <= 0)) {
@@ -246,9 +247,9 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
   const getStatusBanner = () => {
     if (isLate) {
       return (
-        <View className="mb-4 p-3 bg-red-50 dark:bg-red-950 rounded-lg flex-row items-center gap-2">
+        <View className="mb-4 flex-row items-center gap-2 rounded-lg bg-red-50 p-3 dark:bg-red-950">
           <AlertTriangle size={20} className="text-red-600 dark:text-red-400" />
-          <Text className="text-sm text-red-600 dark:text-red-400 flex-1">
+          <Text className="flex-1 text-sm text-red-600 dark:text-red-400">
             {i18n.t('intakeLog.lateDoseMessage', { hours: Math.floor(hoursLate) })}
           </Text>
         </View>
@@ -256,9 +257,9 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
     }
     if (isEarly) {
       return (
-        <View className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg flex-row items-center gap-2">
+        <View className="mb-4 flex-row items-center gap-2 rounded-lg bg-yellow-50 p-3 dark:bg-yellow-950">
           <Clock size={20} className="text-yellow-600 dark:text-yellow-400" />
-          <Text className="text-sm text-yellow-600 dark:text-yellow-400 flex-1">
+          <Text className="flex-1 text-sm text-yellow-600 dark:text-yellow-400">
             {i18n.t('intakeLog.earlyDoseMessage', { minutes: minutesEarly })}
           </Text>
         </View>
@@ -270,114 +271,104 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
   return (
     <>
       <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-        <Pressable className="flex-1 justify-center items-center bg-black/50" onPress={onClose}>
-          <Pressable className="bg-background w-11/12 max-w-md rounded-2xl p-6" onPress={(e) => e.stopPropagation()}>
-          {/* Header */}
-          <View className="flex-row justify-between items-center mb-6">
-            <Text className="text-2xl font-bold text-foreground">
-              {dose.medicationName}
-            </Text>
-            <Pressable onPress={onClose}>
-              <X size={24} className="text-muted-foreground" />
-            </Pressable>
-          </View>
+        <Pressable className="flex-1 items-center justify-center bg-black/50" onPress={onClose}>
+          <Pressable
+            className="w-11/12 max-w-md rounded-2xl bg-background p-6"
+            onPress={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <View className="mb-6 flex-row items-center justify-between">
+              <Text className="text-2xl font-bold text-foreground">{dose.medicationName}</Text>
+              <Pressable onPress={onClose}>
+                <X size={24} className="text-muted-foreground" />
+              </Pressable>
+            </View>
 
-          {/* Medication Info */}
-          <View className="mb-6 p-4 bg-muted rounded-lg">
-            <Text className="text-lg font-semibold text-foreground mb-1">
-              {format(dose.time, 'MMM d, yyyy • HH:mm')}
-            </Text>
-            <Text className="text-sm text-muted-foreground">
-              {dose.dosageAmount} {dose.dosageUnit}
-            </Text>
-            {dose.notes && (
-              <Text className="text-xs text-muted-foreground italic mt-2">
-                {dose.notes}
+            {/* Medication Info */}
+            <View className="mb-6 rounded-lg bg-muted p-4">
+              <Text className="text-PPp', { locale: dateFnsLocale }t-foreground mb-1">
+                {format(dose.time, 'MMM d, yyyy • HH:mm')}
               </Text>
-            )}
-          </View>
-
-          {/* Status Banner */}
-          {getStatusBanner()}
-          {!isLateOverlapWarningOpen && !isRescheduleNextOpen && (
-            <>
-              {/* Action Selection */}
-              <Text className="text-sm font-medium text-foreground mb-3">
-                {i18n.t('intakeLog.selectAction')}
+              <Text className="text-sm text-muted-foreground">
+                {dose.dosageAmount} {i18n.t(`medications.units.${dose.dosageUnit}`)}
               </Text>
-              <View className="flex-row gap-2 mb-4">
-                <Button
-                  variant={action === 'taken' ? 'default' : 'outline'}
-                  onPress={() => setAction('taken')}
-                  className="flex-1"
-                >
-                  <Text>{i18n.t('history.actions.taken')}</Text>
-                </Button>
-                <Button
-                  variant={action === 'skipped' ? 'default' : 'outline'}
-                  onPress={() => setAction('skipped')}
-                  className="flex-1"
-                >
-                  <Text>{i18n.t('history.actions.skipped')}</Text>
-                </Button>
-                <Button
-                  variant={action === 'partial' ? 'default' : 'outline'}
-                  onPress={() => setAction('partial')}
-                  className="flex-1"
-                >
-                  <Text>{i18n.t('history.actions.partial')}</Text>
-                </Button>
-              </View>
+              {dose.notes && (
+                <Text className="mt-2 text-xs italic text-muted-foreground">{dose.notes}</Text>
+              )}
+            </View>
 
-              {/* Partial Amount Input */}
-              {action === 'partial' && (
-                <View className="mb-4">
+            {/* Status Banner */}
+            {getStatusBanner()}
+            {!isLateOverlapWarningOpen && !isRescheduleNextOpen && (
+              <>
+                {/* Action Selection */}
+                <Text className="mb-3 text-sm font-medium text-foreground">
+                  {i18n.t('intakeLog.selectAction')}
+                </Text>
+                <View className="mb-4 flex-row gap-2">
+                  <Button
+                    variant={action === 'taken' ? 'default' : 'outline'}
+                    onPress={() => setAction('taken')}
+                    className="flex-1">
+                    <Text>{i18n.t('history.actions.taken')}</Text>
+                  </Button>
+                  <Button
+                    variant={action === 'skipped' ? 'default' : 'outline'}
+                    onPress={() => setAction('skipped')}
+                    className="flex-1">
+                    <Text>{i18n.t('history.actions.skipped')}</Text>
+                  </Button>
+                  <Button
+                    variant={action === 'partial' ? 'default' : 'outline'}
+                    onPress={() => setAction('partial')}
+                    className="flex-1">
+                    <Text>{i18n.t('history.actions.partial')}</Text>
+                  </Button>
+                </View>
+
+                {/* Partial Amount Input */}
+                {action === 'partial' && (
+                  <View className="mb-4">
+                    <Input
+                      label={i18n.t('intakeLog.amountTaken')}
+                      value={partialAmount}
+                      onChangeText={setPartialAmount}
+                      placeholder={i18n.t('intakeLog.partialAmountPlaceholder', {
+                        example: dose.dosageAmount / 2,
+                      })}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                )}
+
+                {/* Notes Input */}
+                <View className="mb-6">
                   <Input
-                    label={i18n.t('intakeLog.amountTaken')}
-                    value={partialAmount}
-                    onChangeText={setPartialAmount}
-                    placeholder={i18n.t('intakeLog.partialAmountPlaceholder', {
-                      example: dose.dosageAmount / 2,
-                    })}
-                    keyboardType="numeric"
+                    label={i18n.t('intakeLog.addNotes')}
+                    value={notes}
+                    onChangeText={setNotes}
+                    placeholder={i18n.t('intakeLog.notesPlaceholder')}
+                    multiline
+                    numberOfLines={3}
                   />
                 </View>
-              )}
 
-              {/* Notes Input */}
-              <View className="mb-6">
-                <Input
-                  label={i18n.t('intakeLog.addNotes')}
-                  value={notes}
-                  onChangeText={setNotes}
-                  placeholder={i18n.t('intakeLog.notesPlaceholder')}
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-
-              {/* Action Buttons */}
-              <View className="gap-2">
-                <Button
-                  variant="outline"
-                  onPress={handleLogAtScheduledTime}
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  <Text className="text-center">{i18n.t('intakeLog.tookAtScheduledTime')}</Text>
-                </Button>
-                <Button
-                  onPress={handleLogTakenNow}
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  <Text className="text-primary-foreground font-semibold">
-                    {isLoading ? i18n.t('common.loading') : i18n.t('intakeLog.takingNowEarly')}
-                  </Text>
-                </Button>
-              </View>
-            </>
-          )}
+                {/* Action Buttons */}
+                <View className="gap-2">
+                  <Button
+                    variant="outline"
+                    onPress={handleLogAtScheduledTime}
+                    className="w-full"
+                    disabled={isLoading}>
+                    <Text className="text-center">{i18n.t('intakeLog.tookAtScheduledTime')}</Text>
+                  </Button>
+                  <Button onPress={handleLogTakenNow} className="w-full" disabled={isLoading}>
+                    <Text className="font-semibold text-primary-foreground">
+                      {isLoading ? i18n.t('common.loading') : i18n.t('intakeLog.takingNowEarly')}
+                    </Text>
+                  </Button>
+                </View>
+              </>
+            )}
           </Pressable>
         </Pressable>
       </Modal>

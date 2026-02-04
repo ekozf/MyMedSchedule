@@ -7,30 +7,30 @@ import { useState, useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useStore } from '@/store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { 
-  getMedicationById, 
-  updateMedication, 
+import {
+  getMedicationById,
+  updateMedication,
   deleteMedication,
-  getIntakeLogsByMedication 
+  getIntakeLogsByMedication,
 } from '@/lib/db/operations';
 import { getNextDose, getScheduleDescription } from '@/lib/schedule/calculator';
-import { 
+import {
   cancelAllNotificationsForMedication,
   scheduleNotificationsForMedication,
   scheduleRefillReminder,
 } from '@/lib/notifications/scheduler';
 import { format, differenceInDays } from 'date-fns';
-import { 
-  Edit, 
-  Trash2, 
-  Clock, 
-  Package, 
-  AlertTriangle, 
-  CheckCircle2, 
+import {
+  Edit,
+  Trash2,
+  Clock,
+  Package,
+  AlertTriangle,
+  CheckCircle2,
   XCircle,
   Pill,
   History,
-  ChevronLeft
+  ChevronLeft,
 } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import type { Medication, IntakeLog } from '@/types';
@@ -52,20 +52,17 @@ export default function MedicationDetailScreen() {
 
   async function loadMedicationData() {
     if (!id) return;
-    
+
     try {
       setIsLoading(true);
-      const [med, logs] = await Promise.all([
-        getMedicationById(id),
-        getIntakeLogsByMedication(id)
-      ]);
-      
+      const [med, logs] = await Promise.all([getMedicationById(id), getIntakeLogsByMedication(id)]);
+
       setMedication(med);
-      
+
       // Get most recent log
       if (logs.length > 0) {
-        const sorted = logs.sort((a, b) => 
-          new Date(b.actualTime).getTime() - new Date(a.actualTime).getTime()
+        const sorted = logs.sort(
+          (a, b) => new Date(b.actualTime).getTime() - new Date(a.actualTime).getTime()
         );
         setLastLog(sorted[0]);
       }
@@ -79,8 +76,8 @@ export default function MedicationDetailScreen() {
 
   async function handleToggleActive() {
     if (!medication) return;
-    
-    const title = medication.isActive 
+
+    const title = medication.isActive
       ? i18n.t('medications.markInactiveTitle')
       : i18n.t('medications.markActiveTitle');
     const message = medication.isActive
@@ -89,47 +86,43 @@ export default function MedicationDetailScreen() {
     const confirmText = medication.isActive
       ? i18n.t('medications.markInactiveConfirm')
       : i18n.t('medications.markActiveConfirm');
-    
-    Alert.alert(
-      title,
-      message,
-      [
-        { text: i18n.t('common.cancel'), style: 'cancel' },
-        {
-          text: confirmText,
-          style: medication.isActive ? 'destructive' : 'default',
-          onPress: async () => {
-            try {
-              setIsUpdating(true);
-              const newActiveState = !medication.isActive;
-              const updatedMed = await updateMedication(medication.id, { isActive: newActiveState });
-              
-              // Handle notifications
-              if (newActiveState && updatedMed && !updatedMed.isPrn) {
-                // Reactivating - schedule notifications
-                await scheduleNotificationsForMedication(updatedMed);
-                await scheduleRefillReminder(updatedMed);
-              } else {
-                // Deactivating - cancel notifications
-                await cancelAllNotificationsForMedication(medication.id);
-              }
-              
-              await loadMedicationData();
-              await loadMedications(activeProfile!.id);
-            } catch (error) {
-              Alert.alert(i18n.t('common.error'), i18n.t('medications.updateError'));
-            } finally {
-              setIsUpdating(false);
+
+    Alert.alert(title, message, [
+      { text: i18n.t('common.cancel'), style: 'cancel' },
+      {
+        text: confirmText,
+        style: medication.isActive ? 'destructive' : 'default',
+        onPress: async () => {
+          try {
+            setIsUpdating(true);
+            const newActiveState = !medication.isActive;
+            const updatedMed = await updateMedication(medication.id, { isActive: newActiveState });
+
+            // Handle notifications
+            if (newActiveState && updatedMed && !updatedMed.isPrn) {
+              // Reactivating - schedule notifications
+              await scheduleNotificationsForMedication(updatedMed);
+              await scheduleRefillReminder(updatedMed);
+            } else {
+              // Deactivating - cancel notifications
+              await cancelAllNotificationsForMedication(medication.id);
             }
+
+            await loadMedicationData();
+            await loadMedications(activeProfile!.id);
+          } catch (error) {
+            Alert.alert(i18n.t('common.error'), i18n.t('medications.updateError'));
+          } finally {
+            setIsUpdating(false);
           }
-        }
-      ]
-    );
+        },
+      },
+    ]);
   }
 
   async function handleDelete() {
     if (!medication) return;
-    
+
     Alert.alert(
       i18n.t('medications.deleteTitle'),
       i18n.t('medications.deleteMessage', { name: medication.name }),
@@ -148,8 +141,8 @@ export default function MedicationDetailScreen() {
             } catch (error) {
               Alert.alert(i18n.t('common.error'), i18n.t('medications.deleteError'));
             }
-          }
-        }
+          },
+        },
       ]
     );
   }
@@ -162,13 +155,15 @@ export default function MedicationDetailScreen() {
     // Navigate to history filtered by this medication
     router.push({
       pathname: '/(tabs)/history',
-      params: { medicationId: id }
+      params: { medicationId: id },
     });
   }
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-background" style={{ paddingTop: insets.top + 16 }}>
+      <View
+        className="flex-1 items-center justify-center bg-background"
+        style={{ paddingTop: insets.top + 16 }}>
         <Text className="text-muted-foreground">{i18n.t('common.loading')}</Text>
       </View>
     );
@@ -176,7 +171,9 @@ export default function MedicationDetailScreen() {
 
   if (!medication) {
     return (
-      <View className="flex-1 items-center justify-center bg-background p-4" style={{ paddingTop: insets.top + 16 }}>
+      <View
+        className="flex-1 items-center justify-center bg-background p-4"
+        style={{ paddingTop: insets.top + 16 }}>
         <Text className="text-lg text-foreground">{i18n.t('medications.loadError')}</Text>
         <Button onPress={() => router.back()} className="mt-4">
           <Text>{i18n.t('common.back')}</Text>
@@ -189,7 +186,7 @@ export default function MedicationDetailScreen() {
   const scheduleDesc = getScheduleDescription(medication);
   const isLowInventory = medication.inventoryCount < 5 && medication.inventoryCount > 0;
   const isExpired = medication.expirationDate && new Date(medication.expirationDate) < new Date();
-  const daysUntilExpiration = medication.expirationDate 
+  const daysUntilExpiration = medication.expirationDate
     ? differenceInDays(new Date(medication.expirationDate), new Date())
     : null;
 
@@ -198,10 +195,9 @@ export default function MedicationDetailScreen() {
       <ScrollView className="flex-1">
         {/* Back Button */}
         <View className="pl-4" style={{ paddingTop: insets.top + 16 }}>
-          <Pressable 
+          <Pressable
             onPress={() => router.back()}
-            className="flex-row items-center gap-1 active:opacity-70"
-          >
+            className="flex-row items-center gap-1 active:opacity-70">
             <ChevronLeft size={24} className="text-foreground" />
             <Text className="text-base text-foreground">{i18n.t('common.back')}</Text>
           </Pressable>
@@ -213,20 +209,17 @@ export default function MedicationDetailScreen() {
             <View className="flex-row gap-4">
               {/* Medication Image */}
               {medication.imageUri ? (
-                <Image
-                  source={{ uri: medication.imageUri }}
-                  className="w-24 h-24 rounded-lg"
-                />
+                <Image source={{ uri: medication.imageUri }} className="h-24 w-24 rounded-lg" />
               ) : (
-                <View className="w-24 h-24 rounded-lg bg-muted items-center justify-center">
+                <View className="h-24 w-24 items-center justify-center rounded-lg bg-muted">
                   <Pill size={48} className="text-muted-foreground" />
                 </View>
               )}
-              
+
               {/* Medication Info */}
               <View className="flex-1">
-                <View className="flex-row items-center gap-2 mb-1 flex-wrap">
-                  <Text className="text-xl font-bold text-foreground flex-shrink">
+                <View className="mb-1 flex-row flex-wrap items-center gap-2">
+                  <Text className="flex-shrink text-xl font-bold text-foreground">
                     {medication.name}
                   </Text>
                   {medication.isPrn && (
@@ -236,38 +229,29 @@ export default function MedicationDetailScreen() {
                     <Badge label={i18n.t('medications.inactive')} variant="secondary" />
                   )}
                 </View>
-                
-                <Text className="text-lg text-muted-foreground mb-2">
-                  {medication.dosageAmount} {medication.dosageUnit}
+
+                <Text className="mb-2 text-lg text-muted-foreground">
+                  {medication.dosageAmount} {i18n.t(`medications.units.${medication.dosageUnit}`)}
                 </Text>
-                
+
                 {/* Status Badges */}
-                <View className="flex-row gap-2 flex-wrap">
+                <View className="flex-row flex-wrap gap-2">
                   {medication.isActive && (
-                    <Badge 
-                      label={i18n.t('medications.active')} 
-                      variant="default" 
-                    />
+                    <Badge label={i18n.t('medications.active')} variant="default" />
                   )}
                   {isExpired && (
-                    <Badge 
-                      label={i18n.t('medications.expired')} 
-                      variant="destructive" 
-                    />
+                    <Badge label={i18n.t('medications.expired')} variant="destructive" />
                   )}
                   {isLowInventory && !isExpired && (
-                    <Badge 
-                      label={i18n.t('medications.lowInventory')} 
-                      variant="warning" 
-                    />
+                    <Badge label={i18n.t('medications.lowInventory')} variant="warning" />
                   )}
                 </View>
               </View>
             </View>
-            
+
             {/* Notes */}
             {medication.notes && (
-              <View className="mt-4 p-3 bg-muted rounded-lg">
+              <View className="mt-4 rounded-lg bg-muted p-3">
                 <Text className="text-sm text-foreground">{medication.notes}</Text>
               </View>
             )}
@@ -285,10 +269,10 @@ export default function MedicationDetailScreen() {
                 <Clock size={16} className="text-muted-foreground" />
                 <Text className="text-foreground">{scheduleDesc}</Text>
               </View>
-              
+
               {nextDose && medication.isActive && !medication.isPrn && (
-                <View className="mt-2 p-3 bg-muted/50 rounded-lg">
-                  <Text className="font-medium text-foreground mb-1">
+                <View className="mt-2 rounded-lg bg-muted/50 p-3">
+                  <Text className="mb-1 font-medium text-foreground">
                     {i18n.t('medications.nextDose')}
                   </Text>
                   <Text className="text-lg font-semibold text-foreground">
@@ -296,10 +280,10 @@ export default function MedicationDetailScreen() {
                   </Text>
                 </View>
               )}
-              
+
               {lastLog && (
-                <View className="mt-2 p-3 bg-muted/50 rounded-lg">
-                  <Text className="font-medium text-foreground mb-1">
+                <View className="mt-2 rounded-lg bg-muted/50 p-3">
+                  <Text className="mb-1 font-medium text-foreground">
                     {i18n.t('medications.lastTaken')}
                   </Text>
                   <Text className="text-muted-foreground">
@@ -307,12 +291,10 @@ export default function MedicationDetailScreen() {
                   </Text>
                 </View>
               )}
-              
+
               {!lastLog && medication.isActive && (
-                <View className="mt-2 p-3 bg-muted/50 rounded-lg">
-                  <Text className="text-muted-foreground">
-                    {i18n.t('medications.neverTaken')}
-                  </Text>
+                <View className="mt-2 rounded-lg bg-muted/50 p-3">
+                  <Text className="text-muted-foreground">{i18n.t('medications.neverTaken')}</Text>
                 </View>
               )}
             </View>
@@ -330,38 +312,41 @@ export default function MedicationDetailScreen() {
                 <View className="flex-row items-center gap-2">
                   <Package size={16} className="text-muted-foreground" />
                   <Text className="text-foreground">
-                    {i18n.t('medications.inventory', { 
-                      count: medication.inventoryCount, 
-                      unit: medication.dosageUnit 
+                    {i18n.t('medications.inventory', {
+                      count: medication.inventoryCount,
+                      unit: medication.dosageUnit,
                     })}
                   </Text>
                 </View>
-                
+
                 {medication.packageSize && (
                   <Text className="text-sm text-muted-foreground">
-                    {i18n.t('medications.packageSizeLabel')}: {medication.packageSize} {medication.dosageUnit}
+                    {i18n.t('medications.packageSizeLabel')}: {medication.packageSize}{' '}
+                    {i18n.t(`medications.units.${medication.dosageUnit}`)}
                   </Text>
                 )}
-                
+
                 {medication.refillReminderType && medication.refillReminderValue && (
-                  <View className="mt-2 p-3 bg-muted/50 rounded-lg">
+                  <View className="mt-2 rounded-lg bg-muted/50 p-3">
                     <Text className="text-muted-foreground">
-                      {i18n.t('medications.refillReminderLabel')}: {' '}
+                      {i18n.t('medications.refillReminderLabel')}:{' '}
                       {medication.refillReminderType === 'days'
-                        ? i18n.t('medications.refillWhenDaysLeft', { days: medication.refillReminderValue })
-                        : i18n.t('medications.refillWhenDosesLeft', { doses: medication.refillReminderValue })
-                      }
+                        ? i18n.t('medications.refillWhenDaysLeft', {
+                            days: medication.refillReminderValue,
+                          })
+                        : i18n.t('medications.refillWhenDosesLeft', {
+                            doses: medication.refillReminderValue,
+                          })}
                     </Text>
                   </View>
                 )}
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   onPress={() => setInventoryDialogVisible(true)}
-                  className="mt-2 flex-row gap-2"
-                >
+                  className="mt-2 flex-row gap-2">
                   <Package size={16} className="text-foreground" />
-                  <Text className="text-foreground font-medium">
+                  <Text className="font-medium text-foreground">
                     {i18n.t('inventory.adjustInventory')}
                   </Text>
                 </Button>
@@ -371,7 +356,10 @@ export default function MedicationDetailScreen() {
         )}
 
         {/* Expiration & Safety */}
-        {(medication.expirationDate || medication.maxDailyDose || medication.minHoursBetweenDoses || medication.bypassDnd) && (
+        {(medication.expirationDate ||
+          medication.maxDailyDose ||
+          medication.minHoursBetweenDoses ||
+          medication.bypassDnd) && (
           <Card className="mx-4 mb-4">
             <CardHeader>
               <CardTitle>{i18n.t('medications.advancedSettings')}</CardTitle>
@@ -379,8 +367,8 @@ export default function MedicationDetailScreen() {
             <CardContent>
               <View className="gap-3">
                 {medication.expirationDate && (
-                  <View className="p-3 bg-muted/50 rounded-lg">
-                    <View className="flex-row items-center gap-2 mb-1">
+                  <View className="rounded-lg bg-muted/50 p-3">
+                    <View className="mb-1 flex-row items-center gap-2">
                       {isExpired ? (
                         <AlertTriangle size={16} className="text-destructive" />
                       ) : (
@@ -390,42 +378,46 @@ export default function MedicationDetailScreen() {
                         {i18n.t('medications.expirationDateLabel')}
                       </Text>
                     </View>
-                    <Text className={`${isExpired ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                    <Text
+                      className={`${isExpired ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
                       {format(new Date(medication.expirationDate), 'MMM d, yyyy')}
                     </Text>
                     {daysUntilExpiration !== null && (
-                      <Text className="text-muted-foreground mt-1">
-                        {daysUntilExpiration > 0 
+                      <Text className="mt-1 text-muted-foreground">
+                        {daysUntilExpiration > 0
                           ? i18n.t('medications.expiresIn', { days: daysUntilExpiration })
-                          : i18n.t('medications.expiredDaysAgo', { days: Math.abs(daysUntilExpiration) })
-                        }
+                          : i18n.t('medications.expiredDaysAgo', {
+                              days: Math.abs(daysUntilExpiration),
+                            })}
                       </Text>
                     )}
                   </View>
                 )}
-                
+
                 {medication.maxDailyDose && (
                   <View className="flex-row items-center gap-2">
                     <AlertTriangle size={16} className="text-destructive" />
-                    <Text className="text-foreground flex-1">
-                      {i18n.t('medications.maxDailyDoseLabel')}: {medication.maxDailyDose} {medication.dosageUnit}
+                    <Text className="flex-1 text-foreground">
+                      {i18n.t('medications.maxDailyDoseLabel')}: {medication.maxDailyDose}{' '}
+                      {i18n.t(`medications.units.${medication.dosageUnit}`)}
                     </Text>
                   </View>
                 )}
-                
+
                 {medication.minHoursBetweenDoses && (
                   <View className="flex-row items-center gap-2">
                     <Clock size={16} className="text-muted-foreground" />
-                    <Text className="text-foreground flex-1">
-                      {i18n.t('medications.minHoursBetweenLabel')}: {medication.minHoursBetweenDoses}h
+                    <Text className="flex-1 text-foreground">
+                      {i18n.t('medications.minHoursBetweenLabel')}:{' '}
+                      {medication.minHoursBetweenDoses}h
                     </Text>
                   </View>
                 )}
-                
+
                 {medication.bypassDnd && (
                   <View className="flex-row items-center gap-2">
                     <AlertTriangle size={16} className="text-destructive" />
-                    <Text className="text-foreground flex-1">
+                    <Text className="flex-1 text-foreground">
                       {i18n.t('medications.bypassDndLabel')}
                     </Text>
                   </View>
@@ -436,53 +428,45 @@ export default function MedicationDetailScreen() {
         )}
 
         {/* Action Buttons */}
-        <View className="p-4 gap-3 mb-8">
+        <View className="mb-8 gap-3 p-4">
           <Button onPress={handleEdit} className="flex-row gap-2">
             <Edit size={20} className="text-primary-foreground" />
-            <Text className="text-primary-foreground font-medium">
+            <Text className="font-medium text-primary-foreground">
               {i18n.t('medications.editMedication')}
             </Text>
           </Button>
-          
+
           <Button onPress={handleViewHistory} variant="outline" className="flex-row gap-2">
             <History size={20} className="text-foreground" />
-            <Text className="text-foreground font-medium">
-              {i18n.t('medications.viewHistory')}
-            </Text>
+            <Text className="font-medium text-foreground">{i18n.t('medications.viewHistory')}</Text>
           </Button>
-          
-          <Button 
-            onPress={handleToggleActive} 
+
+          <Button
+            onPress={handleToggleActive}
             variant="outline"
             disabled={isUpdating}
-            className="flex-row gap-2"
-          >
+            className="flex-row gap-2">
             {medication.isActive ? (
               <XCircle size={20} className="text-foreground" />
             ) : (
               <CheckCircle2 size={20} className="text-foreground" />
             )}
-            <Text className="text-foreground font-medium">
-              {medication.isActive 
+            <Text className="font-medium text-foreground">
+              {medication.isActive
                 ? i18n.t('medications.markAsInactive')
-                : i18n.t('medications.markAsActive')
-              }
+                : i18n.t('medications.markAsActive')}
             </Text>
           </Button>
-          
-          <Button 
-            onPress={handleDelete} 
-            variant="destructive"
-            className="flex-row gap-2"
-          >
+
+          <Button onPress={handleDelete} variant="destructive" className="flex-row gap-2">
             <Trash2 size={20} className="text-destructive-foreground" />
-            <Text className="text-destructive-foreground font-medium">
+            <Text className="font-medium text-destructive-foreground">
               {i18n.t('medications.deleteMedication')}
             </Text>
           </Button>
         </View>
       </ScrollView>
-      
+
       <InventoryManager
         visible={inventoryDialogVisible}
         medication={medication}

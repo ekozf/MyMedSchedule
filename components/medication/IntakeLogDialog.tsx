@@ -5,11 +5,11 @@ import { Input } from '@/components/ui/input';
 import { useState, useEffect } from 'react';
 import { X, AlertTriangle } from 'lucide-react-native';
 import type { ScheduledDose } from '@/lib/schedule/calculator';
-import { 
-  createIntakeLog, 
-  getMedicationById, 
+import {
+  createIntakeLog,
+  getMedicationById,
   updateMedicationInventory,
-  getIntakeLogsByMedication 
+  getIntakeLogsByMedication,
 } from '@/lib/db/operations';
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
@@ -56,12 +56,12 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
       const today = new Date();
       const dayStart = startOfDay(today);
       const dayEnd = endOfDay(today);
-      
-      const todayLogs = logs.filter(log => {
+
+      const todayLogs = logs.filter((log) => {
         const logTime = new Date(log.actualTime);
         return logTime >= dayStart && logTime <= dayEnd && log.action === 'taken';
       });
-      
+
       const totalToday = todayLogs.reduce((sum, log) => sum + log.dosageAmount, 0);
       setDailyCount(totalToday);
     } catch (error) {
@@ -75,9 +75,7 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
     if (!activeProfile) return;
 
     const dosageAmount =
-      action === 'partial' && partialAmount
-        ? parseFloat(partialAmount)
-        : dose.dosageAmount;
+      action === 'partial' && partialAmount ? parseFloat(partialAmount) : dose.dosageAmount;
 
     // Validate partial amount
     if (action === 'partial' && (!partialAmount || isNaN(dosageAmount) || dosageAmount <= 0)) {
@@ -92,16 +90,25 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
         setShowMaxDoseWarning(true);
         Alert.alert(
           i18n.t('intakeLog.maxDoseWarning'),
-          i18n.t('intakeLog.maxDoseExceeded', { 
-            max: medication.maxDailyDose, 
-            unit: medication.dosageUnit 
-          }) + '\n\n' + i18n.t('intakeLog.currentDailyCount', { 
-            count: dailyCount, 
-            unit: medication.dosageUnit 
-          }),
+          i18n.t('intakeLog.maxDoseExceeded', {
+            max: medication.maxDailyDose,
+            unit: i18n.t(`medications.units.${medication.dosageUnit}`),
+          }) +
+            '\n\n' +
+            i18n.t('intakeLog.currentDailyCount', {
+              count: dailyCount,
+              unit: i18n.t(`medications.units.${medication.dosageUnit}`),
+            }),
           [
-            { text: i18n.t('common.cancel'), style: 'cancel', onPress: () => setShowMaxDoseWarning(false) },
-            { text: i18n.t('intakeLog.continueAnyway'), onPress: () => proceedWithLogging(dosageAmount) }
+            {
+              text: i18n.t('common.cancel'),
+              style: 'cancel',
+              onPress: () => setShowMaxDoseWarning(false),
+            },
+            {
+              text: i18n.t('intakeLog.continueAnyway'),
+              onPress: () => proceedWithLogging(dosageAmount),
+            },
           ]
         );
         return;
@@ -112,13 +119,16 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
     if (medication && action === 'taken' && medication.inventoryCount < dosageAmount) {
       Alert.alert(
         i18n.t('intakeLog.inventoryWarning'),
-        i18n.t('intakeLog.inventoryInsufficient', { 
-          count: medication.inventoryCount, 
-          unit: medication.dosageUnit 
+        i18n.t('intakeLog.inventoryInsufficient', {
+          count: medication.inventoryCount,
+          unit: i18n.t(`medications.units.${medication.dosageUnit}`),
         }),
         [
           { text: i18n.t('common.cancel'), style: 'cancel' },
-          { text: i18n.t('intakeLog.continueAnyway'), onPress: () => proceedWithLogging(dosageAmount) }
+          {
+            text: i18n.t('intakeLog.continueAnyway'),
+            onPress: () => proceedWithLogging(dosageAmount),
+          },
         ]
       );
       return;
@@ -150,7 +160,7 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
       if (medication && (action === 'taken' || action === 'partial')) {
         const newCount = Math.max(0, medication.inventoryCount - dosageAmount);
         await updateMedicationInventory(dose.medicationId, newCount);
-        
+
         // Reload medications to update UI
         if (activeProfile) {
           await loadMedications(activeProfile.id);
@@ -163,18 +173,18 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
           i18n.t('intakeLog.lateDoseTitle'),
           i18n.t('intakeLog.lateDoseMessage', { hours: hoursLate }),
           [
-            { 
-              text: i18n.t('intakeLog.keepSchedule'), 
-              style: 'cancel' 
+            {
+              text: i18n.t('intakeLog.keepSchedule'),
+              style: 'cancel',
             },
-            { 
-              text: i18n.t('intakeLog.rescheduleNext'), 
+            {
+              text: i18n.t('intakeLog.rescheduleNext'),
               onPress: () => {
                 // TODO: Implement schedule adjustment logic
                 // This would need to shift all future doses
                 console.log('Reschedule requested - not yet implemented');
-              }
-            }
+              },
+            },
           ]
         );
       }
@@ -196,22 +206,13 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <Pressable
-        className="flex-1 justify-center items-center bg-black/50"
-        onPress={onClose}
-      >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable className="flex-1 items-center justify-center bg-black/50" onPress={onClose}>
         <Pressable
-          className="bg-background w-11/12 max-w-md rounded-2xl p-6"
-          onPress={(e) => e.stopPropagation()}
-        >
+          className="w-11/12 max-w-md rounded-2xl bg-background p-6"
+          onPress={(e) => e.stopPropagation()}>
           {/* Header */}
-          <View className="flex-row justify-between items-center mb-6">
+          <View className="mb-6 flex-row items-center justify-between">
             <Text className="text-2xl font-bold text-foreground">
               {i18n.t('intakeLog.logIntake')}
             </Text>
@@ -221,61 +222,63 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
           </View>
 
           {/* Medication Info */}
-          <View className="mb-6 p-4 bg-muted rounded-lg">
-            <Text className="text-lg font-semibold text-foreground mb-1">
+          <View className="mb-6 rounded-lg bg-muted p-4">
+            <Text className="mb-1 text-lg font-semibold text-foreground">
               {dose.medicationName}
             </Text>
             <Text className="text-sm text-muted-foreground">
-              {dose.dosageAmount} {dose.dosageUnit}
+              {dose.dosageAmount} {i18n.t(`medications.units.${dose.dosageUnit}`)}
             </Text>
-            
+
             {/* Inventory warning */}
             {medication && medication.inventoryCount < 5 && medication.inventoryCount > 0 && (
-              <View className="flex-row items-center gap-2 mt-2 p-2 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+              <View className="mt-2 flex-row items-center gap-2 rounded-lg bg-yellow-50 p-2 dark:bg-yellow-950">
                 <AlertTriangle size={16} className="text-yellow-600 dark:text-yellow-400" />
-                <Text className="text-xs text-yellow-600 dark:text-yellow-400 flex-1">
-                  {i18n.t('medications.lowInventory')}: {medication.inventoryCount} {medication.dosageUnit}
+                <Text className="flex-1 text-xs text-yellow-600 dark:text-yellow-400">
+                  {i18n.t('medications.lowInventory')}: {medication.inventoryCount}{' '}
+                  {i18n.t(`medications.units.${medication.dosageUnit}`)}
                 </Text>
               </View>
             )}
-            
+
             {/* Daily count info */}
             {medication?.maxDailyDose && dailyCount > 0 && (
-              <View className="flex-row items-center justify-between mt-2 p-2 bg-blue-50 dark:bg-blue-950 rounded-lg">
+              <View className="mt-2 flex-row items-center justify-between rounded-lg bg-blue-50 p-2 dark:bg-blue-950">
                 <Text className="text-xs text-blue-600 dark:text-blue-400">
-                  {i18n.t('intakeLog.currentDailyCount', { count: dailyCount, unit: medication.dosageUnit })}
+                  {i18n.t('intakeLog.currentDailyCount', {
+                    count: dailyCount,
+                    unit: i18n.t(`medications.units.${medication.dosageUnit}`),
+                  })}
                 </Text>
-                <Text className="text-xs text-blue-600 dark:text-blue-400 font-semibold">
-                  Max: {medication.maxDailyDose} {medication.dosageUnit}
+                <Text className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                  Max: {medication.maxDailyDose}{' '}
+                  {i18n.t(`medications.units.${medication.dosageUnit}`)}
                 </Text>
               </View>
             )}
           </View>
 
           {/* Action Selection */}
-          <Text className="text-sm font-medium text-foreground mb-3">
+          <Text className="mb-3 text-sm font-medium text-foreground">
             {i18n.t('intakeLog.markAsTaken')}
           </Text>
-          <View className="flex-row gap-2 mb-6">
+          <View className="mb-6 flex-row gap-2">
             <Button
               variant={action === 'taken' ? 'default' : 'outline'}
               onPress={() => setAction('taken')}
-              className="flex-1"
-            >
+              className="flex-1">
               <Text>{i18n.t('history.actions.taken')}</Text>
             </Button>
             <Button
               variant={action === 'skipped' ? 'default' : 'outline'}
               onPress={() => setAction('skipped')}
-              className="flex-1"
-            >
+              className="flex-1">
               <Text>{i18n.t('history.actions.skipped')}</Text>
             </Button>
             <Button
               variant={action === 'partial' ? 'default' : 'outline'}
               onPress={() => setAction('partial')}
-              className="flex-1"
-            >
+              className="flex-1">
               <Text>{i18n.t('history.actions.partial')}</Text>
             </Button>
           </View>
@@ -307,7 +310,7 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
 
           {/* Submit Button */}
           <Button onPress={handleSubmit} disabled={isLoading}>
-            <Text className="text-primary-foreground font-semibold">
+            <Text className="font-semibold text-primary-foreground">
               {isLoading ? i18n.t('common.loading') : i18n.t('common.save')}
             </Text>
           </Button>

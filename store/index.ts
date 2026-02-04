@@ -14,14 +14,14 @@ interface AppStore {
   hasCompletedOnboarding: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
-  
+
   // Profile state
   activeProfile: Profile | null;
   profiles: Profile[];
-  
+
   // Medication state
   medications: Medication[];
-  
+
   // Actions
   setDisclaimerAcknowledged: (acknowledged: boolean) => void;
   setOnboardingCompleted: (completed: boolean) => Promise<void>;
@@ -30,7 +30,7 @@ interface AppStore {
   setProfiles: (profiles: Profile[]) => void;
   setMedications: (medications: Medication[]) => void;
   setLoading: (loading: boolean) => void;
-  
+
   // Data loading actions
   loadAppState: () => Promise<void>;
   loadProfiles: () => Promise<void>;
@@ -47,10 +47,9 @@ export const useStore = create<AppStore>((set, get) => ({
   activeProfile: null,
   profiles: [],
   medications: [],
-  
+
   // Basic setters
-  setDisclaimerAcknowledged: (acknowledged) => 
-    set({ hasAcknowledgedDisclaimer: acknowledged }),
+  setDisclaimerAcknowledged: (acknowledged) => set({ hasAcknowledgedDisclaimer: acknowledged }),
   setOnboardingCompleted: async (completed) => {
     try {
       if (completed) {
@@ -63,17 +62,12 @@ export const useStore = create<AppStore>((set, get) => ({
       console.error('Failed to save onboarding status:', error);
     }
   },
-  setAuthenticated: (authenticated) => 
-    set({ isAuthenticated: authenticated }),
-  setActiveProfile: (profile) => 
-    set({ activeProfile: profile }),
-  setProfiles: (profiles) => 
-    set({ profiles }),
-  setMedications: (medications) => 
-    set({ medications }),
-  setLoading: (loading) => 
-    set({ isLoading: loading }),
-  
+  setAuthenticated: (authenticated) => set({ isAuthenticated: authenticated }),
+  setActiveProfile: (profile) => set({ activeProfile: profile }),
+  setProfiles: (profiles) => set({ profiles }),
+  setMedications: (medications) => set({ medications }),
+  setLoading: (loading) => set({ isLoading: loading }),
+
   // Data loading actions
   loadAppState: async () => {
     try {
@@ -82,23 +76,31 @@ export const useStore = create<AppStore>((set, get) => ({
       if (onboardingCompleted === 'true') {
         set({ hasCompletedOnboarding: true });
       }
-      
+
       // Check if disclaimer was acknowledged
       const disclaimer = await getLatestDisclaimerAcknowledgment();
       if (disclaimer) {
         set({ hasAcknowledgedDisclaimer: true });
       }
-      
+
       // Load active profile
       const profile = await getActiveProfile();
       if (profile) {
         set({ activeProfile: profile });
-        
+
         // Load medications for active profile
         const medications = await getMedicationsByProfile(profile.id);
         set({ medications });
+
+        // If profile exists and no auth is required, set authenticated to true
+        // This allows users without auth to go directly to dashboard on app start
+        const { getAuthMethod } = await import('@/lib/auth');
+        const authMethod = await getAuthMethod();
+        if (authMethod === 'none') {
+          set({ isAuthenticated: true });
+        }
       }
-      
+
       // Load all profiles
       const profiles = await getAllProfiles();
       set({ profiles });
@@ -106,12 +108,12 @@ export const useStore = create<AppStore>((set, get) => ({
       console.error('Failed to load app state:', error);
     }
   },
-  
+
   loadProfiles: async () => {
     try {
       const profiles = await getAllProfiles();
       set({ profiles });
-      
+
       // Also refresh active profile
       const activeProfile = await getActiveProfile();
       set({ activeProfile });
@@ -119,7 +121,7 @@ export const useStore = create<AppStore>((set, get) => ({
       console.error('Failed to load profiles:', error);
     }
   },
-  
+
   loadMedications: async (profileId: string) => {
     try {
       const medications = await getMedicationsByProfile(profileId);
@@ -128,14 +130,14 @@ export const useStore = create<AppStore>((set, get) => ({
       console.error('Failed to load medications:', error);
     }
   },
-  
+
   refreshAll: async () => {
     const { activeProfile } = get();
     set({ isLoading: true });
-    
+
     try {
       await get().loadProfiles();
-      
+
       if (activeProfile) {
         await get().loadMedications(activeProfile.id);
       }

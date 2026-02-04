@@ -6,6 +6,7 @@ import { Clock, Pill } from 'lucide-react-native';
 import type { Medication } from '@/types';
 import { getNextDose, getScheduleDescription } from '@/lib/schedule/calculator';
 import { format } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 import { router } from 'expo-router';
 import i18n from '@/lib/i18n';
 
@@ -15,11 +16,12 @@ export interface MedicationCardProps {
 }
 
 export function MedicationCard({ medication, onPress }: MedicationCardProps) {
+  const dateFnsLocale = getDateFnsLocale();
   const nextDose = getNextDose(medication);
   const scheduleDesc = getScheduleDescription(medication);
   const isLowInventory = medication.inventoryCount < 5 && medication.inventoryCount > 0;
   const isExpired = medication.expirationDate && new Date(medication.expirationDate) < new Date();
-  
+
   const handlePress = () => {
     if (onPress) {
       onPress();
@@ -27,7 +29,7 @@ export function MedicationCard({ medication, onPress }: MedicationCardProps) {
       router.push(`/medication/${medication.id}`);
     }
   };
-  
+
   return (
     <Card className="mb-3">
       <Pressable onPress={handlePress}>
@@ -35,47 +37,41 @@ export function MedicationCard({ medication, onPress }: MedicationCardProps) {
           <View className="flex-row gap-4">
             {/* Medication Image */}
             {medication.imageUri ? (
-              <Image
-                source={{ uri: medication.imageUri }}
-                className="w-16 h-16 rounded-lg"
-              />
+              <Image source={{ uri: medication.imageUri }} className="h-16 w-16 rounded-lg" />
             ) : (
-              <View className="w-16 h-16 rounded-lg bg-muted items-center justify-center">
+              <View className="h-16 w-16 items-center justify-center rounded-lg bg-muted">
                 <Pill size={32} className="text-muted-foreground" />
               </View>
             )}
-            
+
             {/* Medication Info */}
             <View className="flex-1">
-              <View className="flex-row items-center gap-2 mb-1">
-                <Text className="text-lg font-semibold text-foreground flex-1">
+              <View className="mb-1 flex-row items-center gap-2">
+                <Text className="flex-1 text-lg font-semibold text-foreground">
                   {medication.name}
                 </Text>
-                {medication.isPrn && (
-                  <Badge label="PRN" variant="secondary" />
-                )}
+                {medication.isPrn && <Badge label="PRN" variant="secondary" />}
               </View>
-              
-              <Text className="text-sm text-muted-foreground mb-2">
-                {medication.dosageAmount} {medication.dosageUnit}
+
+              <Text className="mb-2 text-sm text-muted-foreground">
+                {medication.dosageAmount} {i18n.t(`medications.units.${medication.dosageUnit}`)}
               </Text>
-              
-              <View className="flex-row items-center gap-2 mb-1">
+
+              <View className="mb-1 flex-row items-center gap-2">
                 <Clock size={14} className="text-muted-foreground" />
-                <Text className="text-sm text-muted-foreground">
-                  {scheduleDesc}
-                </Text>
+                <Text className="text-sm text-muted-foreground">{scheduleDesc}</Text>
               </View>
-              
+
               {nextDose && !medication.isPrn && (
                 <Text className="text-xs text-muted-foreground">
-                  Next: {format(nextDose.time, 'MMM d, HH:mm')}
+                  {i18n.t('medications.nextColon')}{' '}
+                  {format(nextDose.time, 'Pp', { locale: dateFnsLocale })}
                 </Text>
               )}
-              
+
               {/* Warnings */}
               {(isLowInventory || isExpired) && (
-                <View className="flex-row gap-2 mt-2">
+                <View className="mt-2 flex-row gap-2">
                   {isLowInventory && (
                     <Badge label={i18n.t('medications.lowInventory')} variant="warning" />
                   )}
@@ -84,11 +80,14 @@ export function MedicationCard({ medication, onPress }: MedicationCardProps) {
                   )}
                 </View>
               )}
-              
+
               {/* Inventory Count */}
               {!medication.isPrn && (
-                <Text className="text-xs text-muted-foreground mt-2">
-                  {i18n.t('medications.inventory', { count: medication.inventoryCount, unit: medication.dosageUnit })}
+                <Text className="mt-2 text-xs text-muted-foreground">
+                  {i18n.t('medications.inventory', {
+                    count: medication.inventoryCount,
+                    unit: i18n.t(`medications.units.${medication.dosageUnit}`),
+                  })}
                 </Text>
               )}
             </View>

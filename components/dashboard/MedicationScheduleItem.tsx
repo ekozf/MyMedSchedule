@@ -20,15 +20,21 @@ export interface MedicationScheduleItemProps {
 
 type DoseStatus = 'upcoming' | 'due' | 'overdue' | 'taken' | 'skipped' | 'partial';
 
-export function MedicationScheduleItem({ dose, isLogged, logAction, onPress, onLog }: MedicationScheduleItemProps) {
+export function MedicationScheduleItem({
+  dose,
+  isLogged,
+  logAction,
+  onPress,
+  onLog,
+}: MedicationScheduleItemProps) {
   const [dialogVisible, setDialogVisible] = useState(false);
   const { activeProfile } = useStore();
-  
+
   // Determine status
   const now = new Date();
   const minutesUntilDose = differenceInMinutes(dose.time, now);
   const hoursOverdue = isAfter(now, dose.time) ? differenceInHours(now, dose.time) : 0;
-  
+
   let status: DoseStatus = 'upcoming';
   if (isLogged && logAction === 'taken') {
     status = 'taken';
@@ -94,29 +100,25 @@ export function MedicationScheduleItem({ dose, isLogged, logAction, onPress, onL
 
   const handleLongPress = () => {
     if (isLogged) return; // Can't change logged doses from here
-    
-    Alert.alert(
-      dose.medicationName,
-      i18n.t('intakeLog.selectAction'),
-      [
-        {
-          text: i18n.t('intakeLog.markAsTaken'),
-          onPress: handleQuickMarkAsTaken,
-        },
-        {
-          text: i18n.t('intakeLog.markAsSkipped'),
-          onPress: () => setDialogVisible(true),
-        },
-        {
-          text: i18n.t('intakeLog.logPartialDose'),
-          onPress: () => setDialogVisible(true),
-        },
-        {
-          text: i18n.t('common.cancel'),
-          style: 'cancel',
-        },
-      ]
-    );
+
+    Alert.alert(dose.medicationName, i18n.t('intakeLog.selectAction'), [
+      {
+        text: i18n.t('intakeLog.markAsTaken'),
+        onPress: handleQuickMarkAsTaken,
+      },
+      {
+        text: i18n.t('intakeLog.markAsSkipped'),
+        onPress: () => setDialogVisible(true),
+      },
+      {
+        text: i18n.t('intakeLog.logPartialDose'),
+        onPress: () => setDialogVisible(true),
+      },
+      {
+        text: i18n.t('common.cancel'),
+        style: 'cancel',
+      },
+    ]);
   };
 
   const handlePress = () => {
@@ -128,7 +130,7 @@ export function MedicationScheduleItem({ dose, isLogged, logAction, onPress, onL
       setDialogVisible(true);
     }
   };
-  
+
   const handleDialogSuccess = () => {
     setDialogVisible(false);
     if (onLog) onLog();
@@ -136,49 +138,42 @@ export function MedicationScheduleItem({ dose, isLogged, logAction, onPress, onL
 
   return (
     <>
-      <Pressable
-        onPress={handlePress}
-        onLongPress={handleLongPress}
-      >
+      <Pressable onPress={handlePress} onLongPress={handleLongPress}>
         <Card className={`mb-2 border ${statusStyle.bgColor}`}>
           <CardContent className="p-3">
             <View className="flex-row items-center gap-3">
               {/* Time */}
               <View className="w-16">
-                <Text className={`text-lg font-bold ${status === 'overdue' ? 'text-red-600 dark:text-red-400' : 'text-primary'}`}>
+                <Text
+                  className={`text-lg font-bold ${status === 'overdue' ? 'text-red-600 dark:text-red-400' : 'text-primary'}`}>
                   {format(dose.time, 'HH:mm')}
                 </Text>
                 {status === 'overdue' && (
                   <Text className="text-xs text-red-600 dark:text-red-400">
-                    {hoursOverdue}h late
+                    {i18n.t('intakeLog.lateDoseMessageShort', { hours: hoursOverdue })}
                   </Text>
                 )}
               </View>
-              
+
               {/* Medication Image */}
               {dose.imageUri ? (
-                <Image
-                  source={{ uri: dose.imageUri }}
-                  className="w-12 h-12 rounded-lg"
-                />
+                <Image source={{ uri: dose.imageUri }} className="h-12 w-12 rounded-lg" />
               ) : (
-                <View className="w-12 h-12 rounded-lg bg-muted items-center justify-center">
+                <View className="h-12 w-12 items-center justify-center rounded-lg bg-muted">
                   <Pill size={24} className="text-muted-foreground" />
                 </View>
               )}
-              
+
               {/* Medication Info */}
               <View className="flex-1">
                 <Text className="text-base font-semibold text-foreground">
                   {dose.medicationName}
                 </Text>
                 <Text className="text-sm text-muted-foreground">
-                  {dose.dosageAmount} {dose.dosageUnit}
+                  {dose.dosageAmount} {i18n.t(`medications.units.${dose.dosageUnit}`)}
                 </Text>
                 {dose.notes && (
-                  <Text className="text-xs text-muted-foreground italic mt-1">
-                    {dose.notes}
-                  </Text>
+                  <Text className="mt-1 text-xs italic text-muted-foreground">{dose.notes}</Text>
                 )}
               </View>
 
@@ -186,17 +181,17 @@ export function MedicationScheduleItem({ dose, isLogged, logAction, onPress, onL
               <View className="items-center">
                 <StatusIcon size={24} className={statusStyle.iconColor} />
                 {status === 'taken' && (
-                  <Text className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  <Text className="mt-1 text-xs text-green-600 dark:text-green-400">
                     {i18n.t('history.actions.taken')}
                   </Text>
                 )}
                 {status === 'skipped' && (
-                  <Text className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  <Text className="mt-1 text-xs text-gray-600 dark:text-gray-400">
                     {i18n.t('history.actions.skipped')}
                   </Text>
                 )}
                 {status === 'partial' && (
-                  <Text className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  <Text className="mt-1 text-xs text-blue-600 dark:text-blue-400">
                     {i18n.t('history.actions.partial')}
                   </Text>
                 )}

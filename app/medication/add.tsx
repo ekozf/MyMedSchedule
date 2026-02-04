@@ -11,7 +11,10 @@ import { useStore } from '@/store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createMedication } from '@/lib/db/operations';
 import { validateScheduleConfig } from '@/lib/validation/medication';
-import { scheduleNotificationsForMedication, scheduleRefillReminder } from '@/lib/notifications/scheduler';
+import {
+  scheduleNotificationsForMedication,
+  scheduleRefillReminder,
+} from '@/lib/notifications/scheduler';
 import { requestNotificationPermissions } from '@/lib/notifications/permissions';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Image as ImageIcon } from 'lucide-react-native';
@@ -44,22 +47,22 @@ export default function AddMedicationScreen() {
   const insets = useSafeAreaInsets();
   const { activeProfile, loadMedications } = useStore();
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Basic fields
   const [name, setName] = useState('');
   const [dosageAmount, setDosageAmount] = useState('');
   const [dosageUnit, setDosageUnit] = useState('pills');
   const [imageUri, setImageUri] = useState<string>();
   const [notes, setNotes] = useState('');
-  
+
   // Schedule
   const [scheduleType, setScheduleType] = useState('once_daily');
   const [scheduleConfig, setScheduleConfig] = useState<any>({});
-  
+
   // Inventory
   const [inventoryCount, setInventoryCount] = useState('0');
   const [packageSize, setPackageSize] = useState('');
-  
+
   // Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -71,7 +74,7 @@ export default function AddMedicationScreen() {
         aspect: [1, 1],
         quality: 0.8,
       });
-      
+
       if (!result.canceled && result.assets[0]) {
         setImageUri(result.assets[0].uri);
       }
@@ -87,7 +90,7 @@ export default function AddMedicationScreen() {
         aspect: [1, 1],
         quality: 0.8,
       });
-      
+
       if (!result.canceled && result.assets[0]) {
         setImageUri(result.assets[0].uri);
       }
@@ -98,22 +101,22 @@ export default function AddMedicationScreen() {
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!name.trim()) {
       newErrors.name = i18n.t('errors.requiredField');
     }
-    
+
     const dosage = parseFloat(dosageAmount);
     if (!dosageAmount || isNaN(dosage) || dosage <= 0) {
       newErrors.dosageAmount = i18n.t('validation.mustBePositive');
     }
-    
+
     // Validate schedule config
     const scheduleValidation = validateScheduleConfig(scheduleType, scheduleConfig);
     if (!scheduleValidation.success) {
       newErrors.schedule = scheduleValidation.error || i18n.t('errors.invalidInput');
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -122,14 +125,14 @@ export default function AddMedicationScreen() {
     if (!validate()) {
       return;
     }
-    
+
     if (!activeProfile) {
       Alert.alert('Error', 'No active profile');
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       const newMedication = await createMedication({
         profileId: activeProfile.id,
@@ -144,7 +147,7 @@ export default function AddMedicationScreen() {
         packageSize: packageSize ? parseFloat(packageSize) : undefined,
         isPrn: scheduleType === 'prn',
       });
-      
+
       // Request notification permissions and schedule notifications
       const hasPermission = await requestNotificationPermissions();
       if (hasPermission) {
@@ -154,10 +157,10 @@ export default function AddMedicationScreen() {
         // Schedule refill reminder if configured
         await scheduleRefillReminder(newMedication);
       }
-      
+
       // Reload medications
       await loadMedications(activeProfile.id);
-      
+
       // Navigate back
       router.back();
     } catch (error) {
@@ -170,11 +173,10 @@ export default function AddMedicationScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScrollView 
-        className="flex-1 px-4" 
+      <ScrollView
+        className="flex-1 px-4"
         style={{ paddingTop: insets.top + 16 }}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
-      >
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}>
         {/* Basic Information */}
         <Card className="mb-4">
           <CardHeader>
@@ -188,7 +190,7 @@ export default function AddMedicationScreen() {
               placeholder={i18n.t('medications.namePlaceholder')}
               error={errors.name}
             />
-            
+
             <View className="flex-row gap-2">
               <Input
                 label={`${i18n.t('medications.dosageLabel')} *`}
@@ -199,7 +201,7 @@ export default function AddMedicationScreen() {
                 error={errors.dosageAmount}
                 containerClassName="flex-1"
               />
-              
+
               <Select
                 label={`${i18n.t('medications.unitLabel')} *`}
                 options={getDosageUnitOptions()}
@@ -208,7 +210,7 @@ export default function AddMedicationScreen() {
                 className="flex-1"
               />
             </View>
-            
+
             <View className="gap-2">
               <Text className="text-sm font-medium text-foreground">
                 {i18n.t('medications.photoOptional')}
@@ -224,10 +226,12 @@ export default function AddMedicationScreen() {
                 </Button>
               </View>
               {imageUri && (
-                <Text className="text-xs text-muted-foreground">{i18n.t('medications.photoSelected')}</Text>
+                <Text className="text-xs text-muted-foreground">
+                  {i18n.t('medications.photoSelected')}
+                </Text>
               )}
             </View>
-            
+
             <Input
               label={i18n.t('medications.notesOptional')}
               value={notes}
@@ -238,7 +242,7 @@ export default function AddMedicationScreen() {
             />
           </CardContent>
         </Card>
-        
+
         {/* Schedule */}
         <Card className="mb-4">
           <CardHeader>
@@ -255,7 +259,7 @@ export default function AddMedicationScreen() {
                 setScheduleConfig({});
               }}
             />
-            
+
             <SchedulePicker
               scheduleType={scheduleType}
               scheduleConfig={scheduleConfig}
@@ -264,7 +268,7 @@ export default function AddMedicationScreen() {
             />
           </CardContent>
         </Card>
-        
+
         {/* Inventory */}
         <Card className="mb-4">
           <CardHeader>
@@ -278,9 +282,9 @@ export default function AddMedicationScreen() {
               placeholder="0"
               keyboardType="decimal-pad"
             />
-            
+
             <Input
-              label="Package Size"
+              label={i18n.t('medications.packageSizeLabel')}
               value={packageSize}
               onChangeText={setPackageSize}
               placeholder="e.g., 30 pills per package"
@@ -289,24 +293,19 @@ export default function AddMedicationScreen() {
           </CardContent>
         </Card>
       </ScrollView>
-      
-      <View className="px-4 pb-4 pt-4 border-t border-border bg-background">
+
+      <View className="border-t border-border bg-background px-4 pb-4 pt-4">
         <View className="flex-row gap-2">
           <Button
             variant="outline"
             onPress={() => router.back()}
             disabled={isLoading}
-            className="flex-1"
-          >
-            <Text>Cancel</Text>
+            className="flex-1">
+            <Text>{i18n.t('common.cancel')}</Text>
           </Button>
-          <Button
-            onPress={handleSave}
-            disabled={isLoading}
-            className="flex-1"
-          >
-            <Text className="text-primary-foreground font-semibold">
-              {isLoading ? 'Saving...' : 'Save Medication'}
+          <Button onPress={handleSave} disabled={isLoading} className="flex-1">
+            <Text className="font-semibold text-primary-foreground">
+              {isLoading ? i18n.t('profile.saving') : i18n.t('medications.saveMedication')}
             </Text>
           </Button>
         </View>

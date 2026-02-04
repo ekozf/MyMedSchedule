@@ -11,6 +11,7 @@ import i18n from '@/lib/i18n';
 import type { Medication } from '@/types';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 
 export interface RetroactiveLogDialogProps {
   visible: boolean;
@@ -19,7 +20,13 @@ export interface RetroactiveLogDialogProps {
   onSuccess: () => void;
 }
 
-export function RetroactiveLogDialog({ visible, medications, onClose, onSuccess }: RetroactiveLogDialogProps) {
+export function RetroactiveLogDialog({
+  visible,
+  medications,
+  onClose,
+  onSuccess,
+}: RetroactiveLogDialogProps) {
+  const dateFnsLocale = getDateFnsLocale();
   const { activeProfile, loadMedications } = useStore();
   const [medicationId, setMedicationId] = useState('');
   const [action, setAction] = useState<'taken' | 'skipped' | 'partial'>('taken');
@@ -29,9 +36,9 @@ export function RetroactiveLogDialog({ visible, medications, onClose, onSuccess 
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const selectedMedication = medications.find(m => m.id === medicationId);
+  const selectedMedication = medications.find((m) => m.id === medicationId);
 
-  const medicationOptions = medications.map(med => ({
+  const medicationOptions = medications.map((med) => ({
     label: med.name,
     value: med.id,
   }));
@@ -92,26 +99,18 @@ export function RetroactiveLogDialog({ visible, medications, onClose, onSuccess 
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end bg-black/50">
-        <Pressable 
-          className="flex-1"
-          onPress={onClose}
-        />
-        <View className="bg-background rounded-t-3xl max-h-[85%]">
+        <Pressable className="flex-1" onPress={onClose} />
+        <View className="max-h-[85%] rounded-t-3xl bg-background">
           <ScrollView className="p-6">
             {/* Header */}
-            <View className="flex-row justify-between items-center mb-6">
+            <View className="mb-6 flex-row items-center justify-between">
               <View>
                 <Text className="text-2xl font-bold text-foreground">
                   {i18n.t('intakeLog.logRetroactive')}
                 </Text>
-                <Text className="text-sm text-muted-foreground mt-1">
+                <Text className="mt-1 text-sm text-muted-foreground">
                   {i18n.t('intakeLog.retroactiveDescription')}
                 </Text>
               </View>
@@ -129,12 +128,12 @@ export function RetroactiveLogDialog({ visible, medications, onClose, onSuccess 
                 onValueChange={(value) => {
                   setMedicationId(value);
                   // Auto-fill dosage amount
-                  const med = medications.find(m => m.id === value);
+                  const med = medications.find((m) => m.id === value);
                   if (med) {
                     setDosageAmount(med.dosageAmount.toString());
                   }
                 }}
-                placeholder="Select medication"
+                placeholder={i18n.t('intakeLog.selectMedicationPlaceholder')}
               />
             </View>
 
@@ -142,14 +141,11 @@ export function RetroactiveLogDialog({ visible, medications, onClose, onSuccess 
               <>
                 {/* Time Selection */}
                 <View className="mb-4">
-                  <Text className="text-sm font-medium text-foreground mb-2">
+                  <Text className="mb-2 text-sm font-medium text-foreground">
                     {i18n.t('intakeLog.timeLabel')}
                   </Text>
-                  <Button 
-                    variant="outline" 
-                    onPress={() => setShowTimePicker(true)}
-                  >
-                    <Text>{format(actualTime, 'MMM d, yyyy • HH:mm')}</Text>
+                  <Button variant="outline" onPress={() => setShowTimePicker(true)}>
+                    <Text>{format(actualTime, 'PPp', { locale: dateFnsLocale })}</Text>
                   </Button>
                   {showTimePicker && (
                     <DateTimePicker
@@ -176,29 +172,26 @@ export function RetroactiveLogDialog({ visible, medications, onClose, onSuccess 
                 </View>
 
                 {/* Action Selection */}
-                <Text className="text-sm font-medium text-foreground mb-3">
+                <Text className="mb-3 text-sm font-medium text-foreground">
                   {i18n.t('intakeLog.selectAction')}
                 </Text>
-                <View className="flex-row gap-2 mb-4">
+                <View className="mb-4 flex-row gap-2">
                   <Button
                     variant={action === 'taken' ? 'default' : 'outline'}
                     onPress={() => setAction('taken')}
-                    className="flex-1"
-                  >
+                    className="flex-1">
                     <Text>{i18n.t('history.actions.taken')}</Text>
                   </Button>
                   <Button
                     variant={action === 'skipped' ? 'default' : 'outline'}
                     onPress={() => setAction('skipped')}
-                    className="flex-1"
-                  >
+                    className="flex-1">
                     <Text>{i18n.t('history.actions.skipped')}</Text>
                   </Button>
                   <Button
                     variant={action === 'partial' ? 'default' : 'outline'}
                     onPress={() => setAction('partial')}
-                    className="flex-1"
-                  >
+                    className="flex-1">
                     <Text>{i18n.t('history.actions.partial')}</Text>
                   </Button>
                 </View>
@@ -212,8 +205,11 @@ export function RetroactiveLogDialog({ visible, medications, onClose, onSuccess 
                     placeholder={selectedMedication.dosageAmount.toString()}
                     keyboardType="decimal-pad"
                   />
-                  <Text className="text-xs text-muted-foreground mt-1">
-                    Standard dose: {selectedMedication.dosageAmount} {selectedMedication.dosageUnit}
+                  <Text className="mt-1 text-xs text-muted-foreground">
+                    {i18n.t('intakeLog.standardDoseNote', {
+                      amount: selectedMedication.dosageAmount,
+                      unit: i18n.t(`medications.units.${selectedMedication.dosageUnit}`),
+                    })}
                   </Text>
                 </View>
 
@@ -231,7 +227,7 @@ export function RetroactiveLogDialog({ visible, medications, onClose, onSuccess 
 
                 {/* Submit Button */}
                 <Button onPress={handleSubmit} disabled={isLoading} className="mb-4">
-                  <Text className="text-primary-foreground font-semibold">
+                  <Text className="font-semibold text-primary-foreground">
                     {isLoading ? i18n.t('common.loading') : i18n.t('intakeLog.logIntake')}
                   </Text>
                 </Button>

@@ -9,6 +9,7 @@ import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
 import type { IntakeLog, Medication } from '@/types';
 import { format } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 
 export interface EditLogDialogProps {
   visible: boolean;
@@ -18,7 +19,14 @@ export interface EditLogDialogProps {
   onSuccess: () => void;
 }
 
-export function EditLogDialog({ visible, log, medications, onClose, onSuccess }: EditLogDialogProps) {
+export function EditLogDialog({
+  visible,
+  log,
+  medications,
+  onClose,
+  onSuccess,
+}: EditLogDialogProps) {
+  const dateFnsLocale = getDateFnsLocale();
   const { activeProfile, loadMedications } = useStore();
   const [action, setAction] = useState<'taken' | 'skipped' | 'partial'>('taken');
   const [dosageAmount, setDosageAmount] = useState('');
@@ -35,7 +43,7 @@ export function EditLogDialog({ visible, log, medications, onClose, onSuccess }:
 
   if (!log) return null;
 
-  const medication = medications.find(m => m.id === log.medicationId);
+  const medication = medications.find((m) => m.id === log.medicationId);
 
   const handleSubmit = async () => {
     if (!activeProfile || !medication) return;
@@ -90,22 +98,13 @@ export function EditLogDialog({ visible, log, medications, onClose, onSuccess }:
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
-    >
-      <Pressable
-        className="flex-1 justify-center items-center bg-black/50"
-        onPress={onClose}
-      >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable className="flex-1 items-center justify-center bg-black/50" onPress={onClose}>
         <Pressable
-          className="bg-background w-11/12 max-w-md rounded-2xl p-6"
-          onPress={(e) => e.stopPropagation()}
-        >
+          className="w-11/12 max-w-md rounded-2xl bg-background p-6"
+          onPress={(e) => e.stopPropagation()}>
           {/* Header */}
-          <View className="flex-row justify-between items-center mb-6">
+          <View className="mb-6 flex-row items-center justify-between">
             <Text className="text-2xl font-bold text-foreground">
               {i18n.t('intakeLog.editLog')}
             </Text>
@@ -115,39 +114,37 @@ export function EditLogDialog({ visible, log, medications, onClose, onSuccess }:
           </View>
 
           {/* Medication Info */}
-          <View className="mb-6 p-4 bg-muted rounded-lg">
-            <Text className="text-lg font-semibold text-foreground mb-1">
+          <View className="mb-6 rounded-lg bg-muted p-4">
+            <Text className="mb-1 text-lg font-semibold text-foreground">
               {medication?.name || 'Unknown'}
             </Text>
             <Text className="text-sm text-muted-foreground">
-              Logged: {format(new Date(log.actualTime), 'MMM d, yyyy • HH:mm')}
+              {i18n.t('history.logged')}:{' '}
+              {format(new Date(log.actualTime), 'PPp', { locale: dateFnsLocale })}
             </Text>
           </View>
 
           {/* Action Selection */}
-          <Text className="text-sm font-medium text-foreground mb-3">
+          <Text className="mb-3 text-sm font-medium text-foreground">
             {i18n.t('intakeLog.selectAction')}
           </Text>
-          <View className="flex-row gap-2 mb-4">
+          <View className="mb-4 flex-row gap-2">
             <Button
               variant={action === 'taken' ? 'default' : 'outline'}
               onPress={() => setAction('taken')}
-              className="flex-1"
-            >
+              className="flex-1">
               <Text>{i18n.t('history.actions.taken')}</Text>
             </Button>
             <Button
               variant={action === 'skipped' ? 'default' : 'outline'}
               onPress={() => setAction('skipped')}
-              className="flex-1"
-            >
+              className="flex-1">
               <Text>{i18n.t('history.actions.skipped')}</Text>
             </Button>
             <Button
               variant={action === 'partial' ? 'default' : 'outline'}
               onPress={() => setAction('partial')}
-              className="flex-1"
-            >
+              className="flex-1">
               <Text>{i18n.t('history.actions.partial')}</Text>
             </Button>
           </View>
@@ -177,7 +174,7 @@ export function EditLogDialog({ visible, log, medications, onClose, onSuccess }:
 
           {/* Submit Button */}
           <Button onPress={handleSubmit} disabled={isLoading}>
-            <Text className="text-primary-foreground font-semibold">
+            <Text className="font-semibold text-primary-foreground">
               {isLoading ? i18n.t('common.loading') : i18n.t('common.save')}
             </Text>
           </Button>

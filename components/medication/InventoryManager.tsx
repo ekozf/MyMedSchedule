@@ -18,7 +18,12 @@ export interface InventoryManagerProps {
   onSuccess: () => void;
 }
 
-export function InventoryManager({ visible, medication, onClose, onSuccess }: InventoryManagerProps) {
+export function InventoryManager({
+  visible,
+  medication,
+  onClose,
+  onSuccess,
+}: InventoryManagerProps) {
   const { activeProfile, loadMedications } = useStore();
   const [adjustmentType, setAdjustmentType] = useState<'add' | 'remove' | 'set'>('add');
   const [amount, setAmount] = useState('');
@@ -116,21 +121,13 @@ export function InventoryManager({ visible, medication, onClose, onSuccess }: In
   const newCount = calculateNewCount();
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="flex-1 justify-end bg-black/50">
-        <Pressable 
-          className="flex-1"
-          onPress={onClose}
-        />
-        <View className="bg-background rounded-t-3xl max-h-[85%]">
+        <Pressable className="flex-1" onPress={onClose} />
+        <View className="max-h-[85%] rounded-t-3xl bg-background">
           <ScrollView className="p-6">
             {/* Header */}
-            <View className="flex-row justify-between items-center mb-6">
+            <View className="mb-6 flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
                 <Package size={24} className="text-foreground" />
                 <Text className="text-2xl font-bold text-foreground">
@@ -145,11 +142,11 @@ export function InventoryManager({ visible, medication, onClose, onSuccess }: In
             {/* Medication Info */}
             <Card className="mb-6">
               <CardContent className="p-4">
-                <Text className="text-lg font-semibold text-foreground mb-1">
+                <Text className="mb-1 text-lg font-semibold text-foreground">
                   {medication.name}
                 </Text>
-                <Text className="text-3xl font-bold text-primary mb-2">
-                  {medication.inventoryCount} {medication.dosageUnit}
+                <Text className="mb-2 text-3xl font-bold text-primary">
+                  {medication.inventoryCount} {i18n.t(`medications.units.${medication.dosageUnit}`)}
                 </Text>
                 <Text className="text-sm text-muted-foreground">
                   {i18n.t('inventory.currentCount')}
@@ -158,32 +155,44 @@ export function InventoryManager({ visible, medication, onClose, onSuccess }: In
             </Card>
 
             {/* Adjustment Type Selection */}
-            <Text className="text-sm font-medium text-foreground mb-3">
+            <Text className="mb-3 text-sm font-medium text-foreground">
               {i18n.t('inventory.adjustInventory')}
             </Text>
-            <View className="flex-row gap-2 mb-6">
+            <View className="mb-6 flex-row gap-2">
               <Button
                 variant={adjustmentType === 'add' ? 'default' : 'outline'}
                 onPress={() => setAdjustmentType('add')}
-                className="flex-1 flex-row gap-2"
-              >
-                <Plus size={16} className={adjustmentType === 'add' ? 'text-primary-foreground' : 'text-foreground'} />
+                className="flex-1 flex-row gap-2">
+                <Plus
+                  size={16}
+                  className={
+                    adjustmentType === 'add' ? 'text-primary-foreground' : 'text-foreground'
+                  }
+                />
                 <Text>{i18n.t('inventory.addDoses')}</Text>
               </Button>
               <Button
                 variant={adjustmentType === 'remove' ? 'default' : 'outline'}
                 onPress={() => setAdjustmentType('remove')}
-                className="flex-1 flex-row gap-2"
-              >
-                <Minus size={16} className={adjustmentType === 'remove' ? 'text-primary-foreground' : 'text-foreground'} />
+                className="flex-1 flex-row gap-2">
+                <Minus
+                  size={16}
+                  className={
+                    adjustmentType === 'remove' ? 'text-primary-foreground' : 'text-foreground'
+                  }
+                />
                 <Text>{i18n.t('inventory.removeDoses')}</Text>
               </Button>
               <Button
                 variant={adjustmentType === 'set' ? 'default' : 'outline'}
                 onPress={() => setAdjustmentType('set')}
-                className="flex-1 flex-row gap-2"
-              >
-                <Edit3 size={16} className={adjustmentType === 'set' ? 'text-primary-foreground' : 'text-foreground'} />
+                className="flex-1 flex-row gap-2">
+                <Edit3
+                  size={16}
+                  className={
+                    adjustmentType === 'set' ? 'text-primary-foreground' : 'text-foreground'
+                  }
+                />
                 <Text>{i18n.t('inventory.setCount')}</Text>
               </Button>
             </View>
@@ -201,15 +210,11 @@ export function InventoryManager({ visible, medication, onClose, onSuccess }: In
 
             {/* Quick Add Full Package */}
             {medication.packageSize && adjustmentType === 'add' && (
-              <Button
-                variant="outline"
-                onPress={handleAddFullPackage}
-                className="mb-4"
-              >
+              <Button variant="outline" onPress={handleAddFullPackage} className="mb-4">
                 <Text>
-                  {i18n.t('inventory.addFullPackage', { 
-                    size: medication.packageSize, 
-                    unit: medication.dosageUnit 
+                  {i18n.t('inventory.addFullPackage', {
+                    size: medication.packageSize,
+                    unit: i18n.t(`medications.units.${medication.dosageUnit}`),
                   })}
                 </Text>
               </Button>
@@ -231,21 +236,20 @@ export function InventoryManager({ visible, medication, onClose, onSuccess }: In
             {amount && !isNaN(parseFloat(amount)) && (
               <Card className="mb-6 bg-primary/10">
                 <CardContent className="p-4">
-                  <View className="flex-row justify-between items-center">
+                  <View className="flex-row items-center justify-between">
                     <Text className="text-sm text-muted-foreground">
                       {i18n.t('inventory.currentCount')}:
                     </Text>
                     <Text className="text-lg font-semibold text-foreground">
-                      {medication.inventoryCount} {medication.dosageUnit}
+                      {medication.inventoryCount}{' '}
+                      {i18n.t(`medications.units.${medication.dosageUnit}`)}
                     </Text>
                   </View>
-                  <View className="h-px bg-border my-2" />
-                  <View className="flex-row justify-between items-center">
-                    <Text className="text-sm font-medium text-foreground">
-                      New count:
-                    </Text>
+                  <View className="my-2 h-px bg-border" />
+                  <View className="flex-row items-center justify-between">
+                    <Text className="text-sm font-medium text-foreground">New count:</Text>
                     <Text className="text-2xl font-bold text-primary">
-                      {newCount} {medication.dosageUnit}
+                      {newCount} {i18n.t(`medications.units.${medication.dosageUnit}`)}
                     </Text>
                   </View>
                 </CardContent>
@@ -254,7 +258,7 @@ export function InventoryManager({ visible, medication, onClose, onSuccess }: In
 
             {/* Submit Button */}
             <Button onPress={handleSubmit} disabled={isLoading || !amount} className="mb-4">
-              <Text className="text-primary-foreground font-semibold">
+              <Text className="font-semibold text-primary-foreground">
                 {isLoading ? i18n.t('common.loading') : i18n.t('common.save')}
               </Text>
             </Button>

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Check, Trash2, Edit } from 'lucide-react-native';
 import type { Profile } from '@/types';
+import i18n from '@/lib/i18n';
 
 export interface ProfileCardProps {
   profile: Profile;
@@ -40,12 +41,12 @@ export function ProfileCard({
                   {profile.name}
                 </Text>
                 {isActive && (
-                  <Badge label="Active" variant="success" />
+                  <Badge label={i18n.t('profile.active')} variant="success" />
                 )}
               </View>
               
               <Text className="text-sm text-muted-foreground">
-                {medicationCount} {medicationCount === 1 ? 'medication' : 'medications'}
+                {i18n.t('medications.amountOfMedications', { count: medicationCount })}
               </Text>
             </View>
             
@@ -66,7 +67,7 @@ export function ProfileCard({
                 >
                   <Edit size={16} className="text-secondary-foreground" />
                   <Text className="text-sm font-medium text-secondary-foreground">
-                    Edit
+                    {i18n.t('common.edit')}
                   </Text>
                 </Pressable>
               )}
@@ -81,7 +82,7 @@ export function ProfileCard({
                 >
                   <Trash2 size={16} className="text-destructive" />
                   <Text className="text-sm font-medium text-destructive">
-                    Delete
+                    {i18n.t('common.delete')}
                   </Text>
                 </Pressable>
               )}

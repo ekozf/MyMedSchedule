@@ -17,7 +17,7 @@ export default {
     success: 'Success',
     warning: 'Warning',
   },
-  
+
   auth: {
     setupTitle: 'Secure Your Medications',
     setupDescription: 'Choose how you want to protect your medication data',
@@ -43,8 +43,10 @@ export default {
     pinNumbersOnly: 'PIN must contain only numbers',
     createPin: 'Create PIN',
     setupMethod: 'Set Up {{method}}',
-    skipAuthWarning: 'Are you sure you want to skip setting up authentication? Your medication data will not be protected.',
-    disableAuthWarning: 'Are you sure you want to disable authentication? Your medication data will not be protected.',
+    skipAuthWarning:
+      'Are you sure you want to skip setting up authentication? Your medication data will not be protected.',
+    disableAuthWarning:
+      'Are you sure you want to disable authentication? Your medication data will not be protected.',
     skipAuthentication: 'Skip Authentication',
     disable: 'Disable',
     faceId: 'Face ID',
@@ -53,7 +55,7 @@ export default {
     biometric: 'Biometric',
     pinCode: 'PIN Code',
     pinDescription: 'Create a 4-6 digit PIN to unlock the app',
-    biometricDescription: 'Use your device\'s {{method}} to quickly and securely unlock the app',
+    biometricDescription: "Use your device's {{method}} to quickly and securely unlock the app",
     skipDescription: 'You can set up authentication later in settings (not recommended)',
     skipAuth: 'Skip Authentication',
     setupBiometric: 'Set Up Biometric',
@@ -61,7 +63,7 @@ export default {
     setPinButton: 'Set PIN',
     settingUp: 'Setting up...',
   },
-  
+
   disclaimer: {
     title: 'Important: Please Read Before Using This App',
     subtitle: 'By using this application, you acknowledge and agree to the following:',
@@ -73,37 +75,48 @@ export default {
     buttonClose: 'Close',
     buttonContinue: 'Continue',
     buttonProcessing: 'Processing...',
-    
+
     dataPrivacy: {
       noDataCollection: 'We do not collect any data. Absolutely nothing.',
       fullyLocal: 'This app is fully local; there is no cloud save or online backup.',
-      secureStorage: 'Your data is stored securely and encrypted on your device. Nobody else can access it, not even the developer.',
-      exportUnencrypted: 'Exporting your data puts the data you have saved into that document, and it is completely unencrypted. It is your own responsibility to keep it safe.',
-      dataLoss: 'Because data is encrypted on your device, if you lose your phone or delete the app, your data is gone forever. We cannot recover it for you. Please use the \'Export Backup\' feature regularly.',
+      secureStorage:
+        'Your data is stored securely and encrypted on your device. Nobody else can access it, not even the developer.',
+      exportUnencrypted:
+        'Exporting your data puts the data you have saved into that document, and it is completely unencrypted. It is your own responsibility to keep it safe.',
+      dataLoss:
+        "Because data is encrypted on your device, if you lose your phone or delete the app, your data is gone forever. We cannot recover it for you. Please use the 'Export Backup' feature regularly.",
     },
-    
+
     medical: {
-      notAdvising: 'We are NOT advising or diagnosing anything. We are just a digital replacement for a paper calendar or diary.',
-      noInstructions: 'This app does NOT tell you when or what to take. It just reminds you of the things you decided on your own to put in the app.',
+      notAdvising:
+        'We are NOT advising or diagnosing anything. We are just a digital replacement for a paper calendar or diary.',
+      noInstructions:
+        'This app does NOT tell you when or what to take. It just reminds you of the things you decided on your own to put in the app.',
       noInteractionCheck: 'We do NOT check for interactions between medications or overdose risks.',
-      notResponsible: 'We are NOT responsible for any medication you do or don\'t decide to take.',
-      digitalVersion: 'This is strictly a digital version of what you would use to keep track of your medication in real life outside of this app.',
+      notResponsible: "We are NOT responsible for any medication you do or don't decide to take.",
+      digitalVersion:
+        'This is strictly a digital version of what you would use to keep track of your medication in real life outside of this app.',
     },
-    
+
     userResponsibility: {
-      inputErrors: 'Just like in real life, making a mistake during an input in the app is your own fault. We are not responsible for faults that you made in the app.',
-      yourResponsibility: 'Anything you put in and mark in the app is fully your own responsibility. We do not guarantee anything by using this app.',
+      inputErrors:
+        'Just like in real life, making a mistake during an input in the app is your own fault. We are not responsible for faults that you made in the app.',
+      yourResponsibility:
+        'Anything you put in and mark in the app is fully your own responsibility. We do not guarantee anything by using this app.',
       yourChoice: 'Everything you do and put in the app is your own choice.',
       reminderTool: 'We are just a reminder app. This is strictly a reminder tool.',
     },
-    
+
     technical: {
-      timeZones: 'Reminders/Notifications are based on your phone\'s current time. If you travel across time zones, your reminders will be based on the current device time.',
-      batteryOptimization: 'Android and iOS Battery Optimization settings may delay or suppress notifications. You are responsible for whitelisting this app in your phone\'s battery settings.',
-      clockChanges: 'Reminders rely on your device\'s internal clock. Manually changing your time or date may result in missed or premature reminders.',
+      timeZones:
+        "Reminders/Notifications are based on your phone's current time. If you travel across time zones, your reminders will be based on the current device time.",
+      batteryOptimization:
+        "Android and iOS Battery Optimization settings may delay or suppress notifications. You are responsible for whitelisting this app in your phone's battery settings.",
+      clockChanges:
+        "Reminders rely on your device's internal clock. Manually changing your time or date may result in missed or premature reminders.",
     },
   },
-  
+
   onboarding: {
     createProfileTitle: 'Create Your Profile',
     createProfileDescription: 'Set up your profile to get started with managing your medications',
@@ -115,7 +128,8 @@ export default {
     creatingProfile: 'Creating Profile...',
     camera: 'Camera',
     gallery: 'Gallery',
-    additionalProfilesNote: 'You can create additional profiles later for family members or others you care for',
+    additionalProfilesNote:
+      'You can create additional profiles later for family members or others you care for',
     enterNameError: 'Please enter a name',
     createProfileError: 'Failed to create profile. Please try again.',
     permissionRequired: 'Permission Required',
@@ -128,20 +142,20 @@ export default {
     takePhoto: 'Take Photo',
     chooseFromLibrary: 'Choose from Library',
   },
-  
+
   tabs: {
     dashboard: 'Dashboard',
     medications: 'Medications',
     history: 'History',
     settings: 'Settings',
   },
-  
+
   screens: {
     addMedication: 'Add Medication',
     medicationDetails: 'Medication Details',
     editMedication: 'Edit Medication',
   },
-  
+
   dashboard: {
     today: 'Today',
     noMedicationsScheduled: 'No Medications Scheduled',
@@ -150,7 +164,7 @@ export default {
     dosesScheduled: '{{count}} dose scheduled',
     dosesScheduled_other: '{{count}} doses scheduled',
   },
-  
+
   medications: {
     title: 'Medications',
     addNew: 'Add Medication',
@@ -169,12 +183,16 @@ export default {
     packageSizeLabel: 'Package Size',
     addImage: 'Add Image',
     changeImage: 'Change Image',
-    next: 'Next: {{time}}',
+    next: 'Next',
+    nextColon: 'Next:',
     prn: 'PRN',
     lowInventory: 'Low Inventory',
     expired: 'Expired',
     expiresOn: 'Expires: {{date}}',
     inventory: 'Inventory: {{count}} {{unit}}',
+    amount: 'Amount',
+    amountOfMedications: '{{count}} medication',
+    amountOfMedications_other: '{{count}} medications',
     basicInfo: 'Basic Information',
     scheduleInfo: 'Schedule',
     inventoryInfo: 'Inventory',
@@ -187,7 +205,7 @@ export default {
     updateError: 'Failed to update medication',
     loadError: 'Failed to load medication',
     deleteError: 'Failed to delete medication',
-    
+
     // Detail screen
     medicationDetails: 'Medication Details',
     editMedication: 'Edit Medication',
@@ -199,27 +217,29 @@ export default {
     lastTaken: 'Last Taken',
     neverTaken: 'Never taken',
     noUpcomingDoses: 'No upcoming doses',
-    
+
     // Inactive confirmation
     markInactiveTitle: 'Stop Taking Medication?',
-    markInactiveMessage: 'This will stop all reminders for {{name}}. Your history will be preserved.',
+    markInactiveMessage:
+      'This will stop all reminders for {{name}}. Your history will be preserved.',
     markInactiveConfirm: 'Stop Taking',
     markActiveTitle: 'Resume Taking Medication?',
     markActiveMessage: 'This will resume reminders for {{name}}.',
     markActiveConfirm: 'Resume',
-    
+
     // Delete confirmation
     deleteTitle: 'Delete Medication?',
-    deleteMessage: 'This will permanently delete {{name}} and all its history. This cannot be undone.',
+    deleteMessage:
+      'This will permanently delete {{name}} and all its history. This cannot be undone.',
     deleteConfirm: 'Delete Permanently',
-    
+
     // Expiration
     expirationDateLabel: 'Expiration Date',
     expirationReminderLabel: 'Remind me (days before)',
     expirationReminderPlaceholder: 'e.g., 7',
     expiresIn: 'Expires in {{days}} days',
     expiredDaysAgo: 'Expired {{days}} days ago',
-    
+
     // Refill reminders
     refillReminderLabel: 'Refill Reminder',
     refillReminderType: 'Reminder Type',
@@ -230,7 +250,7 @@ export default {
       days: 'Days Before Empty',
       doses: 'Doses Remaining',
     },
-    
+
     // Safety
     maxDailyDoseLabel: 'Max Daily Dose',
     maxDailyDosePlaceholder: 'Optional',
@@ -238,24 +258,25 @@ export default {
     minHoursBetweenPlaceholder: 'Optional',
     bypassDndLabel: 'Critical Medication (Bypass Do Not Disturb)',
     bypassDndDescription: 'Notifications will sound even in Do Not Disturb mode',
-    
+
     // Status
     active: 'Active',
     inactive: 'Inactive',
     status: 'Status',
-    
+
     scheduleTypes: {
       once_daily: 'Once Daily',
       multiple_daily: 'Multiple Times Daily',
       every_x_days: 'Every X Days',
       specific_weekdays: 'Specific Weekdays',
       xth_weekday: 'Xth Day of Week (Monthly)',
+      daily: 'Daily',
       cycle: 'Cycle (X days on, Y days off)',
       every_x_hours: 'Every X Hours',
       tapering: 'Tapering (Gradual Reduction)',
       prn: 'As Needed (PRN)',
     },
-    
+
     scheduleLabels: {
       time: 'Time',
       times: 'Times',
@@ -273,7 +294,7 @@ export default {
       decrementAmount: 'Decrement Amount',
       decrementInterval: 'Decrement Every (days)',
     },
-    
+
     occurrences: {
       first: '1st',
       second: '2nd',
@@ -281,7 +302,7 @@ export default {
       fourth: '4th',
       last: 'Last',
     },
-    
+
     weekdays: {
       sunday: 'Sunday',
       monday: 'Monday',
@@ -291,7 +312,7 @@ export default {
       friday: 'Friday',
       saturday: 'Saturday',
     },
-    
+
     weekdaysShort: {
       sun: 'Sun',
       mon: 'Mon',
@@ -301,23 +322,23 @@ export default {
       fri: 'Fri',
       sat: 'Sat',
     },
-    
+
     units: {
-      mg: 'mg',
-      g: 'g',
-      ml: 'ml',
+      grams: 'g',
+      milligrams: 'mg',
+      milliliters: 'ml',
       pills: 'pills',
       puffs: 'puffs',
       drops: 'drops',
       patches: 'patches',
       units: 'units',
     },
-    
+
     saveMedication: 'Save Medication',
     medicationSingular: 'medication',
     medicationPlural: 'medications',
   },
-  
+
   history: {
     title: 'Intake History',
     noHistory: 'No Intake History Yet',
@@ -382,7 +403,8 @@ export default {
     everyXDays: 'Every X Days',
     everyXDaysPlaceholder: 'e.g., 7',
     taperingExample: 'Example: Start at 4mg, decrease by 1mg every 7 days (4→3→2→1→0)',
-    prnDescription: 'As-needed medications have no scheduled doses. You can log when you take them.',
+    prnDescription:
+      'As-needed medications have no scheduled doses. You can log when you take them.',
     lowInventoryAlert: 'Low inventory alert (optional)',
     lowInventoryAlertPlaceholder: 'e.g., 5',
   },
@@ -401,12 +423,13 @@ export default {
       cycle: '{{daysOn}} days on, {{daysOff}} days off',
       everyXHours: 'Every {{count}} hour',
       everyXHours_other: 'Every {{count}} hours',
-      tapering: 'Tapering: Start {{startDose}}, reduce {{decrementAmount}} every {{decrementIntervalDays}} days',
+      tapering:
+        'Tapering: Start {{startDose}}, reduce {{decrementAmount}} every {{decrementIntervalDays}} days',
       custom: 'Custom schedule',
       invalid: 'Invalid schedule',
     },
   },
-  
+
   intakeLog: {
     markAsTaken: 'Mark as Taken',
     markAsSkipped: 'Mark as Skipped',
@@ -430,6 +453,8 @@ export default {
     deleteLog: 'Delete Log Entry',
     confirmDelete: 'Are you sure you want to delete this log entry?',
     deleteDescription: 'This will remove the entry and restore inventory if applicable.',
+    standardDoseNote: 'Standard dose: {{amount}} {{unit}}',
+    selectMedicationPlaceholder: 'Select medication',
     maxDoseWarning: 'Maximum Daily Dose Warning',
     maxDoseExceeded: 'Taking this dose will exceed your maximum daily dose of {{max}} {{unit}}.',
     currentDailyCount: 'You have already taken {{count}} {{unit}} today.',
@@ -438,30 +463,34 @@ export default {
     inventoryInsufficient: 'You only have {{count}} {{unit}} remaining.',
     adjustInventory: 'Adjust Inventory',
     lateDoseTitle: 'Late Dose Logged',
-    lateDoseMessage: 'This dose was taken {{hours}} hours late. Would you like to reschedule your next dose to maintain optimal timing?',
+    lateDoseMessage:
+      'This dose was taken {{hours}} hours late. Would you like to reschedule your next dose to maintain optimal timing?',
+    lateDoseMessageShort: '{{hours}}h late',
     keepSchedule: 'Keep Original Schedule',
     rescheduleNext: 'Reschedule Next Dose',
     logDoseOptions: 'Log Dose Options',
     tookAtScheduledTime: 'I took it as scheduled',
-    takingNowEarly: 'I\'m taking it now',
+    takingNowEarly: "I'm taking it now",
+    earlyDoseMessage: 'You are taking this dose {{minutes}} minutes early.',
+    earlyDoseTitle: 'Early Dose',
     nextDoseSoonTitle: 'Next dose is soon',
-    nextDoseSoonDescription: 'Your next dose of {{medicationName}} is scheduled for {{nextTime}} (in {{minutes}} min). Do you want to reschedule only the next dose?',
+    nextDoseSoonDescription:
+      'Your next dose of {{medicationName}} is scheduled for {{nextTime}} (in {{minutes}} min). Do you want to reschedule only the next dose?',
     keepScheduleAction: 'Keep schedule',
     rescheduleNextDoseAction: 'Reschedule next dose',
     rescheduleNextDoseTitle: 'Reschedule next dose',
-    rescheduleNextDoseDescription: 'This will change only the next dose time. All other scheduled doses will stay the same.',
+    rescheduleNextDoseDescription:
+      'This will change only the next dose time. All other scheduled doses will stay the same.',
     chooseDateTime: 'Choose date & time',
     noTimeSelected: 'No time selected',
     rescheduleConfirm: 'Confirm reschedule',
     rescheduleTimeInvalidPast: 'Please choose a time in the future.',
-    earlyDoseTitle: 'Early Dose',
-    earlyDoseMessage: 'You are taking this dose {{minutes}} minutes early.',
     reschedulePrompt: 'Would you like to reschedule the next dose to maintain optimal timing?',
     rescheduleSuccess: 'Next dose rescheduled successfully',
     stillNeedReminder: 'Yes, remind me',
     noReminderNeeded: 'No, I took it now',
   },
-  
+
   settings: {
     title: 'Settings',
     profiles: 'Profiles',
@@ -478,26 +507,27 @@ export default {
     exportData: 'Export Data',
     importData: 'Import Data',
     dataManagement: 'Data Management',
-    
+
     authMethods: {
       biometric: 'Biometric',
       pin: 'PIN',
       none: 'Disabled',
     },
-    
+
     languages: {
       en: 'English',
       tr: 'Türkçe',
       nl: 'Nederlands',
     },
   },
-  
+
   export: {
     title: 'Export Data',
     jsonBackup: 'Export JSON Backup',
     pdfReport: 'Export PDF Report',
     warning: 'Export Warning',
-    warningMessage: 'The exported file will contain unencrypted health data. Store it securely and delete when no longer needed.',
+    warningMessage:
+      'The exported file will contain unencrypted health data. Store it securely and delete when no longer needed.',
     understand: 'I understand and accept responsibility',
     exporting: 'Exporting...',
     exportSuccess: 'Data exported successfully',
@@ -506,7 +536,7 @@ export default {
     jsonDescription: 'Complete backup of all data',
     pdfDescription: 'Formatted report for doctor visits',
   },
-  
+
   import: {
     title: 'Import Data',
     selectFile: 'Select File',
@@ -530,17 +560,41 @@ export default {
     logsCount_other: '{{count}} log entries',
     confirmImport: 'Confirm Import',
   },
-  
+
   profile: {
     switchProfile: 'Switch Profile',
     editProfile: 'Edit Profile',
+    edit: 'Edit',
+    name: 'Name',
+    enterName: 'Enter profile name',
+    enterNamePlaceholder: 'Enter your name',
+    camera: 'Camera',
+    gallery: 'Gallery',
+    permissionRequired: 'Permission Required',
+    cameraPermission: 'Please allow access to your camera',
+    photoLibraryPermission: 'Please allow access to your photo library',
+    failedToPickImage: 'Failed to pick image',
+    failedToTakePhoto: 'Failed to take photo',
+    pleaseEnterName: 'Please enter a name',
+    saveChanges: 'Save Changes',
+    saving: 'Saving...',
+    createProfile: 'Create Profile',
+    creating: 'Creating...',
+    cannotDelete: 'Cannot Delete',
+    cannotDeleteActiveMessage:
+      'Cannot delete the active profile. Please switch to another profile first.',
+    deleteConfirmMessageFull:
+      'Are you sure you want to delete this profile? This will also delete all medications associated with it.',
+    failedToDelete: 'Failed to delete profile',
+    failedToUpdate: 'Failed to update profile. Please try again.',
+    failedToCreate: 'Failed to create profile. Please try again.',
     deleteProfile: 'Delete Profile',
     deleteConfirmTitle: 'Delete Profile',
     deleteConfirmMessage: 'Are you sure? This will delete all medications for this profile.',
     cannotDeleteActive: 'Cannot delete the active profile',
     active: 'Active',
   },
-  
+
   notifications: {
     medicationReminder: 'Medication Reminder',
     timeToTake: 'Time to take {{medication}}',
@@ -559,7 +613,7 @@ export default {
       skip: 'Skip',
     },
   },
-  
+
   inventory: {
     title: 'Manage Inventory',
     currentCount: 'Current Count',
@@ -600,7 +654,7 @@ export default {
     failedToLoad: 'Failed to load data',
     permissionDenied: 'Permission denied',
   },
-  
+
   validation: {
     required: 'Required',
     invalidTime: 'Invalid time format (HH:mm)',
