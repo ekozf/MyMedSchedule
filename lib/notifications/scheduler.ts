@@ -87,14 +87,22 @@ function isDoseKind(data: any): boolean {
 
   // Back-compat: older scheduled dose notifications lacked kind.
   // Treat as dose if it looks like a dose reminder payload and is not a refill.
-  if (data.kind == null && data.type !== 'refill' && data.medicationId && data.scheduledTime && data.dosageUnit) {
+  if (
+    data.kind == null &&
+    data.type !== 'refill' &&
+    data.medicationId &&
+    data.scheduledTime &&
+    data.dosageUnit
+  ) {
     return true;
   }
 
   return false;
 }
 
-function getScheduledNotificationTime(notification: Notifications.NotificationRequest): Date | null {
+function getScheduledNotificationTime(
+  notification: Notifications.NotificationRequest
+): Date | null {
   const data: any = notification.content?.data;
   if (data?.scheduledTime) {
     const parsed = new Date(data.scheduledTime);
@@ -151,7 +159,7 @@ async function pruneDoseNotificationsForMedication(input: {
   // Now trim future dose notifications down to the next `keepNext`.
   const scheduledAfter = await Notifications.getAllScheduledNotificationsAsync();
   const future = scheduledAfter
-    .map(notification => {
+    .map((notification) => {
       const data: any = notification.content?.data;
       if (!data) return null;
       if (data.medicationId !== medicationId) return null;
@@ -236,7 +244,7 @@ export async function scheduleNotificationsForMedication(medication: Medication)
 
 // Schedule batched notifications for medications at the same time
 export async function scheduleBatchedNotifications(medications: Medication[]): Promise<void> {
-  const activeMedications = medications.filter(m => m.isActive && !m.isPrn);
+  const activeMedications = medications.filter((m) => m.isActive && !m.isPrn);
   if (activeMedications.length === 0) return;
 
   // NOTE: The app uses per-medication "next 3" scheduling. Batched scheduling is retained for potential future use,
@@ -246,7 +254,9 @@ export async function scheduleBatchedNotifications(medications: Medication[]): P
   }
 }
 
-export async function scheduleNotificationsForAllMedications(medications: Medication[]): Promise<void> {
+export async function scheduleNotificationsForAllMedications(
+  medications: Medication[]
+): Promise<void> {
   for (const medication of medications) {
     await scheduleNotificationsForMedication(medication);
   }
@@ -254,7 +264,7 @@ export async function scheduleNotificationsForAllMedications(medications: Medica
 
 export async function cancelNotificationsForMedication(medicationId: string): Promise<void> {
   const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
-  
+
   for (const notification of scheduledNotifications) {
     const data: any = notification.content?.data;
     if (data?.medicationId === medicationId && isDoseKind(data)) {
@@ -264,9 +274,12 @@ export async function cancelNotificationsForMedication(medicationId: string): Pr
 }
 
 // Cancel a specific notification for a dose by medication ID and scheduled time
-export async function cancelNotificationForDose(medicationId: string, scheduledTimeIso: string): Promise<void> {
+export async function cancelNotificationForDose(
+  medicationId: string,
+  scheduledTimeIso: string
+): Promise<void> {
   const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
-  
+
   for (const notification of scheduledNotifications) {
     const data: any = notification.content?.data;
     if (
@@ -290,7 +303,9 @@ export async function cancelAllNotificationsForMedication(medicationId: string):
   }
 }
 
-export async function ensureNext3DoseNotificationsForMedication(medicationId: string): Promise<void> {
+export async function ensureNext3DoseNotificationsForMedication(
+  medicationId: string
+): Promise<void> {
   const { getMedicationById } = await import('@/lib/db/operations');
   const medication = await getMedicationById(medicationId);
   if (!medication) return;
@@ -309,7 +324,9 @@ export async function ensureNext3DoseNotificationsForMedication(medicationId: st
     if (data.medicationId !== medicationId) continue;
     if (!isDoseKind(data)) continue;
 
-    const time = getScheduledNotificationTime(notification) ?? (data.scheduledTime ? new Date(data.scheduledTime) : null);
+    const time =
+      getScheduledNotificationTime(notification) ??
+      (data.scheduledTime ? new Date(data.scheduledTime) : null);
     if (!time) continue;
     if (!isAfter(time, now)) continue;
 
@@ -317,11 +334,16 @@ export async function ensureNext3DoseNotificationsForMedication(medicationId: st
   }
 
   // De-dupe by time
-  const uniqueFutureTimesMs = Array.from(new Set(scheduledDoseTimes.map(s => s.timeMs))).sort((a, b) => a - b);
+  const uniqueFutureTimesMs = Array.from(new Set(scheduledDoseTimes.map((s) => s.timeMs))).sort(
+    (a, b) => a - b
+  );
   const futureCount = uniqueFutureTimesMs.length;
   if (futureCount >= NEXT_DOSE_BUFFER_SIZE) return;
 
-  const seedTimeMs = uniqueFutureTimesMs.length > 0 ? uniqueFutureTimesMs[uniqueFutureTimesMs.length - 1] : now.getTime();
+  const seedTimeMs =
+    uniqueFutureTimesMs.length > 0
+      ? uniqueFutureTimesMs[uniqueFutureTimesMs.length - 1]
+      : now.getTime();
   const seedTime = new Date(seedTimeMs);
   const excludeTimesMs = new Set<number>(uniqueFutureTimesMs);
 
@@ -349,7 +371,7 @@ export async function ensureNext3DoseNotificationsForAllActiveMedications(): Pro
   if (!profile) return;
 
   const medications = await getMedicationsByProfile(profile.id, true);
-  const active = medications.filter(m => m.isActive && !m.isPrn);
+  const active = medications.filter((m) => m.isActive && !m.isPrn);
 
   for (const medication of active) {
     await ensureNext3DoseNotificationsForMedication(medication.id);
@@ -387,11 +409,11 @@ function calculateDepletionDate(medication: Medication): Date | null {
         dailyUsage = medication.dosageAmount / (config.intervalDays || 1);
         break;
       case 'specific_weekdays':
-        dailyUsage = medication.dosageAmount * (config.weekdays?.length || 0) / 7;
+        dailyUsage = (medication.dosageAmount * (config.weekdays?.length || 0)) / 7;
         break;
       case 'cycle':
         const cycleLength = (config.daysOn || 0) + (config.daysOff || 0);
-        dailyUsage = medication.dosageAmount * (config.daysOn || 0) / cycleLength;
+        dailyUsage = (medication.dosageAmount * (config.daysOn || 0)) / cycleLength;
         break;
       case 'every_x_hours':
         dailyUsage = medication.dosageAmount * (24 / (config.intervalHours || 24));
@@ -426,7 +448,9 @@ export async function scheduleRefillReminder(medication: Medication): Promise<vo
     const daysPerDose = calculateDaysPerDose(medication);
     if (daysPerDose === null) return;
 
-    const dosesUntilReminder = medication.inventoryCount - medication.refillReminderValue;
+    const perDose = medication.dosageAmount > 0 ? medication.dosageAmount : 1;
+    const remainingDoses = Math.floor(medication.inventoryCount / perDose);
+    const dosesUntilReminder = remainingDoses - medication.refillReminderValue;
     if (dosesUntilReminder > 0) {
       const daysUntilReminder = dosesUntilReminder * daysPerDose;
       reminderDate = addDays(new Date(), Math.floor(daysUntilReminder));
@@ -475,7 +499,7 @@ export async function scheduleRefillReminder(medication: Medication): Promise<vo
 function calculateDaysPerDose(medication: Medication): number | null {
   try {
     const config = JSON.parse(medication.scheduleConfig);
-    
+
     switch (medication.scheduleType) {
       case 'once_daily':
         return 1;
@@ -495,10 +519,12 @@ function calculateDaysPerDose(medication: Medication): number | null {
 
 async function cancelRefillNotification(medicationId: string): Promise<void> {
   const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
-  
+
   for (const notification of scheduledNotifications) {
-    if (notification.content.data?.type === 'refill' && 
-        notification.content.data?.medicationId === medicationId) {
+    if (
+      notification.content.data?.type === 'refill' &&
+      notification.content.data?.medicationId === medicationId
+    ) {
       await Notifications.cancelScheduledNotificationAsync(notification.identifier);
     }
   }

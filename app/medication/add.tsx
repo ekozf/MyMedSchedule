@@ -46,6 +46,12 @@ const getScheduleTypeOptions = () => [
   { label: i18n.t('medications.scheduleTypes.prn'), value: 'prn' },
 ];
 
+const getRefillReminderTypeOptions = () => [
+  { label: i18n.t('medications.refillReminderTypes.none'), value: 'none' },
+  { label: i18n.t('medications.refillReminderTypes.days'), value: 'days' },
+  { label: i18n.t('medications.refillReminderTypes.doses'), value: 'doses' },
+];
+
 export default function AddMedicationScreen() {
   const insets = useSafeAreaInsets();
   const { activeProfile, loadMedications } = useStore();
@@ -69,6 +75,8 @@ export default function AddMedicationScreen() {
   // Advanced settings
   const [expirationDate, setExpirationDate] = useState<Date | undefined>();
   const [showExpirationPicker, setShowExpirationPicker] = useState(false);
+  const [refillReminderType, setRefillReminderType] = useState<'days' | 'doses' | 'none'>('none');
+  const [refillReminderValue, setRefillReminderValue] = useState('');
   const [maxDailyDose, setMaxDailyDose] = useState('');
   const [minHoursBetweenDoses, setMinHoursBetweenDoses] = useState('');
   const [bypassDnd, setBypassDnd] = useState(false);
@@ -158,6 +166,11 @@ export default function AddMedicationScreen() {
         inventoryCount: parseFloat(inventoryCount) || 0,
         packageSize: packageSize ? parseFloat(packageSize) : undefined,
         expirationDate,
+        refillReminderType: refillReminderType !== 'none' ? refillReminderType : undefined,
+        refillReminderValue:
+          refillReminderType !== 'none' && refillReminderValue
+            ? parseFloat(refillReminderValue)
+            : undefined,
         maxDailyDose: maxDailyDose ? parseFloat(maxDailyDose) : undefined,
         minHoursBetweenDoses: minHoursBetweenDoses ? parseFloat(minHoursBetweenDoses) : undefined,
         bypassDnd,
@@ -273,6 +286,12 @@ export default function AddMedicationScreen() {
                 setScheduleType(value);
                 // Reset config when type changes - no default values
                 setScheduleConfig({});
+
+                // PRN: day-based refill reminders aren't meaningful.
+                if (value === 'prn' && refillReminderType === 'days') {
+                  setRefillReminderType('none');
+                  setRefillReminderValue('');
+                }
               }}
             />
 
@@ -306,6 +325,39 @@ export default function AddMedicationScreen() {
               placeholder="e.g., 30 pills per package"
               keyboardType="decimal-pad"
             />
+
+            {/* Refill Reminder */}
+            <View className="gap-2">
+              <Text className="text-sm font-medium text-foreground">
+                {i18n.t('medications.refillReminderLabel')}
+              </Text>
+              <Select
+                options={
+                  scheduleType === 'prn'
+                    ? getRefillReminderTypeOptions().filter((o) => o.value !== 'days')
+                    : getRefillReminderTypeOptions()
+                }
+                value={refillReminderType}
+                onValueChange={(value) => {
+                  const next = value as any as 'days' | 'doses' | 'none';
+                  setRefillReminderType(next);
+                  if (next === 'none') {
+                    setRefillReminderValue('');
+                  }
+                }}
+                placeholder={i18n.t('medications.refillReminderType')}
+              />
+
+              {refillReminderType !== 'none' && (
+                <Input
+                  label={i18n.t('medications.refillReminderValue')}
+                  value={refillReminderValue}
+                  onChangeText={setRefillReminderValue}
+                  placeholder="e.g., 7"
+                  keyboardType="numeric"
+                />
+              )}
+            </View>
           </CardContent>
         </Card>
 

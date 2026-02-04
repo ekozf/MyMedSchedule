@@ -187,6 +187,11 @@ const nlOverrides = {
     nextColon: 'Volgende:',
     prn: 'Zo Nodig',
     lowInventory: 'Lage Voorraad',
+    runningLow: 'Bijna op',
+    runningLowWithDoses: 'Bijna op ({{doses}} doses over)',
+    runningLowMessageDays: 'Nog ongeveer {{days}} dagen over ({{doses}} doses).',
+    runningLowMessageDoses: 'Nog maar {{doses}} doses over.',
+    getNewPack: 'Haal een nieuwe verpakking.',
     expired: 'Verlopen',
     inventory: 'Voorraad: {{count}} {{unit}}',
     amount: 'Hoeveelheid',
@@ -244,8 +249,15 @@ const nlOverrides = {
 
     // Refill reminders
     refillReminderLabel: 'Hervulherinnering',
+    refillReminderType: 'Type herinnering',
+    refillReminderValue: 'Drempel',
     refillWhenDaysLeft: 'Wanneer er nog {{days}} dagen over zijn',
     refillWhenDosesLeft: 'Wanneer er nog {{doses}} doses over zijn',
+    refillReminderTypes: {
+      none: 'Geen',
+      days: 'Dagen vóór leeg',
+      doses: 'Resterende doses',
+    },
 
     // Safety
     maxDailyDoseLabel: 'Maximale dagdosis',

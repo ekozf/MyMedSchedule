@@ -22,6 +22,7 @@ import { format, differenceInMinutes, differenceInHours, isAfter } from 'date-fn
 import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 import { LateDoseOverlapWarningDialog } from '@/components/dashboard/LateDoseOverlapWarningDialog';
 import { RescheduleNextDoseDialog } from '@/components/dashboard/RescheduleNextDoseDialog';
+import { getRunningLowStatus } from '@/lib/medications/refill';
 
 export interface DoseActionDialogProps {
   visible: boolean;
@@ -44,6 +45,8 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
   );
   const [lateOverlapNextDoseTime, setLateOverlapNextDoseTime] = useState<Date | null>(null);
   const [isRescheduleNextOpen, setIsRescheduleNextOpen] = useState(false);
+
+  const runningLow = medication ? getRunningLowStatus(medication) : null;
 
   useEffect(() => {
     if (dose && visible) {
@@ -70,14 +73,16 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
 
   if (!dose) return null;
 
+  const currentDose = dose;
+
   const now = new Date();
-  const minutesEarly = differenceInMinutes(dose.time, now);
-  const hoursLate = differenceInHours(now, dose.time);
+  const minutesEarly = differenceInMinutes(currentDose.time, now);
+  const hoursLate = differenceInHours(now, currentDose.time);
   const isEarly = minutesEarly > 0 && minutesEarly <= 120;
-  const isLate = isAfter(now, dose.time);
+  const isLate = isAfter(now, currentDose.time);
 
   function getDosageAmountOrNull(): number | null {
-    if (action !== 'partial') return dose.dosageAmount;
+    if (action !== 'partial') return currentDose.dosageAmount;
     if (!partialAmount) return null;
     const parsed = parseFloat(partialAmount);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
@@ -97,9 +102,9 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
       const actualTime = new Date();
 
       await createIntakeLogAndUpdateInventory({
-        medicationId: dose.medicationId,
+        medicationId: currentDose.medicationId,
         profileId: activeProfile.id,
-        scheduledTime: dose.time,
+        scheduledTime: currentDose.time,
         actualTime,
         action,
         dosageAmount,
@@ -109,10 +114,10 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
       await loadMedications(activeProfile.id);
 
       if (isEarly && action === 'taken') {
-        await cancelNotificationForDose(dose.medicationId, dose.time.toISOString());
+        await cancelNotificationForDose(currentDose.medicationId, currentDose.time.toISOString());
       }
 
-      await ensureNext3DoseNotificationsForMedication(dose.medicationId);
+      await ensureNext3DoseNotificationsForMedication(currentDose.medicationId);
 
       onSuccess();
       onClose();
@@ -143,7 +148,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
     if (action !== 'taken' && action !== 'partial') return null;
 
     const medNoOverride = { ...medication, nextDoseOverrideTime: undefined };
-    const nextDose = getNextDose(medNoOverride, dose.time);
+    const nextDose = getNextDose(medNoOverride, currentDose.time);
     if (!nextDose) return null;
 
     const minutesUntilNext = differenceInMinutes(nextDose.time, now);
@@ -189,10 +194,10 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
       }
 
       await createIntakeLogAndUpdateInventory({
-        medicationId: dose.medicationId,
+        medicationId: currentDose.medicationId,
         profileId: activeProfile.id,
-        scheduledTime: dose.time,
-        actualTime: dose.time,
+        scheduledTime: currentDose.time,
+        actualTime: currentDose.time,
         action,
         dosageAmount,
         notes: notes || undefined,
@@ -200,7 +205,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
 
       await loadMedications(activeProfile.id);
 
-      await ensureNext3DoseNotificationsForMedication(dose.medicationId);
+      await ensureNext3DoseNotificationsForMedication(currentDose.medicationId);
 
       onSuccess();
       onClose();
@@ -242,7 +247,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
     setIsLoading(true);
     try {
       // Apply override for the next dose only
-      const updated = await setNextDoseOverrideTime(dose.medicationId, selectedTime);
+      const updated = await setNextDoseOverrideTime(currentDose.medicationId, selectedTime);
 
       // Reset + prime dose notifications (next-3) for this medication
       if (updated) {
@@ -302,12 +307,29 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
 
             {/* Medication Info */}
             <View className="mb-6 rounded-lg bg-muted p-4">
-              <Text className="text-PPp', { locale: dateFnsLocale }t-foreground mb-1">
-                {format(dose.time, 'MMM d, yyyy • HH:mm')}
+              <Text className="mb-1 text-sm text-foreground">
+                {format(dose.time, 'Pp', { locale: dateFnsLocale })}
               </Text>
               <Text className="text-sm text-muted-foreground">
                 {dose.dosageAmount} {i18n.t(`medications.units.${dose.dosageUnit}`)}
               </Text>
+
+              {runningLow?.isRunningLow && (
+                <View className="mt-2 flex-row items-center gap-2 rounded-lg bg-muted/50 p-2">
+                  <AlertTriangle size={16} className="text-muted-foreground" />
+                  <Text className="flex-1 text-xs text-foreground">
+                    {runningLow.basis === 'days'
+                      ? i18n.t('medications.runningLowMessageDays', {
+                          days: runningLow.remainingDays ?? runningLow.threshold,
+                          doses: runningLow.remainingDoses,
+                        })
+                      : i18n.t('medications.runningLowMessageDoses', {
+                          doses: runningLow.remainingDoses,
+                        })}{' '}
+                    {i18n.t('medications.getNewPack')}
+                  </Text>
+                </View>
+              )}
               {dose.notes && (
                 <Text className="mt-2 text-xs italic text-muted-foreground">{dose.notes}</Text>
               )}

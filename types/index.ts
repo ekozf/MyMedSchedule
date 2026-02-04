@@ -16,17 +16,17 @@ export interface ProfileSettings {
 }
 
 // Medication types
-export type DosageUnit = 
-  | 'grams' 
-  | 'milligrams' 
-  | 'milliliters' 
-  | 'pills' 
-  | 'puffs' 
-  | 'drops' 
-  | 'patches' 
+export type DosageUnit =
+  | 'grams'
+  | 'milligrams'
+  | 'milliliters'
+  | 'pills'
+  | 'puffs'
+  | 'drops'
+  | 'patches'
   | 'units';
 
-export type ScheduleType = 
+export type ScheduleType =
   | 'once_daily'
   | 'multiple_daily'
   | 'every_x_days'
@@ -52,8 +52,8 @@ export interface Medication {
   maxDailyDose?: number;
   minHoursBetweenDoses?: number;
   expirationDate?: Date;
-  refillReminderType?: 'days' | 'doses';
-  refillReminderValue?: number;
+  refillReminderType?: 'days' | 'doses' | null;
+  refillReminderValue?: number | null;
   bypassDnd: boolean;
   isActive: boolean;
   isPrn: boolean;

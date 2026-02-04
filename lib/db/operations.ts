@@ -219,8 +219,8 @@ export interface CreateMedicationInput {
   maxDailyDose?: number;
   minHoursBetweenDoses?: number;
   expirationDate?: Date;
-  refillReminderType?: 'days' | 'doses';
-  refillReminderValue?: number;
+  refillReminderType?: 'days' | 'doses' | null;
+  refillReminderValue?: number | null;
   bypassDnd?: boolean;
   isPrn?: boolean;
 }
@@ -238,8 +238,8 @@ export interface UpdateMedicationInput {
   maxDailyDose?: number;
   minHoursBetweenDoses?: number;
   expirationDate?: Date;
-  refillReminderType?: 'days' | 'doses';
-  refillReminderValue?: number;
+  refillReminderType?: 'days' | 'doses' | null;
+  refillReminderValue?: number | null;
   bypassDnd?: boolean;
   isActive?: boolean;
   isPrn?: boolean;

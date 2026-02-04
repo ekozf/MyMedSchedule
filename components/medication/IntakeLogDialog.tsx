@@ -14,6 +14,7 @@ import {
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
 import { startOfDay, endOfDay, differenceInHours } from 'date-fns';
+import { getRunningLowStatus } from '@/lib/medications/refill';
 
 export interface IntakeLogDialogProps {
   visible: boolean;
@@ -31,6 +32,8 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
   const [medication, setMedication] = useState<any>(null);
   const [dailyCount, setDailyCount] = useState(0);
   const [showMaxDoseWarning, setShowMaxDoseWarning] = useState(false);
+
+  const runningLow = medication ? getRunningLowStatus(medication) : null;
 
   useEffect(() => {
     if (dose && visible) {
@@ -215,14 +218,23 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
               {dose.dosageAmount} {i18n.t(`medications.units.${dose.dosageUnit}`)}
             </Text>
 
-            {/* Inventory warning */}
-            {medication && medication.inventoryCount < 5 && medication.inventoryCount > 0 && (
-              <View className="mt-2 flex-row items-center gap-2 rounded-lg bg-yellow-50 p-2 dark:bg-yellow-950">
-                <AlertTriangle size={16} className="text-yellow-600 dark:text-yellow-400" />
-                <Text className="flex-1 text-xs text-yellow-600 dark:text-yellow-400">
-                  {i18n.t('medications.lowInventory')}: {medication.inventoryCount}{' '}
-                  {i18n.t(`medications.units.${medication.dosageUnit}`)}
-                </Text>
+            {/* Running low warning (refill reminder) */}
+            {runningLow?.isRunningLow && (
+              <View className="mt-2 rounded-lg bg-muted/50 p-2">
+                <View className="flex-row items-center gap-2">
+                  <AlertTriangle size={16} className="text-muted-foreground" />
+                  <Text className="flex-1 text-xs text-foreground">
+                    {runningLow.basis === 'days'
+                      ? i18n.t('medications.runningLowMessageDays', {
+                          days: runningLow.remainingDays ?? runningLow.threshold,
+                          doses: runningLow.remainingDoses,
+                        })
+                      : i18n.t('medications.runningLowMessageDoses', {
+                          doses: runningLow.remainingDoses,
+                        })}{' '}
+                    {i18n.t('medications.getNewPack')}
+                  </Text>
+                </View>
               </View>
             )}
 

@@ -48,6 +48,7 @@ const getScheduleTypeOptions = () => [
 ];
 
 const getRefillReminderTypeOptions = () => [
+  { label: i18n.t('medications.refillReminderTypes.none'), value: 'none' },
   { label: i18n.t('medications.refillReminderTypes.days'), value: 'days' },
   { label: i18n.t('medications.refillReminderTypes.doses'), value: 'doses' },
 ];
@@ -78,7 +79,9 @@ export default function EditMedicationScreen() {
   const [expirationDate, setExpirationDate] = useState<Date | undefined>();
   const [showExpirationPicker, setShowExpirationPicker] = useState(false);
   const [expirationReminderDays, setExpirationReminderDays] = useState('');
-  const [refillReminderType, setRefillReminderType] = useState<'days' | 'doses' | undefined>();
+  const [refillReminderType, setRefillReminderType] = useState<
+    'days' | 'doses' | 'none' | undefined
+  >();
   const [refillReminderValue, setRefillReminderValue] = useState('');
   const [maxDailyDose, setMaxDailyDose] = useState('');
   const [minHoursBetweenDoses, setMinHoursBetweenDoses] = useState('');
@@ -118,7 +121,7 @@ export default function EditMedicationScreen() {
       setPackageSize(med.packageSize?.toString() || '');
       setExpirationDate(med.expirationDate);
       setExpirationReminderDays(''); // Would need to be stored separately
-      setRefillReminderType(med.refillReminderType);
+      setRefillReminderType(med.refillReminderType ?? 'none');
       setRefillReminderValue(med.refillReminderValue?.toString() || '');
       setMaxDailyDose(med.maxDailyDose?.toString() || '');
       setMinHoursBetweenDoses(med.minHoursBetweenDoses?.toString() || '');
@@ -209,8 +212,18 @@ export default function EditMedicationScreen() {
         inventoryCount: parseFloat(inventoryCount) || 0,
         packageSize: packageSize ? parseFloat(packageSize) : undefined,
         expirationDate: expirationDate,
-        refillReminderType: refillReminderType || undefined,
-        refillReminderValue: refillReminderValue ? parseFloat(refillReminderValue) : undefined,
+        refillReminderType:
+          refillReminderType === 'none'
+            ? null
+            : refillReminderType
+              ? refillReminderType
+              : undefined,
+        refillReminderValue:
+          refillReminderType === 'none'
+            ? null
+            : refillReminderType && refillReminderValue
+              ? parseFloat(refillReminderValue)
+              : undefined,
         maxDailyDose: maxDailyDose ? parseFloat(maxDailyDose) : undefined,
         minHoursBetweenDoses: minHoursBetweenDoses ? parseFloat(minHoursBetweenDoses) : undefined,
         bypassDnd,
@@ -335,6 +348,12 @@ export default function EditMedicationScreen() {
               onValueChange={(value) => {
                 setScheduleType(value);
                 setScheduleConfig({});
+
+                // PRN: day-based refill reminders aren't meaningful.
+                if (value === 'prn' && refillReminderType === 'days') {
+                  setRefillReminderType('none');
+                  setRefillReminderValue('');
+                }
               }}
             />
 
@@ -348,52 +367,60 @@ export default function EditMedicationScreen() {
         </Card>
 
         {/* Inventory */}
-        {scheduleType !== 'prn' && (
-          <Card className="mb-4">
-            <CardHeader>
-              <CardTitle>{i18n.t('medications.inventoryInfo')}</CardTitle>
-            </CardHeader>
-            <CardContent className="gap-4">
-              <Input
-                label={i18n.t('medications.inventoryLabel')}
-                value={inventoryCount}
-                onChangeText={setInventoryCount}
-                placeholder="0"
-                keyboardType="decimal-pad"
-              />
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle>{i18n.t('medications.inventoryInfo')}</CardTitle>
+          </CardHeader>
+          <CardContent className="gap-4">
+            <Input
+              label={i18n.t('medications.inventoryLabel')}
+              value={inventoryCount}
+              onChangeText={setInventoryCount}
+              placeholder="0"
+              keyboardType="decimal-pad"
+            />
 
-              <Input
-                label={i18n.t('medications.packageSizeLabel')}
-                value={packageSize}
-                onChangeText={setPackageSize}
-                placeholder="e.g., 30"
-                keyboardType="decimal-pad"
-              />
+            <Input
+              label={i18n.t('medications.packageSizeLabel')}
+              value={packageSize}
+              onChangeText={setPackageSize}
+              placeholder="e.g., 30"
+              keyboardType="decimal-pad"
+            />
 
-              {/* Refill Reminder */}
-              <View className="gap-2">
-                <Text className="text-sm font-medium text-foreground">
-                  {i18n.t('medications.refillReminderLabel')}
-                </Text>
-                <Select
-                  options={getRefillReminderTypeOptions()}
-                  value={refillReminderType || ''}
-                  onValueChange={(value) => setRefillReminderType(value as any)}
-                  placeholder={i18n.t('medications.refillReminderType')}
+            {/* Refill Reminder */}
+            <View className="gap-2">
+              <Text className="text-sm font-medium text-foreground">
+                {i18n.t('medications.refillReminderLabel')}
+              </Text>
+              <Select
+                options={
+                  scheduleType === 'prn'
+                    ? getRefillReminderTypeOptions().filter((o) => o.value !== 'days')
+                    : getRefillReminderTypeOptions()
+                }
+                value={refillReminderType || ''}
+                onValueChange={(value) => {
+                  const next = value as any as 'days' | 'doses' | 'none';
+                  setRefillReminderType(next);
+                  if (next === 'none') {
+                    setRefillReminderValue('');
+                  }
+                }}
+                placeholder={i18n.t('medications.refillReminderType')}
+              />
+              {refillReminderType && refillReminderType !== 'none' && (
+                <Input
+                  label={i18n.t('medications.refillReminderValue')}
+                  value={refillReminderValue}
+                  onChangeText={setRefillReminderValue}
+                  placeholder="e.g., 7"
+                  keyboardType="numeric"
                 />
-                {refillReminderType && (
-                  <Input
-                    label={i18n.t('medications.refillReminderValue')}
-                    value={refillReminderValue}
-                    onChangeText={setRefillReminderValue}
-                    placeholder="e.g., 7"
-                    keyboardType="numeric"
-                  />
-                )}
-              </View>
-            </CardContent>
-          </Card>
-        )}
+              )}
+            </View>
+          </CardContent>
+        </Card>
 
         {/* Advanced Settings */}
         <Card className="mb-4">

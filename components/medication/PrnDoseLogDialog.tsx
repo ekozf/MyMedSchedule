@@ -8,6 +8,7 @@ import type { Medication } from '@/types';
 import { createIntakeLogAndUpdateInventory, InventoryInsufficientError } from '@/lib/db/operations';
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
+import { getRunningLowStatus } from '@/lib/medications/refill';
 
 export interface PrnDoseLogDialogProps {
   visible: boolean;
@@ -25,6 +26,8 @@ export function PrnDoseLogDialog({
   const { activeProfile, loadMedications } = useStore();
   const [doseCount, setDoseCount] = useState('1');
   const [isLoading, setIsLoading] = useState(false);
+
+  const runningLow = medication ? getRunningLowStatus(medication) : null;
 
   useEffect(() => {
     if (!visible) return;
@@ -114,6 +117,22 @@ export function PrnDoseLogDialog({
                 unit: i18n.t(`medications.units.${medication.dosageUnit}`),
               })}
             </Text>
+
+            {runningLow?.isRunningLow && (
+              <View className="mt-2 flex-row items-center gap-2 rounded-lg bg-muted/50 p-2">
+                <Text className="flex-1 text-xs text-foreground">
+                  {runningLow.basis === 'days'
+                    ? i18n.t('medications.runningLowMessageDays', {
+                        days: runningLow.remainingDays ?? runningLow.threshold,
+                        doses: runningLow.remainingDoses,
+                      })
+                    : i18n.t('medications.runningLowMessageDoses', {
+                        doses: runningLow.remainingDoses,
+                      })}{' '}
+                  {i18n.t('medications.getNewPack')}
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Dose Count */}

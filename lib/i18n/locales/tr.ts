@@ -188,6 +188,11 @@ const trOverrides = {
     nextColon: 'Sonraki:',
     prn: 'Gerektiğinde',
     lowInventory: 'Düşük Envanter',
+    runningLow: 'Az kaldı',
+    runningLowWithDoses: 'Az kaldı ({{doses}} doz kaldı)',
+    runningLowMessageDays: 'Yaklaşık {{days}} gün kaldı ({{doses}} doz).',
+    runningLowMessageDoses: 'Sadece {{doses}} doz kaldı.',
+    getNewPack: 'Yeni bir paket alın.',
     expired: 'Süresi Doldu',
     inventory: 'Envanter: {{count}} {{unit}}',
     amount: 'Miktar',
@@ -243,8 +248,15 @@ const trOverrides = {
 
     // Refill reminders
     refillReminderLabel: 'Yenileme Hatırlatıcısı',
+    refillReminderType: 'Hatırlatma türü',
+    refillReminderValue: 'Eşik',
     refillWhenDaysLeft: '{{days}} gün kaldığında',
     refillWhenDosesLeft: '{{doses}} doz kaldığında',
+    refillReminderTypes: {
+      none: 'Yok',
+      days: 'Bitmeden önce (gün)',
+      doses: 'Kalan doz',
+    },
 
     // Safety
     maxDailyDoseLabel: 'Maks. Günlük Doz',

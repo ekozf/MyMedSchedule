@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Clock, Pill } from 'lucide-react-native';
 import type { Medication } from '@/types';
 import { getNextDose, getScheduleDescription } from '@/lib/schedule/calculator';
+import { getRunningLowStatus } from '@/lib/medications/refill';
 import { format } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 import { router } from 'expo-router';
@@ -19,7 +20,8 @@ export function MedicationCard({ medication, onPress }: MedicationCardProps) {
   const dateFnsLocale = getDateFnsLocale();
   const nextDose = getNextDose(medication);
   const scheduleDesc = getScheduleDescription(medication);
-  const isLowInventory = medication.inventoryCount < 5 && medication.inventoryCount > 0;
+  const runningLow = getRunningLowStatus(medication);
+  const isRunningLow = !!runningLow?.isRunningLow;
   const isExpired = medication.expirationDate && new Date(medication.expirationDate) < new Date();
 
   const handlePress = () => {
@@ -70,10 +72,15 @@ export function MedicationCard({ medication, onPress }: MedicationCardProps) {
               )}
 
               {/* Warnings */}
-              {(isLowInventory || isExpired) && (
+              {(isRunningLow || isExpired) && (
                 <View className="mt-2 flex-row gap-2">
-                  {isLowInventory && (
-                    <Badge label={i18n.t('medications.lowInventory')} variant="warning" />
+                  {isRunningLow && (
+                    <Badge
+                      label={i18n.t('medications.runningLowWithDoses', {
+                        doses: runningLow?.remainingDoses ?? 0,
+                      })}
+                      variant="warning"
+                    />
                   )}
                   {isExpired && (
                     <Badge label={i18n.t('medications.expired')} variant="destructive" />

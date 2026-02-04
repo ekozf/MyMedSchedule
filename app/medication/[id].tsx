@@ -37,6 +37,7 @@ import i18n from '@/lib/i18n';
 import type { Medication, IntakeLog } from '@/types';
 import { InventoryManager } from '@/components/medication/InventoryManager';
 import { PrnDoseLogDialog } from '@/components/medication/PrnDoseLogDialog';
+import { getRunningLowStatus } from '@/lib/medications/refill';
 
 export default function MedicationDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -48,6 +49,8 @@ export default function MedicationDetailScreen() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [inventoryDialogVisible, setInventoryDialogVisible] = useState(false);
   const [prnLogDialogVisible, setPrnLogDialogVisible] = useState(false);
+
+  const runningLow = medication ? getRunningLowStatus(medication) : null;
 
   useEffect(() => {
     loadMedicationData();
@@ -331,6 +334,30 @@ export default function MedicationDetailScreen() {
           </CardHeader>
           <CardContent>
             <View className="gap-3">
+              {runningLow?.isRunningLow && (
+                <View className="rounded-lg bg-muted/50 p-3">
+                  <View className="mb-1 flex-row items-center gap-2">
+                    <Badge
+                      label={i18n.t('medications.runningLowWithDoses', {
+                        doses: runningLow.remainingDoses,
+                      })}
+                      variant="warning"
+                    />
+                  </View>
+                  <Text className="text-sm text-foreground">
+                    {runningLow.basis === 'days'
+                      ? i18n.t('medications.runningLowMessageDays', {
+                          days: runningLow.remainingDays ?? runningLow.threshold,
+                          doses: runningLow.remainingDoses,
+                        })
+                      : i18n.t('medications.runningLowMessageDoses', {
+                          doses: runningLow.remainingDoses,
+                        })}{' '}
+                    {i18n.t('medications.getNewPack')}
+                  </Text>
+                </View>
+              )}
+
               <View className="flex-row items-center gap-2">
                 <Package size={16} className="text-muted-foreground" />
                 <Text className="text-foreground">

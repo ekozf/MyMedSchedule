@@ -64,7 +64,7 @@ export interface TaperingConfig {
 }
 
 export interface PrnConfig {
-  lowInventoryAlert?: number;
+  // PRN medications have no schedule config today.
 }
 
 export type ScheduleConfig =
@@ -108,51 +108,51 @@ function setTimeOnDate(date: Date, timeString: string): Date {
 // Get all doses for a medication on a specific date
 export function getDosesForDate(medication: Medication, date: Date): ScheduledDose[] {
   const doses: ScheduledDose[] = [];
-  
+
   // PRN medications have no scheduled doses
   if (medication.isPrn) {
     return doses;
   }
-  
+
   // Gate by schedule start date: don't show doses before the schedule was created
   const scheduleStartDay = getMedicationScheduleStart(medication);
   const targetDay = startOfDay(date);
-  
+
   if (targetDay < scheduleStartDay) {
     return doses; // Return empty array for dates before schedule start
   }
-  
+
   try {
     const config: ScheduleConfig = JSON.parse(medication.scheduleConfig);
-    
+
     switch (medication.scheduleType) {
       case 'once_daily':
         return getOnceDailyDoses(medication, date, config as OnceDailyConfig);
-      
+
       case 'multiple_daily':
         return getMultipleDailyDoses(medication, date, config as MultipleDailyConfig);
-      
+
       case 'every_x_days':
         return getEveryXDaysDoses(medication, date, config as EveryXDaysConfig);
-      
+
       case 'specific_weekdays':
         return getSpecificWeekdaysDoses(medication, date, config as SpecificWeekdaysConfig);
-      
+
       case 'xth_weekday':
         return getXthWeekdayDoses(medication, date, config as XthWeekdayConfig);
-      
+
       case 'cycle':
         return getCycleDoses(medication, date, config as CycleConfig);
-      
+
       case 'every_x_hours':
         return getEveryXHoursDoses(medication, date, config as EveryXHoursConfig);
-      
+
       case 'tapering':
         return getTaperingDoses(medication, date, config as TaperingConfig);
-      
+
       case 'prn':
         return []; // PRN has no scheduled doses
-      
+
       default:
         console.warn(`Unknown schedule type: ${medication.scheduleType}`);
         return [];
@@ -171,7 +171,7 @@ function getOnceDailyDoses(
   // Ensure we use a fresh date object to avoid mutations
   const targetDate = startOfDay(date);
   const doseTime = setTimeOnDate(targetDate, config.time);
-  
+
   return [
     {
       medicationId: medication.id,
@@ -213,14 +213,14 @@ function getEveryXDaysDoses(
   const startDate = startOfDay(parseISO(config.startDate));
   const targetDate = startOfDay(date);
   const daysSinceStart = differenceInDays(targetDate, startDate);
-  
+
   // Check if this day is a dose day
   if (daysSinceStart < 0 || daysSinceStart % config.intervalDays !== 0) {
     return [];
   }
-  
+
   const doseTime = setTimeOnDate(targetDate, config.time);
-  
+
   return [
     {
       medicationId: medication.id,
@@ -242,14 +242,14 @@ function getSpecificWeekdaysDoses(
 ): ScheduledDose[] {
   const targetDate = startOfDay(date);
   const dayOfWeek = targetDate.getDay(); // 0=Sun, 1=Mon, etc.
-  
+
   // Check if today is one of the specified weekdays
   if (!config.weekdays.includes(dayOfWeek)) {
     return [];
   }
-  
+
   const doseTime = setTimeOnDate(targetDate, config.time);
-  
+
   return [
     {
       medicationId: medication.id,
@@ -272,30 +272,30 @@ function getXthWeekdayDoses(
   const targetDate = startOfDay(date);
   const dayOfWeek = targetDate.getDay();
   const targetWeekday = config.weekday;
-  
+
   // Check if today is the target weekday
   if (dayOfWeek !== targetWeekday) {
     return [];
   }
-  
+
   // Get the month's year and month
   const year = targetDate.getFullYear();
   const month = targetDate.getMonth();
-  
+
   // Find all instances of this weekday in the current month
   const instancesInMonth: Date[] = [];
   const firstDayOfMonth = new Date(year, month, 1);
   const lastDayOfMonth = new Date(year, month + 1, 0);
-  
+
   for (let d = new Date(firstDayOfMonth); d <= lastDayOfMonth; d = addDays(d, 1)) {
     if (d.getDay() === targetWeekday) {
       instancesInMonth.push(new Date(d));
     }
   }
-  
+
   // Determine which occurrence we're looking for
   let targetOccurrenceDate: Date | null = null;
-  
+
   if (config.occurrence === 5) {
     // "Last" occurrence
     targetOccurrenceDate = instancesInMonth[instancesInMonth.length - 1];
@@ -303,14 +303,14 @@ function getXthWeekdayDoses(
     // 1st, 2nd, 3rd, or 4th occurrence
     targetOccurrenceDate = instancesInMonth[config.occurrence - 1] || null;
   }
-  
+
   // Check if today is the target occurrence
   if (!targetOccurrenceDate || !isSameDay(targetDate, targetOccurrenceDate)) {
     return [];
   }
-  
+
   const doseTime = setTimeOnDate(targetDate, config.time);
-  
+
   return [
     {
       medicationId: medication.id,
@@ -325,30 +325,26 @@ function getXthWeekdayDoses(
   ];
 }
 
-function getCycleDoses(
-  medication: Medication,
-  date: Date,
-  config: CycleConfig
-): ScheduledDose[] {
+function getCycleDoses(medication: Medication, date: Date, config: CycleConfig): ScheduledDose[] {
   const cycleStart = startOfDay(parseISO(config.cycleStartDate));
   const targetDate = startOfDay(date);
   const daysSinceCycleStart = differenceInDays(targetDate, cycleStart);
-  
+
   // If date is before cycle start, no dose
   if (daysSinceCycleStart < 0) {
     return [];
   }
-  
+
   const cycleLength = config.daysOn + config.daysOff;
   const positionInCycle = daysSinceCycleStart % cycleLength;
-  
+
   // If in "off" period, no dose
   if (positionInCycle >= config.daysOn) {
     return [];
   }
-  
+
   const doseTime = setTimeOnDate(targetDate, config.time);
-  
+
   return [
     {
       medicationId: medication.id,
@@ -371,18 +367,18 @@ function getEveryXHoursDoses(
   const doses: ScheduledDose[] = [];
   const startOfTargetDay = startOfDay(date);
   const endOfTargetDay = addDays(startOfTargetDay, 1);
-  
+
   // Parse first dose time
   const [hours, minutes] = config.firstDoseTime.split(':').map(Number);
-  
+
   // Start from midnight of the target day
   let currentDose = setMinutes(setHours(startOfTargetDay, hours), minutes);
-  
+
   // If first dose time hasn't occurred yet today, start from previous day
   if (isAfter(currentDose, endOfTargetDay)) {
     currentDose = addHours(currentDose, -24);
   }
-  
+
   // Generate doses for the entire day
   while (isBefore(currentDose, endOfTargetDay)) {
     // Only include doses that fall on the target day
@@ -398,10 +394,10 @@ function getEveryXHoursDoses(
         isPrn: false,
       });
     }
-    
+
     currentDose = addHours(currentDose, config.intervalHours);
   }
-  
+
   return doses;
 }
 
@@ -413,23 +409,23 @@ function getTaperingDoses(
   const startDate = startOfDay(parseISO(config.startDate));
   const targetDate = startOfDay(date);
   const daysSinceStart = differenceInDays(targetDate, startDate);
-  
+
   // If date is before start, no dose
   if (daysSinceStart < 0) {
     return [];
   }
-  
+
   // Calculate current dosage based on tapering schedule
   const decrementsCounted = Math.floor(daysSinceStart / config.decrementIntervalDays);
-  const currentDose = config.startDose - (decrementsCounted * config.decrementAmount);
-  
+  const currentDose = config.startDose - decrementsCounted * config.decrementAmount;
+
   // If dose has reached zero or below, no more doses (medication should be marked inactive)
   if (currentDose <= 0) {
     return [];
   }
-  
+
   const doseTime = setTimeOnDate(targetDate, config.time);
-  
+
   return [
     {
       medicationId: medication.id,
@@ -449,18 +445,18 @@ export function getAllDosesForDate(medications: Medication[], date: Date): Sched
   const allDoses: ScheduledDose[] = [];
   // Use Date.now() so tests can control time deterministically.
   const now = new Date(Date.now());
-  
+
   for (const medication of medications) {
     if (!medication.isActive) continue;
-    
+
     let doses = getDosesForDate(medication, date);
-    
+
     // Handle next-dose override: affects ONLY the next scheduled occurrence.
     // Implementation note: do NOT use proximity-based replacement, since the user may pick an override far from
     // the original next dose. Instead: remove the base "next dose" occurrence and insert the override occurrence.
     if (medication.nextDoseOverrideTime) {
       const overrideTime = new Date(medication.nextDoseOverrideTime);
-      
+
       // Skip if override is in the past (should be cleared, but handle gracefully)
       if (isBefore(overrideTime, now)) {
         // Override is stale, skip it
@@ -473,7 +469,7 @@ export function getAllDosesForDate(medications: Medication[], date: Date): Sched
 
       // Remove the original next occurrence from its scheduled day
       if (originalNext && isSameDay(originalNext.time, date)) {
-        doses = doses.filter(d => d.time.getTime() !== originalNext.time.getTime());
+        doses = doses.filter((d) => d.time.getTime() !== originalNext.time.getTime());
       }
 
       // Insert the override occurrence on its day
@@ -495,22 +491,25 @@ export function getAllDosesForDate(medications: Medication[], date: Date): Sched
         });
       }
     }
-    
+
     allDoses.push(...doses);
   }
-  
+
   // Sort by time
   allDoses.sort((a, b) => a.time.getTime() - b.time.getTime());
-  
+
   return allDoses;
 }
 
 // Get the next scheduled dose for a medication after a given time
-export function getNextDose(medication: Medication, afterTime: Date = new Date()): ScheduledDose | null {
+export function getNextDose(
+  medication: Medication,
+  afterTime: Date = new Date()
+): ScheduledDose | null {
   if (medication.isPrn || !medication.isActive) {
     return null;
   }
-  
+
   // If there's a next-dose override and it's in the future, return it
   if (medication.nextDoseOverrideTime) {
     const overrideTime = new Date(medication.nextDoseOverrideTime);
@@ -527,19 +526,19 @@ export function getNextDose(medication: Medication, afterTime: Date = new Date()
       };
     }
   }
-  
+
   // Check doses for the next 30 days
   for (let i = 0; i < 30; i++) {
     const checkDate = addDays(startOfDay(afterTime), i);
     const doses = getDosesForDate(medication, checkDate);
-    
+
     for (const dose of doses) {
       if (isAfter(dose.time, afterTime)) {
         return dose;
       }
     }
   }
-  
+
   return null;
 }
 
@@ -548,16 +547,16 @@ export function getScheduleDescription(medication: Medication): string {
   if (medication.isPrn) {
     return i18n.t('schedule.description.prn');
   }
-  
+
   try {
     const config: ScheduleConfig = JSON.parse(medication.scheduleConfig);
-    
+
     switch (medication.scheduleType) {
       case 'once_daily':
         return i18n.t('schedule.description.onceDaily', {
           time: (config as OnceDailyConfig).time,
         });
-      
+
       case 'multiple_daily':
         const dailyCount = (config as MultipleDailyConfig).times.length;
         return i18n.t(
@@ -566,7 +565,7 @@ export function getScheduleDescription(medication: Medication): string {
             : 'schedule.description.timesDaily_other',
           { count: dailyCount }
         );
-      
+
       case 'every_x_days':
         const intervalDays = (config as EveryXDaysConfig).intervalDays;
         return i18n.t(
@@ -575,7 +574,7 @@ export function getScheduleDescription(medication: Medication): string {
             : 'schedule.description.everyXDays_other',
           { count: intervalDays }
         );
-      
+
       case 'specific_weekdays':
         const { weekdays } = config as SpecificWeekdaysConfig;
         const shortKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
@@ -585,10 +584,18 @@ export function getScheduleDescription(medication: Medication): string {
           .map((k) => i18n.t(`medications.weekdaysShort.${k}`))
           .join(', ');
         return i18n.t('schedule.description.specificWeekdays', { days: selectedDays });
-      
+
       case 'xth_weekday':
         const xthConfig = config as XthWeekdayConfig;
-        const weekdayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+        const weekdayKeys = [
+          'sunday',
+          'monday',
+          'tuesday',
+          'wednesday',
+          'thursday',
+          'friday',
+          'saturday',
+        ] as const;
         const weekdayKey = weekdayKeys[xthConfig.weekday];
         const weekdayName = weekdayKey ? i18n.t(`medications.weekdays.${weekdayKey}`) : '';
         const occurrenceName =
@@ -608,11 +615,11 @@ export function getScheduleDescription(medication: Medication): string {
           occurrence: occurrenceName,
           weekday: weekdayName,
         });
-      
+
       case 'cycle':
         const { daysOn, daysOff } = config as CycleConfig;
         return i18n.t('schedule.description.cycle', { daysOn, daysOff });
-      
+
       case 'every_x_hours':
         const { intervalHours } = config as EveryXHoursConfig;
         return i18n.t(
@@ -621,7 +628,7 @@ export function getScheduleDescription(medication: Medication): string {
             : 'schedule.description.everyXHours_other',
           { count: intervalHours }
         );
-      
+
       case 'tapering':
         const taperingConfig = config as TaperingConfig;
         return i18n.t('schedule.description.tapering', {
@@ -629,7 +636,7 @@ export function getScheduleDescription(medication: Medication): string {
           decrementAmount: taperingConfig.decrementAmount,
           decrementIntervalDays: taperingConfig.decrementIntervalDays,
         });
-      
+
       default:
         return i18n.t('schedule.description.custom');
     }
