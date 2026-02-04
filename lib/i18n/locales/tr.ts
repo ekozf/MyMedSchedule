@@ -11,6 +11,7 @@ const trOverrides = {
     continue: 'Devam Et',
     close: 'Kapat',
     confirm: 'Onayla',
+    ok: 'Tamam',
     back: 'Geri',
     next: 'İleri',
     done: 'Tamam',

@@ -375,11 +375,11 @@ function generatePDFHTML(data: ExportData): string {
 
   // Add each medication to the summary table
   medicationsWithLogs.forEach(({ medication }) => {
-    const statusText = medication.isActive 
-      ? i18n.t('medications.active') 
+    const statusText = medication.isActive
+      ? i18n.t('medications.active')
       : i18n.t('medications.inactive');
     const statusClass = medication.isActive ? 'status-active' : 'status-inactive';
-    
+
     html += `
         <tr>
           <td><strong>${medication.name}</strong></td>

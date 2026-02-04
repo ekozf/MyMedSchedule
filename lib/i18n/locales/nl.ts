@@ -11,6 +11,7 @@ const nlOverrides = {
     continue: 'Doorgaan',
     close: 'Sluiten',
     confirm: 'Bevestigen',
+    ok: 'OK',
     back: 'Terug',
     next: 'Volgende',
     done: 'Klaar',

@@ -8,6 +8,7 @@ export default {
     continue: 'Continue',
     close: 'Close',
     confirm: 'Confirm',
+    ok: 'OK',
     back: 'Back',
     next: 'Next',
     done: 'Done',
