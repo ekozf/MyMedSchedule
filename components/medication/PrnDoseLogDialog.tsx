@@ -9,6 +9,9 @@ import { createIntakeLogAndUpdateInventory, InventoryInsufficientError } from '@
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
 import { getRunningLowStatus } from '@/lib/medications/refill';
+import { validateDose } from '@/lib/validation/dose-validation';
+import { format } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 
 export interface PrnDoseLogDialogProps {
   visible: boolean;
@@ -54,6 +57,69 @@ export function PrnDoseLogDialog({
     }
 
     const amount = parsedDoseCount * medication.dosageAmount;
+
+    // Validate dose before proceeding
+    const now = new Date();
+    const validation = await validateDose(medication, amount, now);
+
+    if (validation.hasWarnings) {
+      const warnings: string[] = [];
+
+      if (!validation.maxDailyDoseValidation.isValid) {
+        const details = validation.maxDailyDoseValidation.details!;
+        warnings.push(
+          i18n.t('intakeLog.maxDailyDoseWarningTitle') +
+            '\n\n' +
+            i18n.t('intakeLog.maxDailyDoseDetails', {
+              current: details.currentDailyTotal?.toFixed(1),
+              new: details.newTotal?.toFixed(1),
+              max: details.maxAllowed,
+              unit: i18n.t(`medications.units.${medication.dosageUnit}`),
+            })
+        );
+      }
+
+      if (!validation.minHoursValidation.isValid) {
+        const details = validation.minHoursValidation.details!;
+        const timeStr = details.lastDoseTime
+          ? format(details.lastDoseTime, 'p', { locale: getDateFnsLocale() })
+          : '';
+        warnings.push(
+          i18n.t('intakeLog.minHoursWarningTitle') +
+            '\n\n' +
+            i18n.t('intakeLog.minHoursDetailsWithTime', {
+              time: timeStr,
+              hours: details.hoursSinceLastDose?.toFixed(1),
+              minHours: details.minHoursRequired,
+            })
+        );
+      }
+
+      // Show warning alert and wait for user decision
+      return new Promise<void>((resolve) => {
+        Alert.alert(i18n.t('intakeLog.doseValidationWarning'), warnings.join('\n\n'), [
+          {
+            text: i18n.t('common.cancel'),
+            style: 'cancel',
+            onPress: () => resolve(),
+          },
+          {
+            text: i18n.t('intakeLog.continueAnywayConfirm'),
+            style: 'destructive',
+            onPress: async () => {
+              await proceedWithLogging(amount);
+              resolve();
+            },
+          },
+        ]);
+      });
+    }
+
+    await proceedWithLogging(amount);
+  };
+
+  const proceedWithLogging = async (amount: number) => {
+    if (!activeProfile || !medication) return;
 
     setIsLoading(true);
     try {

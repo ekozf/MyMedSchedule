@@ -12,6 +12,7 @@ import type { Medication } from '@/types';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/i18n/date-fns';
+import { validateDose } from '@/lib/validation/dose-validation';
 
 export interface RetroactiveLogDialogProps {
   visible: boolean;
@@ -60,6 +61,70 @@ export function RetroactiveLogDialog({
       Alert.alert(i18n.t('common.error'), i18n.t('intakeLog.cannotLogFuture'));
       return;
     }
+
+    // Validate dose before proceeding (for taken or partial actions)
+    if (action === 'taken' || action === 'partial') {
+      const validation = await validateDose(selectedMedication, amount, actualTime);
+
+      if (validation.hasWarnings) {
+        const warnings: string[] = [];
+
+        if (!validation.maxDailyDoseValidation.isValid) {
+          const details = validation.maxDailyDoseValidation.details!;
+          warnings.push(
+            i18n.t('intakeLog.maxDailyDoseWarningTitle') +
+              '\n\n' +
+              i18n.t('intakeLog.maxDailyDoseDetails', {
+                current: details.currentDailyTotal?.toFixed(1),
+                new: details.newTotal?.toFixed(1),
+                max: details.maxAllowed,
+                unit: i18n.t(`medications.units.${selectedMedication.dosageUnit}`),
+              })
+          );
+        }
+
+        if (!validation.minHoursValidation.isValid) {
+          const details = validation.minHoursValidation.details!;
+          const timeStr = details.lastDoseTime
+            ? format(details.lastDoseTime, 'p', { locale: dateFnsLocale })
+            : '';
+          warnings.push(
+            i18n.t('intakeLog.minHoursWarningTitle') +
+              '\n\n' +
+              i18n.t('intakeLog.minHoursDetailsWithTime', {
+                time: timeStr,
+                hours: details.hoursSinceLastDose?.toFixed(1),
+                minHours: details.minHoursRequired,
+              })
+          );
+        }
+
+        // Show warning alert and wait for user decision
+        return new Promise<void>((resolve) => {
+          Alert.alert(i18n.t('intakeLog.doseValidationWarning'), warnings.join('\n\n'), [
+            {
+              text: i18n.t('common.cancel'),
+              style: 'cancel',
+              onPress: () => resolve(),
+            },
+            {
+              text: i18n.t('intakeLog.continueAnywayConfirm'),
+              style: 'destructive',
+              onPress: async () => {
+                await proceedWithLogging(amount);
+                resolve();
+              },
+            },
+          ]);
+        });
+      }
+    }
+
+    await proceedWithLogging(amount);
+  };
+
+  const proceedWithLogging = async (amount: number) => {
+    if (!activeProfile || !selectedMedication) return;
 
     setIsLoading(true);
     try {

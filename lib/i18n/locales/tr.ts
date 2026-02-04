@@ -488,6 +488,19 @@ const trOverrides = {
     noTimeSelected: 'Saat seçilmedi',
     rescheduleConfirm: 'Yeniden planlamayı onayla',
     rescheduleTimeInvalidPast: 'Lütfen gelecekte bir saat seçin.',
+    // Dose validation warnings
+    doseValidationWarning: 'Doz Doğrulama Uyarısı',
+    maxDailyDoseWarningTitle: 'Maksimum Günlük Doz Uyarısı',
+    maxDailyDoseWarningMessage: 'Bu dozu almak günlük maksimum doz limitinizi aşacaktır.',
+    maxDailyDoseDetails:
+      "Son 24 saatte {{current}} {{unit}} aldınız. Bu doz toplamı {{new}} {{unit}}'ye çıkaracak ve {{max}} {{unit}} limitini aşacaktır.",
+    minHoursWarningTitle: 'Dozlar Arası Minimum Süre',
+    minHoursWarningMessage: 'Son dozunuzdan bu yana yeterli zaman geçmedi.',
+    minHoursDetails:
+      'Son dozunuzu {{hours}} saat önce aldınız. Önerilen minimum aralık {{minHours}} saattir.',
+    minHoursDetailsWithTime:
+      'Son dozunuzu {{time}} saatinde aldınız ({{hours}} saat önce). Önerilen minimum aralık {{minHours}} saattir.',
+    continueAnywayConfirm: 'Riskleri anlıyorum, yine de devam et',
   },
 
   settings: {

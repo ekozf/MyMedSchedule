@@ -23,6 +23,7 @@ import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 import { LateDoseOverlapWarningDialog } from '@/components/dashboard/LateDoseOverlapWarningDialog';
 import { RescheduleNextDoseDialog } from '@/components/dashboard/RescheduleNextDoseDialog';
 import { getRunningLowStatus } from '@/lib/medications/refill';
+import { validateDose } from '@/lib/validation/dose-validation';
 
 export interface DoseActionDialogProps {
   visible: boolean;
@@ -89,6 +90,80 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
   }
 
   async function logTakenNowWithoutLateWarning(): Promise<void> {
+    if (!activeProfile) return;
+
+    const dosageAmount = getDosageAmountOrNull();
+    if (dosageAmount === null) {
+      Alert.alert(i18n.t('common.error'), i18n.t('errors.invalidInput'));
+      return;
+    }
+
+    // Validate dose before proceeding
+    if (medication && (action === 'taken' || action === 'partial')) {
+      const actualTime = new Date();
+      const validation = await validateDose(medication, dosageAmount, actualTime);
+
+      if (validation.hasWarnings) {
+        const warnings: string[] = [];
+
+        if (!validation.maxDailyDoseValidation.isValid) {
+          const details = validation.maxDailyDoseValidation.details!;
+          warnings.push(
+            i18n.t('intakeLog.maxDailyDoseWarningTitle') +
+              '\n\n' +
+              i18n.t('intakeLog.maxDailyDoseDetails', {
+                current: details.currentDailyTotal?.toFixed(1),
+                new: details.newTotal?.toFixed(1),
+                max: details.maxAllowed,
+                unit: i18n.t(`medications.units.${medication.dosageUnit}`),
+              })
+          );
+        }
+
+        if (!validation.minHoursValidation.isValid) {
+          const details = validation.minHoursValidation.details!;
+          const timeStr = details.lastDoseTime
+            ? format(details.lastDoseTime, 'p', { locale: getDateFnsLocale() })
+            : '';
+          warnings.push(
+            i18n.t('intakeLog.minHoursWarningTitle') +
+              '\n\n' +
+              i18n.t('intakeLog.minHoursDetailsWithTime', {
+                time: timeStr,
+                hours: details.hoursSinceLastDose?.toFixed(1),
+                minHours: details.minHoursRequired,
+              })
+          );
+        }
+
+        // Show warning alert
+        return new Promise<void>((resolve) => {
+          Alert.alert(i18n.t('intakeLog.doseValidationWarning'), warnings.join('\n\n'), [
+            {
+              text: i18n.t('common.cancel'),
+              style: 'cancel',
+              onPress: () => {
+                setIsLoading(false);
+                resolve();
+              },
+            },
+            {
+              text: i18n.t('intakeLog.continueAnywayConfirm'),
+              style: 'destructive',
+              onPress: async () => {
+                await proceedWithLogging();
+                resolve();
+              },
+            },
+          ]);
+        });
+      }
+    }
+
+    await proceedWithLogging();
+  }
+
+  async function proceedWithLogging(): Promise<void> {
     if (!activeProfile) return;
 
     const dosageAmount = getDosageAmountOrNull();
@@ -181,18 +256,84 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
   const handleLogAtScheduledTime = async () => {
     if (!activeProfile) return;
 
+    const dosageAmount = getDosageAmountOrNull();
+    if (dosageAmount === null) {
+      Alert.alert(i18n.t('common.error'), i18n.t('errors.invalidInput'));
+      return;
+    }
+
+    // Validate dose before proceeding
+    if (medication && (action === 'taken' || action === 'partial')) {
+      const validation = await validateDose(medication, dosageAmount, currentDose.time);
+
+      if (validation.hasWarnings) {
+        const warnings: string[] = [];
+
+        if (!validation.maxDailyDoseValidation.isValid) {
+          const details = validation.maxDailyDoseValidation.details!;
+          warnings.push(
+            i18n.t('intakeLog.maxDailyDoseWarningTitle') +
+              '\n\n' +
+              i18n.t('intakeLog.maxDailyDoseDetails', {
+                current: details.currentDailyTotal?.toFixed(1),
+                new: details.newTotal?.toFixed(1),
+                max: details.maxAllowed,
+                unit: i18n.t(`medications.units.${medication.dosageUnit}`),
+              })
+          );
+        }
+
+        if (!validation.minHoursValidation.isValid) {
+          const details = validation.minHoursValidation.details!;
+          const timeStr = details.lastDoseTime
+            ? format(details.lastDoseTime, 'p', { locale: getDateFnsLocale() })
+            : '';
+          warnings.push(
+            i18n.t('intakeLog.minHoursWarningTitle') +
+              '\n\n' +
+              i18n.t('intakeLog.minHoursDetailsWithTime', {
+                time: timeStr,
+                hours: details.hoursSinceLastDose?.toFixed(1),
+                minHours: details.minHoursRequired,
+              })
+          );
+        }
+
+        // Show warning alert and wait for user decision
+        return new Promise<void>((resolve) => {
+          Alert.alert(i18n.t('intakeLog.doseValidationWarning'), warnings.join('\n\n'), [
+            {
+              text: i18n.t('common.cancel'),
+              style: 'cancel',
+              onPress: () => resolve(),
+            },
+            {
+              text: i18n.t('intakeLog.continueAnywayConfirm'),
+              style: 'destructive',
+              onPress: async () => {
+                await proceedWithScheduledTimeLogging();
+                resolve();
+              },
+            },
+          ]);
+        });
+      }
+    }
+
+    await proceedWithScheduledTimeLogging();
+  };
+
+  const proceedWithScheduledTimeLogging = async () => {
+    if (!activeProfile) return;
+
+    const dosageAmount = getDosageAmountOrNull();
+    if (dosageAmount === null) {
+      Alert.alert(i18n.t('common.error'), i18n.t('errors.invalidInput'));
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const dosageAmount =
-        action === 'partial' && partialAmount ? parseFloat(partialAmount) : dose.dosageAmount;
-
-      // Validate partial amount
-      if (action === 'partial' && (!partialAmount || isNaN(dosageAmount) || dosageAmount <= 0)) {
-        Alert.alert(i18n.t('common.error'), i18n.t('errors.invalidInput'));
-        setIsLoading(false);
-        return;
-      }
-
       await createIntakeLogAndUpdateInventory({
         medicationId: currentDose.medicationId,
         profileId: activeProfile.id,

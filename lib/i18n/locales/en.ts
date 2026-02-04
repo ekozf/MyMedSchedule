@@ -480,6 +480,19 @@ export default {
     lateDoseMessageShort: '{{hours}}h late',
     keepSchedule: 'Keep Original Schedule',
     rescheduleNext: 'Reschedule Next Dose',
+    // Dose validation warnings
+    doseValidationWarning: 'Dose Validation Warning',
+    maxDailyDoseWarningTitle: 'Maximum Daily Dose Warning',
+    maxDailyDoseWarningMessage: 'Taking this dose will exceed your maximum daily dose limit.',
+    maxDailyDoseDetails:
+      'You have taken {{current}} {{unit}} in the last 24 hours. This dose would bring the total to {{new}} {{unit}}, exceeding the limit of {{max}} {{unit}}.',
+    minHoursWarningTitle: 'Minimum Time Between Doses',
+    minHoursWarningMessage: 'Not enough time has passed since your last dose.',
+    minHoursDetails:
+      'You took your last dose {{hours}} hours ago. The minimum recommended interval is {{minHours}} hours.',
+    minHoursDetailsWithTime:
+      'You took your last dose at {{time}} ({{hours}} hours ago). The minimum recommended interval is {{minHours}} hours.',
+    continueAnywayConfirm: 'I understand the risks, continue anyway',
     logDoseOptions: 'Log Dose Options',
     tookAtScheduledTime: 'I took it as scheduled',
     takingNowEarly: "I'm taking it now",

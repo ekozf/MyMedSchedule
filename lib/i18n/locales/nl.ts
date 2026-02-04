@@ -490,6 +490,20 @@ const nlOverrides = {
     noTimeSelected: 'Geen tijd geselecteerd',
     rescheduleConfirm: 'Verplaatsen bevestigen',
     rescheduleTimeInvalidPast: 'Kies een tijd in de toekomst.',
+    // Dose validation warnings
+    doseValidationWarning: 'Dosis Validatie Waarschuwing',
+    maxDailyDoseWarningTitle: 'Maximale Dagelijkse Dosis Waarschuwing',
+    maxDailyDoseWarningMessage:
+      'Het innemen van deze dosis overschrijdt uw maximale dagelijkse dosislimiet.',
+    maxDailyDoseDetails:
+      'U heeft {{current}} {{unit}} in de afgelopen 24 uur ingenomen. Deze dosis zou het totaal brengen op {{new}} {{unit}}, wat de limiet van {{max}} {{unit}} overschrijdt.',
+    minHoursWarningTitle: 'Minimale Tijd Tussen Doses',
+    minHoursWarningMessage: 'Er is niet genoeg tijd verstreken sinds uw laatste dosis.',
+    minHoursDetails:
+      'U heeft uw laatste dosis {{hours}} uur geleden ingenomen. Het minimaal aanbevolen interval is {{minHours}} uur.',
+    minHoursDetailsWithTime:
+      'U heeft uw laatste dosis om {{time}} ingenomen ({{hours}} uur geleden). Het minimaal aanbevolen interval is {{minHours}} uur.',
+    continueAnywayConfirm: "Ik begrijp de risico's, toch doorgaan",
   },
 
   settings: {
