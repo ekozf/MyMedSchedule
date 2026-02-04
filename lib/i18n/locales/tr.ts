@@ -265,6 +265,9 @@ const trOverrides = {
     minHoursBetweenPlaceholder: 'İsteğe bağlı',
     bypassDndLabel: 'Kritik ilaç (Rahatsız Etmeyin’i Aş)',
 
+    // Status
+    inactive: 'Aktif Değil',
+
     scheduleTypes: {
       once_daily: 'Günde Bir Kez',
       multiple_daily: 'Günde Birden Fazla Kez',

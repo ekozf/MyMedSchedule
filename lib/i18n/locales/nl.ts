@@ -266,6 +266,9 @@ const nlOverrides = {
     minHoursBetweenPlaceholder: 'Optioneel',
     bypassDndLabel: 'Kritisch medicijn (Niet storen negeren)',
 
+    // Status
+    inactive: 'Inactief',
+
     scheduleTypes: {
       once_daily: 'Eenmaal Dagelijks',
       multiple_daily: 'Meerdere Keren Dagelijks',
