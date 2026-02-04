@@ -4,11 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { ProfileCard } from '@/components/profile/ProfileCard';
+import { ExportWarningDialog } from '@/components/export/ExportWarningDialog';
+import { ExportDestinationDialog } from '@/components/export/ExportDestinationDialog';
 import { router } from 'expo-router';
 import { useStore } from '@/store';
 import { useState, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Globe, Lock, Info, ChevronRight, Plus, LogOut } from 'lucide-react-native';
+import { User, Globe, Lock, Info, ChevronRight, Plus, LogOut, FileText } from 'lucide-react-native';
 import i18n, { setLocale } from '@/lib/i18n';
 import { getAuthMethod } from '@/lib/auth';
 import {
@@ -17,6 +19,7 @@ import {
   setActiveProfile as setActiveProfileDB,
   getAllProfiles,
 } from '@/lib/db/operations';
+import { generatePDFReport, sharePDFReport, savePDFReportLocally } from '@/lib/export/pdf';
 import Constants from 'expo-constants';
 
 const getLanguageOptions = () => [
@@ -31,6 +34,10 @@ export default function SettingsScreen() {
   const [authMethod, setAuthMethodState] = useState<string>('none');
   const [language, setLanguage] = useState('en');
   const [, forceUpdate] = useState({});
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showDestinationDialog, setShowDestinationDialog] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [generatedPdfUri, setGeneratedPdfUri] = useState<string | null>(null);
 
   useEffect(() => {
     loadAuthMethod();
@@ -127,6 +134,57 @@ export default function SettingsScreen() {
     router.push('/(onboarding)/disclaimer?viewOnly=true');
   };
 
+  const handleExportReport = () => {
+    setShowExportDialog(true);
+  };
+
+  const handleConfirmExport = async () => {
+    if (!activeProfile) return;
+
+    setIsExporting(true);
+    try {
+      // Generate the PDF
+      const uri = await generatePDFReport(activeProfile.id, 60);
+      setGeneratedPdfUri(uri);
+
+      // Close warning dialog and show destination dialog
+      setShowExportDialog(false);
+      setShowDestinationDialog(true);
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+      Alert.alert(i18n.t('common.error'), i18n.t('export.exportError'));
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleSaveLocally = async () => {
+    if (!generatedPdfUri || !activeProfile) return;
+
+    try {
+      const message = await savePDFReportLocally(generatedPdfUri, activeProfile.name);
+      setShowDestinationDialog(false);
+      setGeneratedPdfUri(null);
+      Alert.alert(i18n.t('export.saveLocally'), message);
+    } catch (error) {
+      console.error('Failed to save PDF locally:', error);
+      Alert.alert(i18n.t('common.error'), i18n.t('export.saveError'));
+    }
+  };
+
+  const handleShare = async () => {
+    if (!generatedPdfUri) return;
+
+    try {
+      await sharePDFReport(generatedPdfUri);
+      setShowDestinationDialog(false);
+      setGeneratedPdfUri(null);
+    } catch (error) {
+      console.error('Failed to share PDF:', error);
+      Alert.alert(i18n.t('common.error'), i18n.t('export.shareError'));
+    }
+  };
+
   const getAuthMethodLabel = () => {
     switch (authMethod) {
       case 'biometric':
@@ -221,6 +279,29 @@ export default function SettingsScreen() {
           </CardContent>
         </Card>
 
+        {/* Export */}
+        <Card className="mb-4">
+          <CardHeader>
+            <View className="flex-row items-center gap-2">
+              <FileText size={20} className="text-primary" />
+              <CardTitle>{i18n.t('export.exportReport')}</CardTitle>
+            </View>
+          </CardHeader>
+          <CardContent className="gap-3">
+            <Text className="text-sm text-muted-foreground">
+              {i18n.t('export.warningDescription')}
+            </Text>
+            <Button
+              variant="default"
+              onPress={handleExportReport}
+              className="flex-row items-center justify-center gap-2"
+              disabled={!activeProfile}>
+              <FileText size={16} className="text-primary-foreground" />
+              <Text className="text-primary-foreground">{i18n.t('export.exportReport')}</Text>
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* About */}
         <Card className="mb-4">
           <CardHeader>
@@ -248,6 +329,20 @@ export default function SettingsScreen() {
           </CardContent>
         </Card>
       </View>
+
+      <ExportWarningDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        onConfirm={handleConfirmExport}
+        isExporting={isExporting}
+      />
+
+      <ExportDestinationDialog
+        open={showDestinationDialog}
+        onOpenChange={setShowDestinationDialog}
+        onSaveLocally={handleSaveLocally}
+        onShare={handleShare}
+      />
     </ScrollView>
   );
 }
