@@ -324,6 +324,9 @@ const nlOverrides = {
     },
 
     units: {
+      g: 'gram',
+      mg: 'milligram',
+      ml: 'milliliter',
       grams: 'g',
       milligrams: 'mg',
       milliliters: 'ml',
@@ -375,7 +378,9 @@ const nlOverrides = {
   },
 
   history: {
-    title: 'Innamegeschiedenis',
+    title: 'Geschiedenis',
+    noHistory: 'Nog Geen Innamegeschiedenis',
+    startLoggingPrompt: 'Begin uw medicijnen in te nemen om uw geschiedenis te zien',
     last7Days: 'Laatste 7 Dagen',
     last30Days: 'Laatste 30 Dagen',
     last90Days: 'Laatste 90 Dagen',
@@ -388,7 +393,7 @@ const nlOverrides = {
     filterByAction: 'Filteren op Actie',
     actions: {
       taken: 'Ingenomen',
-      skipped: 'Overgeslagen',
+      skipped: 'Overslaan',
       partial: 'Gedeeltelijk',
     },
     adherence: 'Therapietrouw',
@@ -452,8 +457,8 @@ const nlOverrides = {
     logIntake: 'Inname Registreren',
     undoLast: 'Laatste Registratie Ongedaan Maken',
     confirmUndo: 'Weet u zeker dat u deze registratie ongedaan wilt maken?',
-    selectTime: 'Tijd Selecteren',
-    selectDate: 'Datum Selecteren',
+    selectTime: 'Tijd Kiezen',
+    selectDate: 'Datum Kiezen',
     selectAction: 'Actie Selecteren',
     logRetroactive: 'Eerdere Dosis Registreren',
     retroactiveDescription: 'Registreer een dosis die u eerder hebt ingenomen',

@@ -97,7 +97,7 @@ export default function MedicationsScreen() {
         <View className="absolute bottom-6 right-6">
           <Link href="/medication/add" asChild>
             <Button size="lg" className="h-14 w-14 rounded-full shadow-lg">
-              <Icon as={PlusIcon} className="text-primary-foreground" />
+              <Icon as={PlusIcon} className="text-primary-foreground" size={24} />
             </Button>
           </Link>
         </View>

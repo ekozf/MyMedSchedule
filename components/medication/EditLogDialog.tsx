@@ -102,7 +102,7 @@ export function EditLogDialog({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable className="flex-1 items-center justify-center bg-black/50" onPress={onClose}>
         <Pressable
-          className="w-11/12 max-w-md rounded-2xl bg-background p-6"
+          className="w-11/12 max-w-md rounded-2xl bg-background p-5"
           onPress={(e) => e.stopPropagation()}>
           {/* Header */}
           <View className="mb-6 flex-row items-center justify-between">

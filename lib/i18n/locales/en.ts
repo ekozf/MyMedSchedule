@@ -332,6 +332,9 @@ export default {
     },
 
     units: {
+      g: 'grams',
+      mg: 'milligrams',
+      ml: 'milliliters',
       grams: 'g',
       milligrams: 'mg',
       milliliters: 'ml',

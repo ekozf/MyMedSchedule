@@ -646,7 +646,7 @@ export default function EditMedicationScreen() {
         </Card>
       </ScrollView>
 
-      <View className="border-t border-border bg-background px-4 pb-4 pt-4">
+      <View className="mb-4 border-t border-border bg-background px-4 pb-4 pt-4">
         <View className="flex-row gap-2">
           <Button
             variant="outline"

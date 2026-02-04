@@ -24,6 +24,7 @@ import { LateDoseOverlapWarningDialog } from '@/components/dashboard/LateDoseOve
 import { RescheduleNextDoseDialog } from '@/components/dashboard/RescheduleNextDoseDialog';
 import { getRunningLowStatus } from '@/lib/medications/refill';
 import { validateDose } from '@/lib/validation/dose-validation';
+import { Icon } from '../ui/icon';
 
 export interface DoseActionDialogProps {
   visible: boolean;
@@ -411,7 +412,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
     if (isLate) {
       return (
         <View className="mb-4 flex-row items-center gap-2 rounded-lg bg-red-50 p-3 dark:bg-red-950">
-          <AlertTriangle size={20} className="text-red-600 dark:text-red-400" />
+          <Icon as={AlertTriangle} size={20} className="text-red-600 dark:text-red-400" />
           <Text className="flex-1 text-sm text-red-600 dark:text-red-400">
             {i18n.t('intakeLog.lateDoseMessage', { hours: Math.floor(hoursLate) })}
           </Text>
@@ -421,7 +422,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
     if (isEarly) {
       return (
         <View className="mb-4 flex-row items-center gap-2 rounded-lg bg-yellow-50 p-3 dark:bg-yellow-950">
-          <Clock size={20} className="text-yellow-600 dark:text-yellow-400" />
+          <Icon as={Clock} size={20} className="text-yellow-600 dark:text-yellow-400" />
           <Text className="flex-1 text-sm text-yellow-600 dark:text-yellow-400">
             {i18n.t('intakeLog.earlyDoseMessage', { minutes: minutesEarly })}
           </Text>
@@ -436,7 +437,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
       <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
         <Pressable className="flex-1 items-center justify-center bg-black/50" onPress={onClose}>
           <Pressable
-            className="w-11/12 max-w-md rounded-2xl bg-background p-6"
+            className="w-11/12 max-w-md rounded-2xl bg-background p-5"
             onPress={(e) => e.stopPropagation()}>
             {/* Header */}
             <View className="mb-6 flex-row items-center justify-between">
@@ -484,7 +485,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
                 <Text className="mb-3 text-sm font-medium text-foreground">
                   {i18n.t('intakeLog.selectAction')}
                 </Text>
-                <View className="mb-4 flex-row gap-2">
+                <View className="mb-4 flex-row gap-1">
                   <Button
                     variant={action === 'taken' ? 'default' : 'outline'}
                     onPress={() => setAction('taken')}

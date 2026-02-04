@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { DoseActionDialog } from '@/components/dashboard/DoseActionDialog';
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
+import { Icon } from '../ui/icon';
 
 export interface MedicationScheduleItemProps {
   dose: ScheduledDose;
@@ -179,7 +180,7 @@ export function MedicationScheduleItem({
 
               {/* Status Icon */}
               <View className="items-center">
-                <StatusIcon size={24} className={statusStyle.iconColor} />
+                <Icon as={StatusIcon} size={24} className={statusStyle.iconColor} />
                 {status === 'taken' && (
                   <Text className="mt-1 text-xs text-green-600 dark:text-green-400">
                     {i18n.t('history.actions.taken')}

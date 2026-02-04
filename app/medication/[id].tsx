@@ -38,6 +38,7 @@ import type { Medication, IntakeLog } from '@/types';
 import { InventoryManager } from '@/components/medication/InventoryManager';
 import { PrnDoseLogDialog } from '@/components/medication/PrnDoseLogDialog';
 import { getRunningLowStatus } from '@/lib/medications/refill';
+import { Icon } from '@/components/ui/icon';
 
 export default function MedicationDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -478,7 +479,7 @@ export default function MedicationDetailScreen() {
         {/* Action Buttons */}
         <View className="mb-8 gap-3 p-4">
           <Button onPress={handleEdit} className="flex-row gap-2">
-            <Edit size={20} className="text-primary-foreground" />
+            <Icon as={Edit} size={20} className="text-primary-foreground" />
             <Text className="font-medium text-primary-foreground">
               {i18n.t('medications.editMedication')}
             </Text>

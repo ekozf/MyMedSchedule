@@ -323,6 +323,9 @@ const trOverrides = {
     },
 
     units: {
+      g: 'gram',
+      mg: 'miligram',
+      ml: 'mililitre',
       grams: 'g',
       milligrams: 'mg',
       milliliters: 'ml',
@@ -375,6 +378,8 @@ const trOverrides = {
 
   history: {
     title: 'Alım Geçmişi',
+    noHistory: 'Henüz Alım Geçmişi Yok',
+    startLoggingPrompt: 'Geçmişinizi görmek için ilaçlarınızı almaya başlayın',
     last7Days: 'Son 7 Gün',
     last30Days: 'Son 30 Gün',
     last90Days: 'Son 90 Gün',

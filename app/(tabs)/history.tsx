@@ -17,6 +17,7 @@ import {
 import type { IntakeLog, Medication } from '@/types';
 import { format, subDays } from 'date-fns';
 import { Calendar, Edit3, Trash2, Plus } from 'lucide-react-native';
+import { Icon } from '@/components/ui/icon';
 import i18n from '@/lib/i18n';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
@@ -197,7 +198,7 @@ export default function HistoryScreen() {
         className="flex-1 items-center justify-center bg-background p-4"
         style={{ paddingTop: insets.top + 16 }}>
         <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-muted">
-          <Calendar size={40} className="text-muted-foreground" />
+          <Icon as={Calendar} size={40} className="text-muted-foreground" />
         </View>
         <Text className="mb-2 text-lg font-semibold text-foreground">
           {i18n.t('history.noHistory')}
@@ -219,7 +220,7 @@ export default function HistoryScreen() {
             onPress={() => setShowRetroactiveDialog(true)}
             size="sm"
             className="flex-row gap-2">
-            <Plus size={16} className="text-primary-foreground" />
+            <Icon as={Plus} size={16} className="text-primary-foreground" />
             <Text className="font-medium text-primary-foreground">
               {i18n.t('intakeLog.logRetroactive')}
             </Text>
@@ -302,7 +303,7 @@ export default function HistoryScreen() {
                     size="sm"
                     onPress={() => handleEditLog(log)}
                     className="flex-1 flex-row gap-2">
-                    <Edit3 size={14} className="text-foreground" />
+                    <Icon as={Edit3} size={14} className="text-foreground" />
                     <Text>{i18n.t('common.edit')}</Text>
                   </Button>
                   <Button
@@ -310,7 +311,7 @@ export default function HistoryScreen() {
                     size="sm"
                     onPress={() => handleDeleteLog(log)}
                     className="flex-1 flex-row gap-2">
-                    <Trash2 size={14} className="text-destructive" />
+                    <Icon as={Trash2} size={14} className="text-destructive" />
                     <Text className="text-destructive">{i18n.t('common.delete')}</Text>
                   </Button>
                 </View>
