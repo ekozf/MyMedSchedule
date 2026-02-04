@@ -423,6 +423,10 @@ const nlOverrides = {
   },
 
   intakeLog: {
+    logPrnDose: 'PRN Dosis Registreren',
+    doseCountLabel: 'Aantal doses',
+    doseCountPlaceholder: 'bijv., 1',
+    totalAmount: 'Totale hoeveelheid',
     markAsTaken: 'Markeren als Ingenomen',
     markAsSkipped: 'Markeren als Overgeslagen',
     logPartialDose: 'Gedeeltelijke Dosis Registreren',

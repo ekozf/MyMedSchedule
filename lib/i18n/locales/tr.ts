@@ -422,6 +422,10 @@ const trOverrides = {
   },
 
   intakeLog: {
+    logPrnDose: 'PRN Dozu Kaydet',
+    doseCountLabel: 'Doz sayısı',
+    doseCountPlaceholder: 'örn., 1',
+    totalAmount: 'Toplam miktar',
     markAsTaken: 'Alındı Olarak İşaretle',
     markAsSkipped: 'Atlandı Olarak İşaretle',
     logPartialDose: 'Kısmi Doz Kaydet',

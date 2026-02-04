@@ -36,6 +36,7 @@ import {
 import i18n from '@/lib/i18n';
 import type { Medication, IntakeLog } from '@/types';
 import { InventoryManager } from '@/components/medication/InventoryManager';
+import { PrnDoseLogDialog } from '@/components/medication/PrnDoseLogDialog';
 
 export default function MedicationDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -46,6 +47,7 @@ export default function MedicationDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [inventoryDialogVisible, setInventoryDialogVisible] = useState(false);
+  const [prnLogDialogVisible, setPrnLogDialogVisible] = useState(false);
 
   useEffect(() => {
     loadMedicationData();
@@ -303,6 +305,25 @@ export default function MedicationDetailScreen() {
           </CardContent>
         </Card>
 
+        {/* PRN Quick Log */}
+        {medication.isPrn && medication.isActive && (
+          <Card className="mx-4 mb-4">
+            <CardHeader>
+              <CardTitle>{i18n.t('intakeLog.logPrnDose')}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Text className="mb-3 text-sm text-muted-foreground">
+                {i18n.t('schedule.description.prn')}
+              </Text>
+              <Button onPress={() => setPrnLogDialogVisible(true)} className="flex-row gap-2">
+                <Text className="font-medium text-primary-foreground">
+                  {i18n.t('intakeLog.logIntake')}
+                </Text>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Inventory Information */}
         {!medication.isPrn && (
           <Card className="mx-4 mb-4">
@@ -473,6 +494,13 @@ export default function MedicationDetailScreen() {
         visible={inventoryDialogVisible}
         medication={medication}
         onClose={() => setInventoryDialogVisible(false)}
+        onSuccess={loadMedicationData}
+      />
+
+      <PrnDoseLogDialog
+        visible={prnLogDialogVisible}
+        medication={medication}
+        onClose={() => setPrnLogDialogVisible(false)}
         onSuccess={loadMedicationData}
       />
     </View>

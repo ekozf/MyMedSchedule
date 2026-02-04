@@ -433,6 +433,10 @@ export default {
   },
 
   intakeLog: {
+    logPrnDose: 'Log PRN Dose',
+    doseCountLabel: 'Number of doses',
+    doseCountPlaceholder: 'e.g., 1',
+    totalAmount: 'Total amount',
     markAsTaken: 'Mark as Taken',
     markAsSkipped: 'Mark as Skipped',
     logPartialDose: 'Log Partial Dose',
