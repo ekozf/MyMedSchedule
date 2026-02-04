@@ -4,8 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
 import { ProfileCard } from '@/components/profile/ProfileCard';
-import { ExportWarningDialog } from '@/components/export/ExportWarningDialog';
-import { ExportDestinationDialog } from '@/components/export/ExportDestinationDialog';
 import { router } from 'expo-router';
 import { useStore } from '@/store';
 import { useState, useEffect } from 'react';
@@ -329,20 +327,6 @@ export default function SettingsScreen() {
           </CardContent>
         </Card>
       </View>
-
-      <ExportWarningDialog
-        open={showExportDialog}
-        onOpenChange={setShowExportDialog}
-        onConfirm={handleConfirmExport}
-        isExporting={isExporting}
-      />
-
-      <ExportDestinationDialog
-        open={showDestinationDialog}
-        onOpenChange={setShowDestinationDialog}
-        onSaveLocally={handleSaveLocally}
-        onShare={handleShare}
-      />
     </ScrollView>
   );
 }

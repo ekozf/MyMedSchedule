@@ -31,11 +31,13 @@ export default function DashboardScreen() {
     if (!activeProfile) return;
     try {
       const logs = await getIntakeLogsByProfile(activeProfile.id);
-      // Filter logs for selected date
+      // Filter logs for selected date based on scheduledTime
+      // This ensures retroactively logged doses appear on the correct day
       const dayStart = startOfDay(selectedDate);
       const dayEnd = endOfDay(selectedDate);
       const filteredLogs = logs.filter((log) => {
-        const logTime = new Date(log.actualTime);
+        // Use scheduledTime if available, otherwise fall back to actualTime
+        const logTime = log.scheduledTime ? new Date(log.scheduledTime) : new Date(log.actualTime);
         return logTime >= dayStart && logTime <= dayEnd;
       });
       setIntakeLogs(filteredLogs);
