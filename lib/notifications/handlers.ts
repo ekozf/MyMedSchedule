@@ -49,22 +49,28 @@ export async function setupNotificationCategories() {
 }
 
 // Handle notification responses (when user taps on notification or action button)
-export function handleNotificationResponse(response: Notifications.NotificationResponse) {
+export async function handleNotificationResponse(response: Notifications.NotificationResponse) {
   const { notification, actionIdentifier } = response;
   const data = notification.request.content.data;
 
   switch (actionIdentifier) {
     case 'TAKE':
-      handleTakeAction(data);
+      await handleTakeAction(data);
+      // Dismiss the notification after handling the action
+      await Notifications.dismissNotificationAsync(notification.request.identifier);
       break;
     case 'SNOOZE':
-      handleSnoozeAction(data);
+      await handleSnoozeAction(data);
+      // Dismiss the notification after handling the action
+      await Notifications.dismissNotificationAsync(notification.request.identifier);
       break;
     case 'SKIP':
-      handleSkipAction(data);
+      await handleSkipAction(data);
+      // Dismiss the notification after handling the action
+      await Notifications.dismissNotificationAsync(notification.request.identifier);
       break;
     case Notifications.DEFAULT_ACTION_IDENTIFIER:
-      // User tapped the notification itself (opens app)
+      // User tapped the notification itself - just open the app (default behavior)
       break;
   }
 }

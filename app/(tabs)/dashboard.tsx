@@ -26,7 +26,7 @@ export default function DashboardScreen() {
   const [doses, setDoses] = useState<any[]>([]);
   const [intakeLogs, setIntakeLogs] = useState<IntakeLog[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   const loadIntakeLogs = useCallback(async () => {
     if (!activeProfile) return;
     try {
@@ -34,7 +34,7 @@ export default function DashboardScreen() {
       // Filter logs for selected date
       const dayStart = startOfDay(selectedDate);
       const dayEnd = endOfDay(selectedDate);
-      const filteredLogs = logs.filter(log => {
+      const filteredLogs = logs.filter((log) => {
         const logTime = new Date(log.actualTime);
         return logTime >= dayStart && logTime <= dayEnd;
       });
@@ -67,16 +67,19 @@ export default function DashboardScreen() {
     }, [activeProfile, loadMedications, loadIntakeLogs])
   );
 
-  const getDoseLogInfo = (dose: any): { isLogged: boolean; action?: 'taken' | 'skipped' | 'partial' } => {
-    const log = intakeLogs.find(log => 
-      log.medicationId === dose.medicationId &&
-      log.scheduledTime?.toISOString() === dose.time.toISOString()
+  const getDoseLogInfo = (
+    dose: any
+  ): { isLogged: boolean; action?: 'taken' | 'skipped' | 'partial' } => {
+    const log = intakeLogs.find(
+      (log) =>
+        log.medicationId === dose.medicationId &&
+        log.scheduledTime?.toISOString() === dose.time.toISOString()
     );
-    
+
     if (log) {
       return { isLogged: true, action: log.action };
     }
-    
+
     return { isLogged: false };
   };
 
@@ -95,45 +98,37 @@ export default function DashboardScreen() {
       setRefreshing(false);
     }
   };
-  
+
   const dateLabel = isToday(selectedDate)
     ? i18n.t('dashboard.today')
     : format(selectedDate, 'EEEE, MMMM d');
-  
+
   return (
     <View className="flex-1 bg-background">
       {/* Header with Profile Switcher */}
-      <View className="px-4 pb-2 border-b border-border" style={{ paddingTop: insets.top + 16 }}>
+      <View className="border-b border-border px-4 pb-2" style={{ paddingTop: insets.top + 16 }}>
         <ProfileSwitcher />
       </View>
-      
+
       {/* Day Picker */}
       <DayPicker selectedDate={selectedDate} onDateChange={setSelectedDate} />
-      
+
       {/* Schedule Content */}
-      <ScrollView 
+      <ScrollView
         className="flex-1"
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-          />
-        }
-      >
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <View className="p-4">
-          <Text className="text-xl font-bold text-foreground mb-4">
-            {dateLabel}
-          </Text>
-          
+          <Text className="mb-4 text-xl font-bold text-foreground">{dateLabel}</Text>
+
           {doses.length === 0 ? (
             <View className="items-center justify-center py-12">
-              <View className="w-20 h-20 rounded-full bg-muted items-center justify-center mb-4">
+              <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-muted">
                 <Calendar size={40} className="text-muted-foreground" />
               </View>
-              <Text className="text-lg font-semibold text-foreground mb-2">
+              <Text className="mb-2 text-lg font-semibold text-foreground">
                 {i18n.t('dashboard.noMedicationsScheduled')}
               </Text>
-              <Text className="text-sm text-muted-foreground text-center">
+              <Text className="text-center text-sm text-muted-foreground">
                 {medications.length === 0
                   ? i18n.t('dashboard.addMedicationsPrompt')
                   : i18n.t('dashboard.noDosesScheduled')}
@@ -141,10 +136,10 @@ export default function DashboardScreen() {
             </View>
           ) : (
             <>
-              <Text className="text-sm text-muted-foreground mb-4">
+              <Text className="mb-4 text-sm text-muted-foreground">
                 {i18n.t('dashboard.dosesScheduled', { count: doses.length })}
               </Text>
-              
+
               {doses.map((dose, index) => {
                 const logInfo = getDoseLogInfo(dose);
                 return (
