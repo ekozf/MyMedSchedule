@@ -8,10 +8,12 @@ import i18n from '@/lib/i18n';
 import { Icon } from '@/components/ui/icon';
 import { useStore } from '@/store';
 import { generatePDFReport, sharePDFReport, savePDFReportLocally } from '@/lib/export/pdf';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ExportDestinationPage() {
   const [isLoading, setIsLoading] = useState(false);
   const activeProfile = useStore((state) => state.activeProfile);
+  const insets = useSafeAreaInsets();
 
   const handleSaveLocally = async () => {
     if (!activeProfile) {
@@ -77,7 +79,7 @@ export default function ExportDestinationPage() {
         }}
       />
 
-      <ScrollView className="mt-6 flex-1 bg-background">
+      <ScrollView className="flex-1 bg-background" style={{ paddingTop: insets.top + 24 }}>
         <View className="flex-1 p-6">
           {/* Header */}
           <View className="mb-8 items-center">

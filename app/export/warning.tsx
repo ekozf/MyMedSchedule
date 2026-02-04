@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import { View, ScrollView, ActivityIndicator } from 'react-native';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AlertTriangle } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ExportWarningPage() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const handleConfirm = async () => {
     if (!acknowledged) return;
@@ -37,7 +39,12 @@ export default function ExportWarningPage() {
         }}
       />
 
-      <ScrollView className="flex-1 bg-background">
+      <ScrollView
+        className="flex-1 bg-background"
+        contentContainerStyle={{
+          paddingTop: insets.top + 24,
+          paddingBottom: insets.bottom + 24,
+        }}>
         <View className="flex-1 p-6">
           {/* Header Icon and Title */}
           <View className="mb-6 items-center">
