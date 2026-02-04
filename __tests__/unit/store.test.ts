@@ -41,7 +41,7 @@ describe('Store - Onboarding', () => {
 
   it('should set onboarding completed and save to SecureStore', async () => {
     const store = useStore.getState();
-    
+
     await store.setOnboardingCompleted(true);
 
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith('onboarding_completed', 'true');
@@ -50,7 +50,7 @@ describe('Store - Onboarding', () => {
 
   it('should delete from SecureStore when setting onboarding as not completed', async () => {
     const store = useStore.getState();
-    
+
     await store.setOnboardingCompleted(false);
 
     expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('onboarding_completed');
@@ -80,7 +80,7 @@ describe('Store - Onboarding', () => {
     (SecureStore.setItemAsync as any).mockRejectedValue(new Error('Storage error'));
 
     const store = useStore.getState();
-    
+
     // Should not throw
     await expect(store.setOnboardingCompleted(true)).resolves.not.toThrow();
   });
@@ -90,21 +90,21 @@ describe('Store - Basic State Management', () => {
   it('should set disclaimer acknowledged', () => {
     const store = useStore.getState();
     store.setDisclaimerAcknowledged(true);
-    
+
     expect(useStore.getState().hasAcknowledgedDisclaimer).toBe(true);
   });
 
   it('should set authenticated', () => {
     const store = useStore.getState();
     store.setAuthenticated(true);
-    
+
     expect(useStore.getState().isAuthenticated).toBe(true);
   });
 
   it('should set loading state', () => {
     const store = useStore.getState();
     store.setLoading(true);
-    
+
     expect(useStore.getState().isLoading).toBe(true);
   });
 
@@ -120,7 +120,7 @@ describe('Store - Basic State Management', () => {
 
     const store = useStore.getState();
     store.setActiveProfile(mockProfile);
-    
+
     expect(useStore.getState().activeProfile).toEqual(mockProfile);
   });
 
@@ -146,7 +146,7 @@ describe('Store - Basic State Management', () => {
 
     const store = useStore.getState();
     store.setProfiles(mockProfiles);
-    
+
     expect(useStore.getState().profiles).toEqual(mockProfiles);
   });
 
@@ -171,7 +171,7 @@ describe('Store - Basic State Management', () => {
 
     const store = useStore.getState();
     store.setMedications(mockMedications);
-    
+
     expect(useStore.getState().medications).toEqual(mockMedications);
   });
 });
@@ -183,7 +183,7 @@ describe('Store - Data Loading', () => {
 
   it('should call refreshAll and update loading state', async () => {
     const store = useStore.getState();
-    
+
     // Set an active profile first
     store.setActiveProfile({
       id: 'profile-1',
@@ -195,40 +195,41 @@ describe('Store - Data Loading', () => {
     });
 
     await store.refreshAll();
-    
+
     expect(useStore.getState().isLoading).toBe(false);
   });
 
   it('should call refreshAll without active profile', async () => {
     const store = useStore.getState();
-    
+
     // Clear active profile
     store.setActiveProfile(null);
 
     await store.refreshAll();
-    
+
     expect(useStore.getState().isLoading).toBe(false);
   });
 
   it('should load medications for a specific profile', async () => {
+    const { getMedicationsByProfile } = await import('@/lib/db/operations');
+
     const store = useStore.getState();
     await store.loadMedications('profile-1');
-    
-    // Should complete without error
-    expect(true).toBe(true);
+
+    expect(getMedicationsByProfile).toHaveBeenCalledWith('profile-1', false);
   });
 
   it('should load profiles', async () => {
     const store = useStore.getState();
     await store.loadProfiles();
-    
+
     // Should complete without error
     expect(true).toBe(true);
   });
 
   it('should handle loadAppState with existing data', async () => {
     (SecureStore.getItemAsync as any).mockResolvedValue('true');
-    
+
     const mockProfile = {
       id: 'profile-1',
       name: 'Test',
@@ -237,7 +238,7 @@ describe('Store - Data Loading', () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    
+
     const mockDisclaimer = {
       id: 'disc-1',
       version: '1.0.0',
@@ -262,8 +263,13 @@ describe('Store - Data Loading', () => {
       },
     ];
 
-    const { getLatestDisclaimerAcknowledgment, getActiveProfile, getAllProfiles, getMedicationsByProfile } = await import('@/lib/db/operations');
-    
+    const {
+      getLatestDisclaimerAcknowledgment,
+      getActiveProfile,
+      getAllProfiles,
+      getMedicationsByProfile,
+    } = await import('@/lib/db/operations');
+
     (getLatestDisclaimerAcknowledgment as any).mockResolvedValue(mockDisclaimer);
     (getActiveProfile as any).mockResolvedValue(mockProfile);
     (getAllProfiles as any).mockResolvedValue([mockProfile]);
@@ -271,9 +277,10 @@ describe('Store - Data Loading', () => {
 
     const store = useStore.getState();
     await store.loadAppState();
-    
+
     expect(useStore.getState().hasCompletedOnboarding).toBe(true);
     expect(useStore.getState().hasAcknowledgedDisclaimer).toBe(true);
+    expect(getMedicationsByProfile).toHaveBeenCalledWith(mockProfile.id, false);
   });
 
   it('should handle error in loadMedications gracefully', async () => {
@@ -281,7 +288,7 @@ describe('Store - Data Loading', () => {
     (getMedicationsByProfile as any).mockRejectedValue(new Error('DB error'));
 
     const store = useStore.getState();
-    
+
     // Should not throw
     await expect(store.loadMedications('profile-1')).resolves.not.toThrow();
   });
@@ -291,7 +298,7 @@ describe('Store - Data Loading', () => {
     (getAllProfiles as any).mockRejectedValue(new Error('DB error'));
 
     const store = useStore.getState();
-    
+
     // Should not throw
     await expect(store.loadProfiles()).resolves.not.toThrow();
   });
@@ -301,7 +308,7 @@ describe('Store - Data Loading', () => {
     (getLatestDisclaimerAcknowledgment as any).mockRejectedValue(new Error('DB error'));
 
     const store = useStore.getState();
-    
+
     // Should not throw
     await expect(store.loadAppState()).resolves.not.toThrow();
   });
@@ -311,7 +318,7 @@ describe('Store - Data Loading', () => {
     (getAllProfiles as any).mockRejectedValue(new Error('DB error'));
 
     const store = useStore.getState();
-    
+
     // Should not throw and should reset loading state
     await expect(store.refreshAll()).resolves.not.toThrow();
     expect(useStore.getState().isLoading).toBe(false);

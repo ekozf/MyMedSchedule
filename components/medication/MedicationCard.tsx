@@ -53,6 +53,9 @@ export function MedicationCard({ medication, onPress }: MedicationCardProps) {
                   {medication.name}
                 </Text>
                 {medication.isPrn && <Badge label="PRN" variant="secondary" />}
+                {!medication.isActive && (
+                  <Badge label={i18n.t('medications.inactive')} variant="destructive" />
+                )}
               </View>
 
               <Text className="mb-2 text-sm text-muted-foreground">

@@ -92,7 +92,7 @@ export const useStore = create<AppStore>((set, get) => ({
         set({ activeProfile: profile });
 
         // Load medications for active profile
-        const medications = await getMedicationsByProfile(profile.id);
+        const medications = await getMedicationsByProfile(profile.id, false);
         set({ medications });
 
         // If profile exists and no auth is required, set authenticated to true
@@ -129,7 +129,7 @@ export const useStore = create<AppStore>((set, get) => ({
 
   loadMedications: async (profileId: string) => {
     try {
-      const medications = await getMedicationsByProfile(profileId);
+      const medications = await getMedicationsByProfile(profileId, false);
       set({ medications });
     } catch (error) {
       console.error('Failed to load medications:', error);

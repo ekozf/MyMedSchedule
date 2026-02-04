@@ -15,16 +15,21 @@ export default function MedicationsScreen() {
   const insets = useSafeAreaInsets();
   const { medications, activeProfile, loadMedications } = useStore();
   const [refreshing, setRefreshing] = useState(false);
-  
+
+  const sortedMedications = [...medications].sort((a, b) => {
+    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
+
   useEffect(() => {
     if (activeProfile) {
       loadMedications(activeProfile.id);
     }
   }, [activeProfile]);
-  
+
   const onRefresh = async () => {
     if (!activeProfile) return;
-    
+
     setRefreshing(true);
     try {
       await loadMedications(activeProfile.id);
@@ -32,39 +37,37 @@ export default function MedicationsScreen() {
       setRefreshing(false);
     }
   };
-  
+
   const handleMedicationPress = (medicationId: string) => {
     router.push(`/medication/${medicationId}`);
   };
-  
+
   return (
     <View className="flex-1 bg-background">
       {/* Header with Profile Switcher */}
-      <View className="px-4 pb-2 border-b border-border" style={{ paddingTop: insets.top + 16 }}>
+      <View className="border-b border-border px-4 pb-2" style={{ paddingTop: insets.top + 16 }}>
         <ProfileSwitcher />
       </View>
-      
+
       <ScrollView
         className="flex-1 p-4"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+        contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         {medications.length === 0 ? (
-          <View className="items-center justify-center mt-20">
-            <View className="w-20 h-20 rounded-full bg-muted items-center justify-center mb-4">
+          <View className="mt-20 items-center justify-center">
+            <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-muted">
               <Pill size={40} className="text-muted-foreground" />
             </View>
-            <Text className="text-lg font-semibold text-foreground mb-2">
+            <Text className="mb-2 text-lg font-semibold text-foreground">
               {i18n.t('medications.noMedications')}
             </Text>
-            <Text className="text-sm text-muted-foreground text-center mb-6">
+            <Text className="mb-6 text-center text-sm text-muted-foreground">
               {i18n.t('medications.startAddingPrompt')}
             </Text>
             <Link href="/medication/add" asChild>
               <Button>
-                <PlusIcon size={20} className="text-primary-foreground mr-2" />
-                <Text className="text-primary-foreground font-semibold">
+                <PlusIcon size={20} className="mr-2 text-primary-foreground" />
+                <Text className="font-semibold text-primary-foreground">
                   {i18n.t('medications.addNew')}
                 </Text>
               </Button>
@@ -72,10 +75,13 @@ export default function MedicationsScreen() {
           </View>
         ) : (
           <>
-            <Text className="text-sm text-muted-foreground mb-4">
-              {medications.length} {medications.length === 1 ? i18n.t('medications.medicationSingular') : i18n.t('medications.medicationPlural')}
+            <Text className="mb-4 text-sm text-muted-foreground">
+              {medications.length}{' '}
+              {medications.length === 1
+                ? i18n.t('medications.medicationSingular')
+                : i18n.t('medications.medicationPlural')}
             </Text>
-            {medications.map((medication) => (
+            {sortedMedications.map((medication) => (
               <MedicationCard
                 key={medication.id}
                 medication={medication}
@@ -85,12 +91,12 @@ export default function MedicationsScreen() {
           </>
         )}
       </ScrollView>
-      
+
       {/* Floating action button */}
       {medications.length > 0 && (
         <View className="absolute bottom-6 right-6">
           <Link href="/medication/add" asChild>
-            <Button size="lg" className="rounded-full h-14 w-14 shadow-lg">
+            <Button size="lg" className="h-14 w-14 rounded-full shadow-lg">
               <Icon as={PlusIcon} className="text-primary-foreground" />
             </Button>
           </Link>

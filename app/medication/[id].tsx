@@ -233,7 +233,7 @@ export default function MedicationDetailScreen() {
                     <Badge label={i18n.t('medications.prn')} variant="secondary" />
                   )}
                   {!medication.isActive && (
-                    <Badge label={i18n.t('medications.inactive')} variant="secondary" />
+                    <Badge label={i18n.t('medications.inactive')} variant="destructive" />
                   )}
                 </View>
 

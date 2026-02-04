@@ -73,7 +73,7 @@ export default function HistoryScreen() {
     try {
       const [fetchedLogs, fetchedMeds] = await Promise.all([
         getIntakeLogsByProfile(activeProfile.id),
-        getMedicationsByProfile(activeProfile.id),
+        getMedicationsByProfile(activeProfile.id, false),
       ]);
 
       setLogs(fetchedLogs);
