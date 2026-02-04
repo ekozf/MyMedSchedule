@@ -17,10 +17,9 @@ import {
   setupNotificationCategories,
   handleNotificationResponse,
 } from '@/lib/notifications';
-import {
-  ensureNext3DoseNotificationsForAllActiveMedications,
-} from '@/lib/notifications/scheduler';
+import { ensureNext3DoseNotificationsForAllActiveMedications } from '@/lib/notifications/scheduler';
 import { registerNext3UpkeepTask } from '@/lib/notifications/upkeep';
+import { initializeLocale } from '@/lib/i18n';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -35,9 +34,12 @@ export default function RootLayout() {
     // Initialize database and load app state
     const init = async () => {
       try {
+        // Initialize language first so all UI text appears in the correct language
+        await initializeLocale();
+
         await initDatabase();
         await loadAppState();
-        
+
         // Setup notifications
         setupNotificationHandler();
         await setupNotificationCategories();
@@ -49,11 +51,13 @@ export default function RootLayout() {
         console.error('Failed to initialize app:', error);
       }
     };
-    
+
     init();
 
     // Listen for notification responses
-    const subscription = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
+    const subscription = Notifications.addNotificationResponseReceivedListener(
+      handleNotificationResponse
+    );
 
     // App foreground (best-effort): when app becomes active, top up next-3 for all active meds
     const appStateSubscription = AppState.addEventListener('change', (state) => {

@@ -63,7 +63,8 @@ export default function SettingsScreen() {
       });
 
       setLanguage(newLanguage);
-      setLocale(newLanguage as 'en' | 'tr' | 'nl');
+      // setLocale is now async and saves to storage
+      await setLocale(newLanguage as 'en' | 'tr' | 'nl');
 
       // Force re-render of this component
       forceUpdate({});

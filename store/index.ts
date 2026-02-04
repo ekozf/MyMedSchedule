@@ -14,6 +14,7 @@ interface AppStore {
   hasCompletedOnboarding: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isLoadingAppState: boolean;
 
   // Profile state
   activeProfile: Profile | null;
@@ -44,6 +45,7 @@ export const useStore = create<AppStore>((set, get) => ({
   hasCompletedOnboarding: false,
   isAuthenticated: false,
   isLoading: false,
+  isLoadingAppState: true,
   activeProfile: null,
   profiles: [],
   medications: [],
@@ -70,6 +72,7 @@ export const useStore = create<AppStore>((set, get) => ({
 
   // Data loading actions
   loadAppState: async () => {
+    set({ isLoadingAppState: true });
     try {
       // Check if onboarding was completed (saved to SecureStore)
       const onboardingCompleted = await SecureStore.getItemAsync('onboarding_completed');
@@ -106,6 +109,8 @@ export const useStore = create<AppStore>((set, get) => ({
       set({ profiles });
     } catch (error) {
       console.error('Failed to load app state:', error);
+    } finally {
+      set({ isLoadingAppState: false });
     }
   },
 

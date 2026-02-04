@@ -7,12 +7,7 @@ import { useStore } from '@/store';
 import { useState, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fingerprint, Lock } from 'lucide-react-native';
-import {
-  authenticate,
-  getAuthMethod,
-  verifyPIN,
-  getBiometricType,
-} from '@/lib/auth';
+import { authenticate, getAuthMethod, verifyPIN, getBiometricType } from '@/lib/auth';
 import i18n from '@/lib/i18n';
 
 export default function LockScreen() {
@@ -29,7 +24,7 @@ export default function LockScreen() {
   }, []);
 
   useEffect(() => {
-    if (authMethod === 'biometric') {
+    if (authMethod === 'biometric' && !isLoading) {
       // Automatically trigger biometric authentication
       handleBiometricAuth();
     }
@@ -38,7 +33,7 @@ export default function LockScreen() {
   const loadAuthMethod = async () => {
     const method = await getAuthMethod();
     setAuthMethodState(method);
-    
+
     if (method === 'biometric') {
       const types = await getBiometricType();
       if (types.includes('face')) setBiometricLabel(i18n.t('auth.faceId'));
@@ -51,33 +46,33 @@ export default function LockScreen() {
   const handleBiometricAuth = async () => {
     setIsLoading(true);
     setError('');
-    
+
     const result = await authenticate({
       promptMessage: i18n.t('auth.biometricPrompt'),
     });
-    
+
     if (result.success) {
       setAuthenticated(true);
       router.replace('/(tabs)/dashboard');
     } else {
       setError(result.error || i18n.t('auth.authFailed'));
     }
-    
+
     setIsLoading(false);
   };
 
   const handlePINAuth = async () => {
     setError('');
-    
+
     if (!pin) {
       setError(i18n.t('auth.enterPin'));
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     const isValid = await verifyPIN(pin);
-    
+
     if (isValid) {
       setAuthenticated(true);
       router.replace('/(tabs)/dashboard');
@@ -85,7 +80,7 @@ export default function LockScreen() {
       setError(i18n.t('auth.incorrectPin'));
       setPin('');
     }
-    
+
     setIsLoading(false);
   };
 
@@ -97,52 +92,46 @@ export default function LockScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background items-center justify-center p-6" style={{ paddingTop: insets.top + 24 }}>
-      <Text className="text-3xl font-bold mb-4 text-foreground">
-        MyMedSchedule
-      </Text>
-      
-      <Text className="text-base text-muted-foreground mb-12 text-center">
+    <View
+      className="flex-1 items-center justify-center bg-background p-6"
+      style={{ paddingTop: insets.top + 24 }}>
+      <Text className="mb-4 text-3xl font-bold text-foreground">MyMedSchedule</Text>
+
+      <Text className="mb-12 text-center text-base text-muted-foreground">
         {i18n.t('auth.yourMedicationsProtected')}
       </Text>
-      
+
       {authMethod === 'biometric' ? (
-        <View className="items-center gap-6 w-full max-w-sm">
-          <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center mb-4">
+        <View className="w-full max-w-sm items-center gap-6">
+          <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-primary/10">
             <Fingerprint size={48} className="text-primary" />
           </View>
-          
-          <Text className="text-lg font-medium text-foreground mb-4">
+
+          <Text className="mb-4 text-lg font-medium text-foreground">
             {i18n.t('auth.useToUnlock', { method: biometricLabel })}
           </Text>
-          
-          <Button
-            onPress={handleBiometricAuth}
-            disabled={isLoading}
-            className="w-full"
-          >
-            <Text className="text-primary-foreground font-semibold">
-              {isLoading ? i18n.t('auth.authenticating') : i18n.t('auth.unlockWith', { method: biometricLabel })}
+
+          <Button onPress={handleBiometricAuth} disabled={isLoading} className="w-full">
+            <Text className="font-semibold text-primary-foreground">
+              {isLoading
+                ? i18n.t('auth.authenticating')
+                : i18n.t('auth.unlockWith', { method: biometricLabel })}
             </Text>
           </Button>
-          
-          {error && (
-            <Text className="text-destructive text-center mt-4">
-              {error}
-            </Text>
-          )}
+
+          {error && <Text className="mt-4 text-center text-destructive">{error}</Text>}
         </View>
       ) : (
         <View className="w-full max-w-sm gap-6">
-          <View className="items-center mb-4">
-            <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center mb-4">
+          <View className="mb-4 items-center">
+            <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-primary/10">
               <Lock size={48} className="text-primary" />
             </View>
             <Text className="text-lg font-medium text-foreground">
               {i18n.t('auth.enterYourPin')}
             </Text>
           </View>
-          
+
           <Input
             value={pin}
             onChangeText={setPin}
@@ -154,12 +143,9 @@ export default function LockScreen() {
             autoFocus
             onSubmitEditing={handlePINAuth}
           />
-          
-          <Button
-            onPress={handlePINAuth}
-            disabled={isLoading || !pin}
-          >
-            <Text className="text-primary-foreground font-semibold">
+
+          <Button onPress={handlePINAuth} disabled={isLoading || !pin}>
+            <Text className="font-semibold text-primary-foreground">
               {isLoading ? i18n.t('auth.verifying') : i18n.t('auth.unlock')}
             </Text>
           </Button>
