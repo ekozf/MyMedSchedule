@@ -195,14 +195,64 @@ const nlOverrides = {
     basicInfo: 'Basisinformatie',
     scheduleInfo: 'Schema',
     inventoryInfo: 'Voorraad',
+    advancedSettings: 'Geavanceerde instellingen',
     photoOptional: 'Foto (optioneel)',
     camera: 'Camera',
     gallery: 'Galerij',
     photoSelected: 'Foto geselecteerd',
     saveError: 'Medicijn opslaan mislukt',
+    updateError: 'Medicijn bijwerken mislukt',
+    loadError: 'Medicijn laden mislukt',
+    deleteError: 'Medicijn verwijderen mislukt',
     saveMedication: 'Medicijn Opslaan',
     medicationSingular: 'medicijn',
     medicationPlural: 'medicijnen',
+
+    // Detail screen
+    medicationDetails: 'Medicijndetails',
+    editMedication: 'Medicijn bewerken',
+    viewHistory: 'Geschiedenis bekijken',
+    markAsInactive: 'Markeren als niet meer gebruiken',
+    markAsActive: 'Markeren als actief',
+    deleteMedication: 'Medicijn verwijderen',
+    nextDose: 'Volgende dosis',
+    lastTaken: 'Laatst ingenomen',
+    neverTaken: 'Nog nooit ingenomen',
+    noUpcomingDoses: 'Geen komende doses',
+
+    // Inactive confirmation
+    markInactiveTitle: 'Stoppen met medicijn?',
+    markInactiveMessage:
+      'Dit stopt alle herinneringen voor {{name}}. Uw geschiedenis blijft behouden.',
+    markInactiveConfirm: 'Stoppen',
+    markActiveTitle: 'Medicijn hervatten?',
+    markActiveMessage: 'Dit hervat herinneringen voor {{name}}.',
+    markActiveConfirm: 'Hervatten',
+
+    // Delete confirmation
+    deleteTitle: 'Medicijn verwijderen?',
+    deleteMessage:
+      'Dit verwijdert {{name}} en alle geschiedenis permanent. Dit kan niet ongedaan worden gemaakt.',
+    deleteConfirm: 'Permanent verwijderen',
+
+    // Expiration
+    expirationDateLabel: 'Vervaldatum',
+    selectDate: 'Selecteer datum',
+    clearDate: 'Datum wissen',
+    expiresIn: 'Vervalt over {{days}} dagen',
+    expiredDaysAgo: '{{days}} dagen verlopen',
+
+    // Refill reminders
+    refillReminderLabel: 'Hervulherinnering',
+    refillWhenDaysLeft: 'Wanneer er nog {{days}} dagen over zijn',
+    refillWhenDosesLeft: 'Wanneer er nog {{doses}} doses over zijn',
+
+    // Safety
+    maxDailyDoseLabel: 'Maximale dagdosis',
+    maxDailyDosePlaceholder: 'Optioneel',
+    minHoursBetweenLabel: 'Min. uren tussen doses',
+    minHoursBetweenPlaceholder: 'Optioneel',
+    bypassDndLabel: 'Kritisch medicijn (Niet storen negeren)',
 
     scheduleTypes: {
       once_daily: 'Eenmaal Dagelijks',
@@ -268,6 +318,45 @@ const nlOverrides = {
       patches: 'pleisters',
       units: 'eenheden',
     },
+  },
+
+  schedule: {
+    description: {
+      prn: 'Zo nodig',
+      onceDaily: 'Eenmaal per dag om {{time}}',
+      timesDaily: '{{count}} keer per dag',
+      timesDaily_other: '{{count}} keer per dag',
+      everyXDays: 'Elke {{count}} dag',
+      everyXDays_other: 'Elke {{count}} dagen',
+      specificWeekdays: 'Op {{days}}',
+      xthWeekday: '{{occurrence}} {{weekday}} van de maand',
+      occurrenceNth: '{{n}}e',
+      cycle: '{{daysOn}} dagen aan, {{daysOff}} dagen uit',
+      everyXHours: 'Elke {{count}} uur',
+      everyXHours_other: 'Elke {{count}} uur',
+      tapering:
+        'Afbouwen: start {{startDose}}, verlaag met {{decrementAmount}} elke {{decrementIntervalDays}} dagen',
+      custom: 'Aangepast schema',
+      invalid: 'Ongeldig schema',
+    },
+  },
+
+  inventory: {
+    title: 'Voorraad beheren',
+    currentCount: 'Huidige voorraad',
+    adjustInventory: 'Voorraad aanpassen',
+    addDoses: 'Toevoegen',
+    removeDoses: 'Verwijderen',
+    setCount: 'Instellen',
+    amount: 'Aantal',
+    amountPlaceholder: '0',
+    reason: 'Reden (optioneel)',
+    reasonPlaceholder: 'bijv. hervulling gekregen, pillen gevallen, enz.',
+    addFullPackage: 'Volledige verpakking toevoegen ({{size}} {{unit}})',
+    newCount: 'Nieuwe voorraad',
+    refill: 'Hervulling',
+    adjustmentSuccess: 'Voorraad bijgewerkt',
+    adjustmentError: 'Voorraad bijwerken mislukt',
   },
 
   history: {
@@ -458,8 +547,10 @@ const nlOverrides = {
     createProfile: 'Profiel Aanmaken',
     creating: 'Aanmaken...',
     cannotDelete: 'Kan Niet Verwijderen',
-    cannotDeleteActiveMessage: 'Kan het actieve profiel niet verwijderen. Schakel eerst over naar een ander profiel.',
-    deleteConfirmMessageFull: 'Weet u zeker dat u dit profiel wilt verwijderen? Dit verwijdert ook alle medicijnen die aan dit profiel zijn gekoppeld.',
+    cannotDeleteActiveMessage:
+      'Kan het actieve profiel niet verwijderen. Schakel eerst over naar een ander profiel.',
+    deleteConfirmMessageFull:
+      'Weet u zeker dat u dit profiel wilt verwijderen? Dit verwijdert ook alle medicijnen die aan dit profiel zijn gekoppeld.',
     failedToDelete: 'Profiel verwijderen mislukt',
     failedToUpdate: 'Profiel bijwerken mislukt. Probeer het opnieuw.',
     failedToCreate: 'Profiel aanmaken mislukt. Probeer het opnieuw.',

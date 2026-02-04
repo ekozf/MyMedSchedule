@@ -196,14 +196,62 @@ const trOverrides = {
     basicInfo: 'Temel Bilgiler',
     scheduleInfo: 'Program',
     inventoryInfo: 'Envanter',
+    advancedSettings: 'Gelişmiş Ayarlar',
     photoOptional: 'Fotoğraf (isteğe bağlı)',
     camera: 'Kamera',
     gallery: 'Galeri',
     photoSelected: 'Fotoğraf seçildi',
     saveError: 'İlaç kaydedilemedi',
+    updateError: 'İlaç güncellenemedi',
+    loadError: 'İlaç yüklenemedi',
+    deleteError: 'İlaç silinemedi',
     saveMedication: 'İlacı Kaydet',
     medicationSingular: 'ilaç',
     medicationPlural: 'ilaç',
+
+    // Detail screen
+    medicationDetails: 'İlaç Detayları',
+    editMedication: 'İlacı Düzenle',
+    viewHistory: 'Geçmişi Görüntüle',
+    markAsInactive: 'Artık Kullanmıyorum Olarak İşaretle',
+    markAsActive: 'Aktif Olarak İşaretle',
+    deleteMedication: 'İlacı Sil',
+    nextDose: 'Sonraki Doz',
+    lastTaken: 'Son Alınan',
+    neverTaken: 'Hiç alınmadı',
+    noUpcomingDoses: 'Yaklaşan doz yok',
+
+    // Inactive confirmation
+    markInactiveTitle: 'İlacı bırakmak istiyor musunuz?',
+    markInactiveMessage: '{{name}} için tüm hatırlatmalar durdurulur. Geçmişiniz korunur.',
+    markInactiveConfirm: 'Durdur',
+    markActiveTitle: 'İlacı yeniden başlatmak istiyor musunuz?',
+    markActiveMessage: '{{name}} için hatırlatmalar yeniden başlatılır.',
+    markActiveConfirm: 'Devam et',
+
+    // Delete confirmation
+    deleteTitle: 'İlaç silinsin mi?',
+    deleteMessage: '{{name}} ve tüm geçmişi kalıcı olarak silinecek. Bu işlem geri alınamaz.',
+    deleteConfirm: 'Kalıcı olarak sil',
+
+    // Expiration
+    expirationDateLabel: 'Son Kullanma Tarihi',
+    selectDate: 'Tarih seç',
+    clearDate: 'Tarihi temizle',
+    expiresIn: '{{days}} gün içinde sona erer',
+    expiredDaysAgo: '{{days}} gün önce süresi doldu',
+
+    // Refill reminders
+    refillReminderLabel: 'Yenileme Hatırlatıcısı',
+    refillWhenDaysLeft: '{{days}} gün kaldığında',
+    refillWhenDosesLeft: '{{doses}} doz kaldığında',
+
+    // Safety
+    maxDailyDoseLabel: 'Maks. Günlük Doz',
+    maxDailyDosePlaceholder: 'İsteğe bağlı',
+    minHoursBetweenLabel: 'Dozlar arası min. saat',
+    minHoursBetweenPlaceholder: 'İsteğe bağlı',
+    bypassDndLabel: 'Kritik ilaç (Rahatsız Etmeyin’i Aş)',
 
     scheduleTypes: {
       once_daily: 'Günde Bir Kez',
@@ -269,6 +317,45 @@ const trOverrides = {
       patches: 'yama',
       units: 'birim',
     },
+  },
+
+  schedule: {
+    description: {
+      prn: 'Gerektiğinde',
+      onceDaily: 'Günde bir kez {{time}} saatinde',
+      timesDaily: 'Günde {{count}} kez',
+      timesDaily_other: 'Günde {{count}} kez',
+      everyXDays: '{{count}} günde bir',
+      everyXDays_other: '{{count}} günde bir',
+      specificWeekdays: '{{days}} günlerinde',
+      xthWeekday: 'Her ayın {{occurrence}} {{weekday}} günü',
+      occurrenceNth: '{{n}}.',
+      cycle: '{{daysOn}} gün kullan, {{daysOff}} gün ara',
+      everyXHours: '{{count}} saatte bir',
+      everyXHours_other: '{{count}} saatte bir',
+      tapering:
+        'Azaltma: {{startDose}} ile başla, her {{decrementIntervalDays}} günde bir {{decrementAmount}} azalt',
+      custom: 'Özel program',
+      invalid: 'Geçersiz program',
+    },
+  },
+
+  inventory: {
+    title: 'Envanteri Yönet',
+    currentCount: 'Mevcut Envanter',
+    adjustInventory: 'Envanteri Ayarla',
+    addDoses: 'Ekle',
+    removeDoses: 'Çıkar',
+    setCount: 'Sayıyı Ayarla',
+    amount: 'Miktar',
+    amountPlaceholder: '0',
+    reason: 'Neden (isteğe bağlı)',
+    reasonPlaceholder: 'örn. yenileme aldım, haplar döküldü, vb.',
+    addFullPackage: 'Tam paket ekle ({{size}} {{unit}})',
+    newCount: 'Yeni sayı',
+    refill: 'Yenileme',
+    adjustmentSuccess: 'Envanter güncellendi',
+    adjustmentError: 'Envanter güncellenemedi',
   },
 
   history: {
@@ -458,7 +545,8 @@ const trOverrides = {
     creating: 'Oluşturuluyor...',
     cannotDelete: 'Silinemez',
     cannotDeleteActiveMessage: 'Aktif profil silinemez. Lütfen önce başka bir profile geçin.',
-    deleteConfirmMessageFull: 'Bu profili silmek istediğinizden emin misiniz? Bu, bu profile bağlı tüm ilaçları da silecektir.',
+    deleteConfirmMessageFull:
+      'Bu profili silmek istediğinizden emin misiniz? Bu, bu profile bağlı tüm ilaçları da silecektir.',
     failedToDelete: 'Profil silinemedi',
     failedToUpdate: 'Profil güncellenemedi. Lütfen tekrar deneyin.',
     failedToCreate: 'Profil oluşturulamadı. Lütfen tekrar deneyin.',

@@ -20,6 +20,7 @@ import {
   scheduleRefillReminder,
 } from '@/lib/notifications/scheduler';
 import { format, differenceInDays } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 import {
   Edit,
   Trash2,
@@ -184,6 +185,7 @@ export default function MedicationDetailScreen() {
 
   const nextDose = medication.isActive ? getNextDose(medication) : null;
   const scheduleDesc = getScheduleDescription(medication);
+  const dateFnsLocale = getDateFnsLocale();
   const isLowInventory = medication.inventoryCount < 5 && medication.inventoryCount > 0;
   const isExpired = medication.expirationDate && new Date(medication.expirationDate) < new Date();
   const daysUntilExpiration = medication.expirationDate
@@ -276,7 +278,7 @@ export default function MedicationDetailScreen() {
                     {i18n.t('medications.nextDose')}
                   </Text>
                   <Text className="text-lg font-semibold text-foreground">
-                    {format(nextDose.time, 'MMM d, yyyy • HH:mm')}
+                    {format(nextDose.time, 'PP • p', { locale: dateFnsLocale })}
                   </Text>
                 </View>
               )}
@@ -287,7 +289,7 @@ export default function MedicationDetailScreen() {
                     {i18n.t('medications.lastTaken')}
                   </Text>
                   <Text className="text-muted-foreground">
-                    {format(new Date(lastLog.actualTime), 'MMM d, yyyy • HH:mm')}
+                    {format(new Date(lastLog.actualTime), 'PP • p', { locale: dateFnsLocale })}
                   </Text>
                 </View>
               )}
@@ -380,7 +382,7 @@ export default function MedicationDetailScreen() {
                     </View>
                     <Text
                       className={`${isExpired ? 'font-semibold text-destructive' : 'text-muted-foreground'}`}>
-                      {format(new Date(medication.expirationDate), 'MMM d, yyyy')}
+                      {format(new Date(medication.expirationDate), 'PP', { locale: dateFnsLocale })}
                     </Text>
                     {daysUntilExpiration !== null && (
                       <Text className="mt-1 text-muted-foreground">

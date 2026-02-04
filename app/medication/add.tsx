@@ -1,4 +1,4 @@
-import { View, ScrollView, Alert } from 'react-native';
+import { View, ScrollView, Alert, Switch, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,9 @@ import { requestNotificationPermissions } from '@/lib/notifications/permissions'
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Image as ImageIcon } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { format } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 
 const getDosageUnitOptions = () => [
   { label: `${i18n.t('medications.units.g')} (g)`, value: 'grams' },
@@ -63,8 +66,17 @@ export default function AddMedicationScreen() {
   const [inventoryCount, setInventoryCount] = useState('0');
   const [packageSize, setPackageSize] = useState('');
 
+  // Advanced settings
+  const [expirationDate, setExpirationDate] = useState<Date | undefined>();
+  const [showExpirationPicker, setShowExpirationPicker] = useState(false);
+  const [maxDailyDose, setMaxDailyDose] = useState('');
+  const [minHoursBetweenDoses, setMinHoursBetweenDoses] = useState('');
+  const [bypassDnd, setBypassDnd] = useState(false);
+
   // Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const dateFnsLocale = getDateFnsLocale();
 
   const handlePickImage = async () => {
     try {
@@ -145,6 +157,10 @@ export default function AddMedicationScreen() {
         scheduleConfig,
         inventoryCount: parseFloat(inventoryCount) || 0,
         packageSize: packageSize ? parseFloat(packageSize) : undefined,
+        expirationDate,
+        maxDailyDose: maxDailyDose ? parseFloat(maxDailyDose) : undefined,
+        minHoursBetweenDoses: minHoursBetweenDoses ? parseFloat(minHoursBetweenDoses) : undefined,
+        bypassDnd,
         isPrn: scheduleType === 'prn',
       });
 
@@ -290,6 +306,85 @@ export default function AddMedicationScreen() {
               placeholder="e.g., 30 pills per package"
               keyboardType="decimal-pad"
             />
+          </CardContent>
+        </Card>
+
+        {/* Advanced Settings */}
+        <Card className="mb-4">
+          <CardHeader>
+            <CardTitle>{i18n.t('medications.advancedSettings')}</CardTitle>
+          </CardHeader>
+          <CardContent className="gap-4">
+            {/* Expiration Date */}
+            <View className="gap-2">
+              <Text className="text-sm font-medium text-foreground">
+                {i18n.t('medications.expirationDateLabel')}
+              </Text>
+              <Button variant="outline" onPress={() => setShowExpirationPicker(true)}>
+                <Text>
+                  {expirationDate
+                    ? format(expirationDate, 'PP', { locale: dateFnsLocale })
+                    : i18n.t('medications.selectDate')}
+                </Text>
+              </Button>
+              {showExpirationPicker && (
+                <DateTimePicker
+                  value={expirationDate || new Date()}
+                  mode="date"
+                  minimumDate={new Date()}
+                  onChange={(event, date) => {
+                    if (Platform.OS === 'android') {
+                      setShowExpirationPicker(false);
+                      if (event.type === 'dismissed') return;
+                      if (date) setExpirationDate(date);
+                      return;
+                    }
+                    if (date) setExpirationDate(date);
+                  }}
+                />
+              )}
+              {expirationDate && (
+                <Button
+                  variant="ghost"
+                  onPress={() => setExpirationDate(undefined)}
+                  className="self-start">
+                  <Text className="text-xs text-muted-foreground">
+                    {i18n.t('medications.clearDate')}
+                  </Text>
+                </Button>
+              )}
+            </View>
+
+            {/* Max Daily Dose */}
+            <Input
+              label={i18n.t('medications.maxDailyDoseLabel')}
+              value={maxDailyDose}
+              onChangeText={setMaxDailyDose}
+              placeholder={i18n.t('medications.maxDailyDosePlaceholder')}
+              keyboardType="decimal-pad"
+            />
+
+            {/* Min Hours Between Doses */}
+            <Input
+              label={i18n.t('medications.minHoursBetweenLabel')}
+              value={minHoursBetweenDoses}
+              onChangeText={setMinHoursBetweenDoses}
+              placeholder={i18n.t('medications.minHoursBetweenPlaceholder')}
+              keyboardType="decimal-pad"
+            />
+
+            {/* Bypass DnD */}
+            <View className="flex-row items-center justify-between py-2">
+              <View className="flex-1 pr-4">
+                <Text className="mb-1 text-sm font-medium text-foreground">
+                  {i18n.t('medications.bypassDndLabel')}
+                </Text>
+                <Text className="text-xs text-muted-foreground">
+                  {i18n.t('medications.bypassDndDescription')}
+                </Text>
+              </View>
+              <Switch value={bypassDnd} onValueChange={setBypassDnd} />
+            </View>
           </CardContent>
         </Card>
       </ScrollView>

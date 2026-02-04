@@ -235,6 +235,8 @@ export default {
 
     // Expiration
     expirationDateLabel: 'Expiration Date',
+    selectDate: 'Select date',
+    clearDate: 'Clear date',
     expirationReminderLabel: 'Remind me (days before)',
     expirationReminderPlaceholder: 'e.g., 7',
     expiresIn: 'Expires in {{days}} days',
@@ -622,9 +624,11 @@ export default {
     removeDoses: 'Remove Doses',
     setCount: 'Set Count',
     amount: 'Amount',
+    amountPlaceholder: '0',
     reason: 'Reason (optional)',
     reasonPlaceholder: 'e.g., Got refill, dropped pills, etc.',
     addFullPackage: 'Add Full Package ({{size}} {{unit}})',
+    newCount: 'New count',
     refill: 'Refill',
     lost: 'Lost/Damaged',
     correction: 'Correction',

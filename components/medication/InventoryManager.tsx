@@ -10,6 +10,7 @@ import { scheduleRefillReminder } from '@/lib/notifications/scheduler';
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
 import type { Medication } from '@/types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface InventoryManagerProps {
   visible: boolean;
@@ -24,6 +25,7 @@ export function InventoryManager({
   onClose,
   onSuccess,
 }: InventoryManagerProps) {
+  const insets = useSafeAreaInsets();
   const { activeProfile, loadMedications } = useStore();
   const [adjustmentType, setAdjustmentType] = useState<'add' | 'remove' | 'set'>('add');
   const [amount, setAmount] = useState('');
@@ -121,11 +123,18 @@ export function InventoryManager({
   const newCount = calculateNewCount();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={onClose}>
       <View className="flex-1 justify-end bg-black/50">
         <Pressable className="flex-1" onPress={onClose} />
         <View className="max-h-[85%] rounded-t-3xl bg-background">
-          <ScrollView className="p-6">
+          <ScrollView className="p-6" contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
             {/* Header */}
             <View className="mb-6 flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
@@ -203,7 +212,7 @@ export function InventoryManager({
                 label={i18n.t('inventory.amount')}
                 value={amount}
                 onChangeText={setAmount}
-                placeholder="0"
+                placeholder={i18n.t('inventory.amountPlaceholder')}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -247,7 +256,9 @@ export function InventoryManager({
                   </View>
                   <View className="my-2 h-px bg-border" />
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-sm font-medium text-foreground">New count:</Text>
+                    <Text className="text-sm font-medium text-foreground">
+                      {i18n.t('inventory.newCount')}:
+                    </Text>
                     <Text className="text-2xl font-bold text-primary">
                       {newCount} {i18n.t(`medications.units.${medication.dosageUnit}`)}
                     </Text>
