@@ -22,7 +22,7 @@
     "date-fns": "^4.1.0",
     "drizzle-orm": "^0.45.1",
     "expo": "~54.0.29",
-    "expo-background-fetch": "^14.0.9",
+    "expo-background-task": "~1.0.10",
     "expo-constants": "~18.0.12",
     "expo-crypto": "~15.0.8",
     "expo-device": "~8.0.10",
