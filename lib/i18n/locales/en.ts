@@ -644,7 +644,7 @@ export default {
     currentCount: 'Current Count',
     adjustInventory: 'Adjust Inventory',
     addDoses: 'Add Doses',
-    removeDoses: 'Remove Doses',
+    removeDoses: 'Remove',
     setCount: 'Set Count',
     amount: 'Amount',
     amountPlaceholder: '0',

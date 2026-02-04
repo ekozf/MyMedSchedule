@@ -9,16 +9,18 @@ const DB_KEY_NAME = 'db_encryption_key';
 // Generate or retrieve encryption key
 async function getOrCreateDatabaseKey(): Promise<string> {
   let key = await SecureStore.getItemAsync(DB_KEY_NAME);
-  
+
   if (!key) {
     // Generate random key
-    key = Array.from({ length: 32 }, () => 
-      Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
+    key = Array.from({ length: 32 }, () =>
+      Math.floor(Math.random() * 256)
+        .toString(16)
+        .padStart(2, '0')
     ).join('');
-    
+
     await SecureStore.setItemAsync(DB_KEY_NAME, key);
   }
-  
+
   return key;
 }
 
@@ -26,13 +28,13 @@ let dbInstance: ReturnType<typeof drizzle> | null = null;
 
 export async function initDatabase() {
   if (dbInstance) return dbInstance;
-  
+
   const key = await getOrCreateDatabaseKey();
   const db = SQLite.openDatabaseSync(DB_NAME);
-  
+
   // Set encryption key for SQLCipher
   db.execSync(`PRAGMA key = '${key}';`);
-  
+
   // Create tables if they don't exist
   db.execSync(`
     CREATE TABLE IF NOT EXISTS profiles (
@@ -106,14 +108,14 @@ export async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_intake_logs_profile ON intake_logs(profile_id);
     CREATE INDEX IF NOT EXISTS idx_intake_logs_time ON intake_logs(actual_time);
   `);
-  
+
   // Migration: Add new columns if they don't exist (for existing databases)
   // SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we check column existence first
   try {
     const stmt = db.prepareSync(`PRAGMA table_info(medications)`);
-    const tableInfo = stmt.allSync();
+    const tableInfo = (stmt as any).allSync();
     const columns = tableInfo.map((row: any) => row.name);
-    
+
     if (!columns.includes('schedule_start_date')) {
       db.execSync(`ALTER TABLE medications ADD COLUMN schedule_start_date TEXT`);
     }
@@ -125,9 +127,9 @@ export async function initDatabase() {
     // The CREATE TABLE IF NOT EXISTS above will handle new tables
     console.warn('Migration check completed (errors are normal for new databases):', error);
   }
-  
+
   dbInstance = drizzle(db, { schema });
-  
+
   return dbInstance;
 }
 

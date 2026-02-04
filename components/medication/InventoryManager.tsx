@@ -1,4 +1,15 @@
-import { View, Modal, Pressable, ScrollView, Alert, Keyboard, Platform } from 'react-native';
+import {
+  View,
+  Modal,
+  Pressable,
+  ScrollView,
+  Alert,
+  Keyboard,
+  Platform,
+  KeyboardEvent,
+  Dimensions,
+  TextInput,
+} from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,13 +44,85 @@ export function InventoryManager({
   const [isLoading, setIsLoading] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+  const activeInputRef = useRef<TextInput | null>(null);
+  const inputRefs = useRef<Map<string, TextInput>>(new Map());
+  const currentScrollY = useRef(0);
+
+  const setInputRef = (key: string) => (ref: TextInput | null) => {
+    if (ref) {
+      inputRefs.current.set(key, ref);
+    }
+  };
+
+  const handleInputFocus = (key: string) => () => {
+    const inputRef = inputRefs.current.get(key);
+    if (!inputRef) return;
+
+    activeInputRef.current = inputRef;
+
+    // Wait for keyboard to show before measuring and scrolling
+    setTimeout(
+      () => {
+        if (!inputRef || keyboardHeight === 0) return;
+
+        // Measure input position in window
+        inputRef.measureInWindow((x, y, width, height) => {
+          const windowHeight = Dimensions.get('window').height;
+          const inputBottom = y + height;
+
+          // Calculate the visible area (bottom of screen minus keyboard)
+          const visibleScreenBottom = windowHeight - keyboardHeight;
+
+          // Add margin above keyboard (50px buffer)
+          const targetBottom = visibleScreenBottom - 50;
+
+          // Check if input would be covered by keyboard
+          if (inputBottom > targetBottom) {
+            // Calculate how much we need to scroll down
+            // Add input height + extra margin to ensure full input is visible
+            const scrollDownAmount = inputBottom - targetBottom + height + 20;
+
+            // Add to current scroll position
+            const newScrollY = currentScrollY.current + scrollDownAmount;
+
+            scrollViewRef.current?.scrollTo({
+              y: Math.max(0, newScrollY),
+              animated: true,
+            });
+          }
+        });
+      },
+      Platform.OS === 'ios' ? 100 : 300
+    );
+  };
 
   useEffect(() => {
     // Listen to keyboard events
     const keyboardWillShowListener = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
+      (e: KeyboardEvent) => {
         setKeyboardHeight(e.endCoordinates.height);
+        // Re-check active input position after keyboard is shown
+        if (activeInputRef.current) {
+          const inputRef = activeInputRef.current;
+          setTimeout(() => {
+            if (!inputRef) return;
+            inputRef.measureInWindow((x, y, width, height) => {
+              const windowHeight = Dimensions.get('window').height;
+              const inputBottom = y + height;
+              const visibleScreenBottom = windowHeight - e.endCoordinates.height;
+              const targetBottom = visibleScreenBottom - 50;
+              if (inputBottom > targetBottom) {
+                const scrollDownAmount = inputBottom - targetBottom + height + 20;
+                const newScrollY = currentScrollY.current + scrollDownAmount;
+                scrollViewRef.current?.scrollTo({
+                  y: Math.max(0, newScrollY),
+                  animated: true,
+                });
+              }
+            });
+          }, 100);
+        }
       }
     );
 
@@ -47,6 +130,7 @@ export function InventoryManager({
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
         setKeyboardHeight(0);
+        activeInputRef.current = null;
       }
     );
 
@@ -165,7 +249,11 @@ export function InventoryManager({
               paddingBottom: keyboardHeight > 0 ? keyboardHeight + 40 : insets.bottom + 24,
             }}
             keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}>
+            showsVerticalScrollIndicator={false}
+            onScroll={(e) => {
+              currentScrollY.current = e.nativeEvent.contentOffset.y;
+            }}
+            scrollEventThrottle={16}>
             {/* Header */}
             <View className="mb-6 flex-row items-center justify-between">
               <View className="flex-row items-center gap-2">
@@ -240,11 +328,13 @@ export function InventoryManager({
             {/* Amount Input */}
             <View className="mb-4">
               <Input
+                ref={setInputRef('amount')}
                 label={i18n.t('inventory.amount')}
                 value={amount}
                 onChangeText={setAmount}
                 placeholder={i18n.t('inventory.amountPlaceholder')}
                 keyboardType="decimal-pad"
+                onFocus={handleInputFocus('amount')}
               />
             </View>
 
@@ -263,12 +353,14 @@ export function InventoryManager({
             {/* Reason Input */}
             <View className="mb-6">
               <Input
+                ref={setInputRef('reason')}
                 label={i18n.t('inventory.reason')}
                 value={reason}
                 onChangeText={setReason}
                 placeholder={i18n.t('inventory.reasonPlaceholder')}
                 multiline
                 numberOfLines={2}
+                onFocus={handleInputFocus('reason')}
               />
             </View>
 

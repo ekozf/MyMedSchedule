@@ -103,11 +103,11 @@ vi.mock('expo-localization', () => ({
 }));
 
 // Global test utilities
-global.mockDate = (date: Date) => {
+(global as any).mockDate = (date: Date) => {
   vi.useFakeTimers();
   vi.setSystemTime(date);
 };
 
-global.restoreDate = () => {
+(global as any).restoreDate = () => {
   vi.useRealTimers();
 };

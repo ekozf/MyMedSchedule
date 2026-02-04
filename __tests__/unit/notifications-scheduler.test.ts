@@ -59,7 +59,7 @@ vi.mock('@/lib/schedule/calculator', () => ({
       }
     }
 
-    const next = baseTimes.find(t => t.getTime() > afterTime.getTime());
+    const next = baseTimes.find((t) => t.getTime() > afterTime.getTime());
     if (!next) return null;
 
     return {
@@ -106,10 +106,12 @@ describe('Notification Scheduler', () => {
         profileId: 'profile-1',
         name: 'Test Med',
         dosageAmount: 10,
-        dosageUnit: 'mg',
+        dosageUnit: 'milligrams',
         scheduleType: 'once_daily',
         scheduleConfig: JSON.stringify({ time: '09:00' }),
         scheduleStartDate: new Date('2026-02-01T00:00:00'),
+        inventoryCount: 100,
+        bypassDnd: false,
         isActive: true,
         isPrn: false,
         createdAt: new Date('2026-02-01T00:00:00'),
@@ -141,11 +143,13 @@ describe('Notification Scheduler', () => {
         profileId: 'profile-1',
         name: 'Test Med',
         dosageAmount: 10,
-        dosageUnit: 'mg',
+        dosageUnit: 'milligrams',
         scheduleType: 'once_daily',
         scheduleConfig: JSON.stringify({ time: '09:00' }),
         scheduleStartDate: new Date('2026-02-01T00:00:00Z'),
         nextDoseOverrideTime: overrideTime,
+        inventoryCount: 100,
+        bypassDnd: false,
         isActive: true,
         isPrn: false,
         createdAt: new Date('2026-02-01T00:00:00Z'),
@@ -170,7 +174,7 @@ describe('Notification Scheduler', () => {
     it('should cancel only matching notification', async () => {
       const medId = 'med-1';
       const scheduledTime = '2026-02-03T09:00:00Z';
-      
+
       hoisted.scheduledNotifications.push(
         {
           identifier: 'notif-1',
@@ -222,7 +226,7 @@ describe('Notification Scheduler', () => {
   describe('cancelNotificationsForMedication', () => {
     it('should cancel only dose notifications for a medication', async () => {
       const medId = 'med-1';
-      
+
       hoisted.scheduledNotifications.push(
         {
           identifier: 'notif-1',

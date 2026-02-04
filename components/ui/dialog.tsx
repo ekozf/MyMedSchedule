@@ -55,44 +55,33 @@ function Dialog({ open = false, onOpenChange, children }: DialogProps) {
 
 function DialogTrigger({ children }: { children: React.ReactElement }) {
   const { onOpenChange } = React.useContext(DialogContext);
-  
+
   return React.cloneElement(children, {
     onPress: () => onOpenChange(true),
-  });
+  } as any);
 }
 
 function DialogContent({ children, className, showClose = true }: DialogContentProps) {
   const { open, onOpenChange } = React.useContext(DialogContext);
-  
+
   return (
     <Modal
       visible={open}
       transparent
       animationType="fade"
-      onRequestClose={() => onOpenChange(false)}
-    >
+      onRequestClose={() => onOpenChange(false)}>
       <Pressable
-        className="flex-1 bg-black/50 items-center justify-center p-4"
-        onPress={() => onOpenChange(false)}
-      >
+        className="flex-1 items-center justify-center bg-black/50 p-4"
+        onPress={() => onOpenChange(false)}>
         <Pressable
-          className={cn(
-            'bg-background rounded-xl w-full max-w-lg p-6 shadow-lg',
-            className
-          )}
-          onPress={(e) => e.stopPropagation()}
-        >
+          className={cn('w-full max-w-lg rounded-xl bg-background p-6 shadow-lg', className)}
+          onPress={(e) => e.stopPropagation()}>
           {showClose && (
-            <Pressable
-              onPress={() => onOpenChange(false)}
-              className="absolute right-4 top-4 z-10"
-            >
+            <Pressable onPress={() => onOpenChange(false)} className="absolute right-4 top-4 z-10">
               <X size={24} className="text-muted-foreground" />
             </Pressable>
           )}
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {children}
-          </ScrollView>
+          <ScrollView showsVerticalScrollIndicator={false}>{children}</ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -100,35 +89,21 @@ function DialogContent({ children, className, showClose = true }: DialogContentP
 }
 
 function DialogHeader({ children, className }: DialogHeaderProps) {
-  return (
-    <View className={cn('flex flex-col space-y-2 mb-4', className)}>
-      {children}
-    </View>
-  );
+  return <View className={cn('mb-4 flex flex-col space-y-2', className)}>{children}</View>;
 }
 
 function DialogFooter({ children, className }: DialogFooterProps) {
   return (
-    <View className={cn('flex flex-row justify-end space-x-2 mt-6', className)}>
-      {children}
-    </View>
+    <View className={cn('mt-6 flex flex-row justify-end space-x-2', className)}>{children}</View>
   );
 }
 
 function DialogTitle({ children, className }: DialogTitleProps) {
-  return (
-    <Text className={cn('text-xl font-semibold text-foreground', className)}>
-      {children}
-    </Text>
-  );
+  return <Text className={cn('text-xl font-semibold text-foreground', className)}>{children}</Text>;
 }
 
 function DialogDescription({ children, className }: DialogDescriptionProps) {
-  return (
-    <Text className={cn('text-sm text-muted-foreground', className)}>
-      {children}
-    </Text>
-  );
+  return <Text className={cn('text-sm text-muted-foreground', className)}>{children}</Text>;
 }
 
 export {

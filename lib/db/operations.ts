@@ -887,7 +887,8 @@ export async function createInventoryAdjustment(
     createdAt: now,
   };
 
-  await db.insert(medications.prototype).values(adjustmentData);
+  // TODO: Uncomment when inventoryAdjustments table is implemented
+  // await db.insert(inventoryAdjustments).values(adjustmentData);
 
   return {
     id,

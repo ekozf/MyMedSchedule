@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   getDosesForDate,
   getAllDosesForDate,
@@ -14,10 +14,11 @@ describe('Schedule Calculator', () => {
     profileId: 'profile-1',
     name: 'Test Med',
     dosageAmount: 10,
-    dosageUnit: 'mg',
+    dosageUnit: 'milligrams',
     scheduleType: 'once_daily',
     scheduleConfig: JSON.stringify({ time: '09:00' }),
     inventoryCount: 100,
+    bypassDnd: false,
     isActive: true,
     isPrn: false,
     scheduleStartDate: new Date('2026-02-01T00:00:00'),
@@ -63,11 +64,7 @@ describe('Schedule Calculator', () => {
         ...baseMedication,
         scheduleType: 'multiple_daily',
         scheduleConfig: JSON.stringify({
-          times: [
-            { time: '08:00' },
-            { time: '14:00' },
-            { time: '20:00' },
-          ],
+          times: [{ time: '08:00' }, { time: '14:00' }, { time: '20:00' }],
         }),
       };
 
@@ -496,11 +493,7 @@ describe('Schedule Calculator', () => {
         ...baseMedication,
         scheduleType: 'multiple_daily',
         scheduleConfig: JSON.stringify({
-          times: [
-            { time: '08:00' },
-            { time: '14:00' },
-            { time: '20:00' },
-          ],
+          times: [{ time: '08:00' }, { time: '14:00' }, { time: '20:00' }],
         }),
       };
 
@@ -817,7 +810,7 @@ describe('Schedule Calculator', () => {
     it('should not show doses before scheduleStartDate', () => {
       const today = new Date('2026-02-03T12:00:00');
       const yesterday = addDays(today, -1);
-      
+
       const med: Medication = {
         ...baseMedication,
         scheduleType: 'once_daily',
@@ -836,7 +829,7 @@ describe('Schedule Calculator', () => {
     it('should use createdAt as fallback if scheduleStartDate is not set', () => {
       const createdAt = new Date('2026-02-03T00:00:00');
       const beforeCreated = addDays(createdAt, -1);
-      
+
       const med: Medication = {
         ...baseMedication,
         scheduleType: 'once_daily',
@@ -871,7 +864,7 @@ describe('Schedule Calculator', () => {
     it('should return override dose when nextDoseOverrideTime is set', () => {
       const now = new Date('2026-02-03T10:00:00');
       const overrideTime = new Date('2026-02-03T15:00:00');
-      
+
       const med: Medication = {
         ...baseMedication,
         scheduleType: 'once_daily',
@@ -889,10 +882,10 @@ describe('Schedule Calculator', () => {
       const overrideTime = new Date('2026-02-03T15:00:00');
       const overrideDay = startOfDay(overrideTime);
       const now = new Date('2026-02-03T10:00:00'); // Before override
-      
+
       vi.useFakeTimers();
       vi.setSystemTime(now);
-      
+
       const med: Medication = {
         ...baseMedication,
         scheduleType: 'once_daily',
@@ -903,8 +896,10 @@ describe('Schedule Calculator', () => {
 
       const doses = getAllDosesForDate([med], overrideDay);
       expect(doses.length).toBeGreaterThan(0);
-      expect(doses.some(d => Math.abs(d.time.getTime() - overrideTime.getTime()) < 60000)).toBe(true);
-      
+      expect(doses.some((d) => Math.abs(d.time.getTime() - overrideTime.getTime()) < 60000)).toBe(
+        true
+      );
+
       vi.useRealTimers();
     });
 
@@ -925,8 +920,10 @@ describe('Schedule Calculator', () => {
       };
 
       const doses = getAllDosesForDate([med], targetDay);
-      expect(doses.some(d => d.time.getTime() === new Date('2026-02-03T12:00:00').getTime())).toBe(false);
-      expect(doses.filter(d => d.time.getTime() === overrideTime.getTime())).toHaveLength(1);
+      expect(
+        doses.some((d) => d.time.getTime() === new Date('2026-02-03T12:00:00').getTime())
+      ).toBe(false);
+      expect(doses.filter((d) => d.time.getTime() === overrideTime.getTime())).toHaveLength(1);
 
       vi.useRealTimers();
     });
@@ -949,10 +946,12 @@ describe('Schedule Calculator', () => {
       };
 
       const day1 = getAllDosesForDate([med], originalDay);
-      expect(day1.some(d => d.time.getTime() === new Date('2026-02-03T12:00:00').getTime())).toBe(false);
+      expect(day1.some((d) => d.time.getTime() === new Date('2026-02-03T12:00:00').getTime())).toBe(
+        false
+      );
 
       const day2 = getAllDosesForDate([med], overrideDay);
-      expect(day2.filter(d => d.time.getTime() === overrideTime.getTime())).toHaveLength(1);
+      expect(day2.filter((d) => d.time.getTime() === overrideTime.getTime())).toHaveLength(1);
 
       vi.useRealTimers();
     });
@@ -960,7 +959,7 @@ describe('Schedule Calculator', () => {
     it('should ignore override if it is in the past', () => {
       const now = new Date('2026-02-03T10:00:00');
       const pastOverride = new Date('2026-02-03T08:00:00');
-      
+
       const med: Medication = {
         ...baseMedication,
         scheduleType: 'once_daily',

@@ -165,9 +165,7 @@ describe('Auth', () => {
     it('should return success when authentication succeeds', async () => {
       vi.mocked(LocalAuthentication.authenticateAsync).mockResolvedValue({
         success: true,
-        warning: undefined,
-        error: undefined,
-      });
+      } as any);
 
       const result = await authenticateWithBiometric();
       expect(result.success).toBe(true);
@@ -176,13 +174,12 @@ describe('Auth', () => {
     it('should return error when authentication fails', async () => {
       vi.mocked(LocalAuthentication.authenticateAsync).mockResolvedValue({
         success: false,
-        warning: undefined,
-        error: 'User canceled',
-      });
+        error: 'user_cancel',
+      } as any);
 
       const result = await authenticateWithBiometric();
       expect(result.success).toBe(false);
-      expect(result.error).toBe('User canceled');
+      expect(result.error).toBe('user_cancel');
     });
   });
 
@@ -193,9 +190,7 @@ describe('Auth', () => {
       vi.mocked(LocalAuthentication.isEnrolledAsync).mockResolvedValue(true);
       vi.mocked(LocalAuthentication.authenticateAsync).mockResolvedValue({
         success: true,
-        warning: undefined,
-        error: undefined,
-      });
+      } as any);
 
       const result = await authenticate();
       expect(result.success).toBe(true);
@@ -227,9 +222,7 @@ describe('Auth', () => {
       vi.mocked(LocalAuthentication.isEnrolledAsync).mockResolvedValue(true);
       vi.mocked(LocalAuthentication.authenticateAsync).mockResolvedValue({
         success: true,
-        warning: undefined,
-        error: undefined,
-      });
+      } as any);
 
       const result = await setupBiometricAuth();
       expect(result.success).toBe(true);
@@ -287,9 +280,7 @@ describe('Auth', () => {
       vi.mocked(LocalAuthentication.isEnrolledAsync).mockResolvedValue(true);
       vi.mocked(LocalAuthentication.authenticateAsync).mockResolvedValue({
         success: true,
-        warning: undefined,
-        error: undefined,
-      });
+      } as any);
 
       const result = await changeAuthMethod('biometric');
       expect(result.success).toBe(true);

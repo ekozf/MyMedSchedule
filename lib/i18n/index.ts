@@ -18,23 +18,23 @@ i18n.defaultLocale = 'en';
 const LANGUAGE_STORAGE_KEY = 'user_language';
 
 // Enable pluralization
-i18n.pluralization.register('en', (count) => {
+i18n.pluralization.register('en', ((count: number) => {
   if (count === 0) return 'zero';
   if (count === 1) return 'one';
   return 'other';
-});
+}) as any);
 
-i18n.pluralization.register('tr', (count) => {
+i18n.pluralization.register('tr', ((count: number) => {
   if (count === 0) return 'zero';
   if (count === 1) return 'one';
   return 'other';
-});
+}) as any);
 
-i18n.pluralization.register('nl', (count) => {
+i18n.pluralization.register('nl', ((count: number) => {
   if (count === 0) return 'zero';
   if (count === 1) return 'one';
   return 'other';
-});
+}) as any);
 
 // Helper function to change locale and notify listeners
 let localeChangeListeners: Array<() => void> = [];
