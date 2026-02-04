@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react-native';
 import type { Medication } from '@/types';
-import { createIntakeLog, updateMedicationInventory } from '@/lib/db/operations';
+import { createIntakeLogAndUpdateInventory, InventoryInsufficientError } from '@/lib/db/operations';
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
 
@@ -54,7 +54,7 @@ export function PrnDoseLogDialog({
 
     setIsLoading(true);
     try {
-      await createIntakeLog({
+      await createIntakeLogAndUpdateInventory({
         medicationId: medication.id,
         profileId: activeProfile.id,
         scheduledTime: undefined,
@@ -62,17 +62,26 @@ export function PrnDoseLogDialog({
         action: 'taken',
         dosageAmount: amount,
       });
-
-      // Decrement inventory (if any) the same way as scheduled doses.
-      const newCount = Math.max(0, medication.inventoryCount - amount);
-      await updateMedicationInventory(medication.id, newCount);
       await loadMedications(activeProfile.id);
 
       onSuccess();
       onClose();
     } catch (error) {
       console.error('Failed to log PRN intake:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      if (
+        error instanceof InventoryInsufficientError ||
+        (error as any)?.name === 'InventoryInsufficientError'
+      ) {
+        Alert.alert(
+          i18n.t('intakeLog.inventoryWarning'),
+          i18n.t('intakeLog.inventoryInsufficient', {
+            count: medication.inventoryCount,
+            unit: i18n.t(`medications.units.${medication.dosageUnit}`),
+          })
+        );
+      } else {
+        Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      }
     } finally {
       setIsLoading(false);
     }

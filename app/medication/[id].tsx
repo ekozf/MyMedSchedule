@@ -325,58 +325,56 @@ export default function MedicationDetailScreen() {
         )}
 
         {/* Inventory Information */}
-        {!medication.isPrn && (
-          <Card className="mx-4 mb-4">
-            <CardHeader>
-              <CardTitle>{i18n.t('medications.inventoryInfo')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <View className="gap-3">
-                <View className="flex-row items-center gap-2">
-                  <Package size={16} className="text-muted-foreground" />
-                  <Text className="text-foreground">
-                    {i18n.t('medications.inventory', {
-                      count: medication.inventoryCount,
-                      unit: medication.dosageUnit,
-                    })}
+        <Card className="mx-4 mb-4">
+          <CardHeader>
+            <CardTitle>{i18n.t('medications.inventoryInfo')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <View className="gap-3">
+              <View className="flex-row items-center gap-2">
+                <Package size={16} className="text-muted-foreground" />
+                <Text className="text-foreground">
+                  {i18n.t('medications.inventory', {
+                    count: medication.inventoryCount,
+                    unit: medication.dosageUnit,
+                  })}
+                </Text>
+              </View>
+
+              {medication.packageSize && (
+                <Text className="text-sm text-muted-foreground">
+                  {i18n.t('medications.packageSizeLabel')}: {medication.packageSize}{' '}
+                  {i18n.t(`medications.units.${medication.dosageUnit}`)}
+                </Text>
+              )}
+
+              {medication.refillReminderType && medication.refillReminderValue && (
+                <View className="mt-2 rounded-lg bg-muted/50 p-3">
+                  <Text className="text-muted-foreground">
+                    {i18n.t('medications.refillReminderLabel')}:{' '}
+                    {medication.refillReminderType === 'days'
+                      ? i18n.t('medications.refillWhenDaysLeft', {
+                          days: medication.refillReminderValue,
+                        })
+                      : i18n.t('medications.refillWhenDosesLeft', {
+                          doses: medication.refillReminderValue,
+                        })}
                   </Text>
                 </View>
+              )}
 
-                {medication.packageSize && (
-                  <Text className="text-sm text-muted-foreground">
-                    {i18n.t('medications.packageSizeLabel')}: {medication.packageSize}{' '}
-                    {i18n.t(`medications.units.${medication.dosageUnit}`)}
-                  </Text>
-                )}
-
-                {medication.refillReminderType && medication.refillReminderValue && (
-                  <View className="mt-2 rounded-lg bg-muted/50 p-3">
-                    <Text className="text-muted-foreground">
-                      {i18n.t('medications.refillReminderLabel')}:{' '}
-                      {medication.refillReminderType === 'days'
-                        ? i18n.t('medications.refillWhenDaysLeft', {
-                            days: medication.refillReminderValue,
-                          })
-                        : i18n.t('medications.refillWhenDosesLeft', {
-                            doses: medication.refillReminderValue,
-                          })}
-                    </Text>
-                  </View>
-                )}
-
-                <Button
-                  variant="outline"
-                  onPress={() => setInventoryDialogVisible(true)}
-                  className="mt-2 flex-row gap-2">
-                  <Package size={16} className="text-foreground" />
-                  <Text className="font-medium text-foreground">
-                    {i18n.t('inventory.adjustInventory')}
-                  </Text>
-                </Button>
-              </View>
-            </CardContent>
-          </Card>
-        )}
+              <Button
+                variant="outline"
+                onPress={() => setInventoryDialogVisible(true)}
+                className="mt-2 flex-row gap-2">
+                <Package size={16} className="text-foreground" />
+                <Text className="font-medium text-foreground">
+                  {i18n.t('inventory.adjustInventory')}
+                </Text>
+              </Button>
+            </View>
+          </CardContent>
+        </Card>
 
         {/* Expiration & Safety */}
         {(medication.expirationDate ||

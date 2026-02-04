@@ -6,9 +6,9 @@ import { useState, useEffect } from 'react';
 import { X, AlertTriangle, Clock } from 'lucide-react-native';
 import { getNextDose, type ScheduledDose } from '@/lib/schedule/calculator';
 import {
-  createIntakeLog,
+  createIntakeLogAndUpdateInventory,
+  InventoryInsufficientError,
   getMedicationById,
-  updateMedicationInventory,
   setNextDoseOverrideTime,
 } from '@/lib/db/operations';
 import {
@@ -96,7 +96,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
     try {
       const actualTime = new Date();
 
-      await createIntakeLog({
+      await createIntakeLogAndUpdateInventory({
         medicationId: dose.medicationId,
         profileId: activeProfile.id,
         scheduledTime: dose.time,
@@ -106,11 +106,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
         notes: notes || undefined,
       });
 
-      if (medication && (action === 'taken' || action === 'partial')) {
-        const newCount = Math.max(0, medication.inventoryCount - dosageAmount);
-        await updateMedicationInventory(dose.medicationId, newCount);
-        await loadMedications(activeProfile.id);
-      }
+      await loadMedications(activeProfile.id);
 
       if (isEarly && action === 'taken') {
         await cancelNotificationForDose(dose.medicationId, dose.time.toISOString());
@@ -122,7 +118,20 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
       onClose();
     } catch (error) {
       console.error('Failed to log intake:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      if (
+        error instanceof InventoryInsufficientError ||
+        (error as any)?.name === 'InventoryInsufficientError'
+      ) {
+        Alert.alert(
+          i18n.t('intakeLog.inventoryWarning'),
+          i18n.t('intakeLog.inventoryInsufficient', {
+            count: medication?.inventoryCount ?? 0,
+            unit: medication ? i18n.t(`medications.units.${medication.dosageUnit}`) : '',
+          })
+        );
+      } else {
+        Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -179,7 +188,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
         return;
       }
 
-      await createIntakeLog({
+      await createIntakeLogAndUpdateInventory({
         medicationId: dose.medicationId,
         profileId: activeProfile.id,
         scheduledTime: dose.time,
@@ -189,12 +198,7 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
         notes: notes || undefined,
       });
 
-      // Update inventory if taken or partial
-      if (medication && (action === 'taken' || action === 'partial')) {
-        const newCount = Math.max(0, medication.inventoryCount - dosageAmount);
-        await updateMedicationInventory(dose.medicationId, newCount);
-        await loadMedications(activeProfile.id);
-      }
+      await loadMedications(activeProfile.id);
 
       await ensureNext3DoseNotificationsForMedication(dose.medicationId);
 
@@ -202,7 +206,20 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
       onClose();
     } catch (error) {
       console.error('Failed to log intake:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      if (
+        error instanceof InventoryInsufficientError ||
+        (error as any)?.name === 'InventoryInsufficientError'
+      ) {
+        Alert.alert(
+          i18n.t('intakeLog.inventoryWarning'),
+          i18n.t('intakeLog.inventoryInsufficient', {
+            count: medication?.inventoryCount ?? 0,
+            unit: medication ? i18n.t(`medications.units.${medication.dosageUnit}`) : '',
+          })
+        );
+      } else {
+        Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      }
     } finally {
       setIsLoading(false);
     }

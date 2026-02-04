@@ -6,9 +6,9 @@ import { useState, useEffect } from 'react';
 import { X, AlertTriangle } from 'lucide-react-native';
 import type { ScheduledDose } from '@/lib/schedule/calculator';
 import {
-  createIntakeLog,
+  createIntakeLogAndUpdateInventory,
+  InventoryInsufficientError,
   getMedicationById,
-  updateMedicationInventory,
   getIntakeLogsByMedication,
 } from '@/lib/db/operations';
 import { useStore } from '@/store';
@@ -115,25 +115,6 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
       }
     }
 
-    // Check inventory warning
-    if (medication && action === 'taken' && medication.inventoryCount < dosageAmount) {
-      Alert.alert(
-        i18n.t('intakeLog.inventoryWarning'),
-        i18n.t('intakeLog.inventoryInsufficient', {
-          count: medication.inventoryCount,
-          unit: i18n.t(`medications.units.${medication.dosageUnit}`),
-        }),
-        [
-          { text: i18n.t('common.cancel'), style: 'cancel' },
-          {
-            text: i18n.t('intakeLog.continueAnyway'),
-            onPress: () => proceedWithLogging(dosageAmount),
-          },
-        ]
-      );
-      return;
-    }
-
     await proceedWithLogging(dosageAmount);
   };
 
@@ -145,8 +126,7 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
       const now = new Date();
       const hoursLate = differenceInHours(now, dose.time);
 
-      // Create intake log
-      await createIntakeLog({
+      await createIntakeLogAndUpdateInventory({
         medicationId: dose.medicationId,
         profileId: activeProfile.id,
         scheduledTime: dose.time,
@@ -156,16 +136,8 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
         notes: notes || undefined,
       });
 
-      // Auto-decrement inventory if taken or partial
-      if (medication && (action === 'taken' || action === 'partial')) {
-        const newCount = Math.max(0, medication.inventoryCount - dosageAmount);
-        await updateMedicationInventory(dose.medicationId, newCount);
-
-        // Reload medications to update UI
-        if (activeProfile) {
-          await loadMedications(activeProfile.id);
-        }
-      }
+      // Reload medications to update UI (inventory may have changed)
+      await loadMedications(activeProfile.id);
 
       // Check if dose was taken late (>2 hours)
       if (action === 'taken' && hoursLate > 2) {
@@ -199,7 +171,20 @@ export function IntakeLogDialog({ visible, dose, onClose, onSuccess }: IntakeLog
       onClose();
     } catch (error) {
       console.error('Failed to log intake:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      if (
+        error instanceof InventoryInsufficientError ||
+        (error as any)?.name === 'InventoryInsufficientError'
+      ) {
+        Alert.alert(
+          i18n.t('intakeLog.inventoryWarning'),
+          i18n.t('intakeLog.inventoryInsufficient', {
+            count: medication?.inventoryCount ?? 0,
+            unit: medication ? i18n.t(`medications.units.${medication.dosageUnit}`) : '',
+          })
+        );
+      } else {
+        Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      }
     } finally {
       setIsLoading(false);
     }

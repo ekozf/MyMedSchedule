@@ -5,6 +5,44 @@ import { getDatabase } from './index';
 import { profiles, medications, intakeLogs, disclaimerAcknowledgments } from './schema';
 import type { Profile, ProfileSettings, Medication, IntakeLog } from '@/types';
 
+export class InventoryInsufficientError extends Error {
+  public readonly medicationId: string;
+  public readonly requestedAmount: number;
+  public readonly availableAmount: number;
+
+  constructor(params: { medicationId: string; requestedAmount: number; availableAmount: number }) {
+    super(
+      `Insufficient inventory for medication ${params.medicationId}: requested ${params.requestedAmount}, available ${params.availableAmount}`
+    );
+    this.name = 'InventoryInsufficientError';
+    this.medicationId = params.medicationId;
+    this.requestedAmount = params.requestedAmount;
+    this.availableAmount = params.availableAmount;
+  }
+}
+
+const INVENTORY_EPSILON = 1e-9;
+
+function isInventoryDecrementAction(action: 'taken' | 'skipped' | 'partial'): boolean {
+  return action === 'taken' || action === 'partial';
+}
+
+function assertSufficientInventory(params: {
+  medicationId: string;
+  inventoryCount: number;
+  decrementAmount: number;
+}) {
+  if (params.decrementAmount <= 0) return;
+
+  if (params.inventoryCount + INVENTORY_EPSILON < params.decrementAmount) {
+    throw new InventoryInsufficientError({
+      medicationId: params.medicationId,
+      requestedAmount: params.decrementAmount,
+      availableAmount: params.inventoryCount,
+    });
+  }
+}
+
 // Generate UUID compatible with Expo Go
 function generateUUID(): string {
   return Crypto.randomUUID();
@@ -37,12 +75,12 @@ export async function createProfile(input: CreateProfileInput): Promise<Profile>
   const db = getDatabase();
   const now = new Date().toISOString();
   const id = generateUUID();
-  
+
   const settings: ProfileSettings = {
     ...defaultProfileSettings,
     ...input.settings,
   };
-  
+
   const profileData = {
     id,
     name: input.name,
@@ -52,9 +90,9 @@ export async function createProfile(input: CreateProfileInput): Promise<Profile>
     createdAt: now,
     updatedAt: now,
   };
-  
+
   await db.insert(profiles).values(profileData);
-  
+
   return {
     id,
     name: input.name,
@@ -69,9 +107,9 @@ export async function createProfile(input: CreateProfileInput): Promise<Profile>
 export async function getProfileById(id: string): Promise<Profile | null> {
   const db = getDatabase();
   const result = await db.select().from(profiles).where(eq(profiles.id, id)).limit(1);
-  
+
   if (result.length === 0) return null;
-  
+
   const profile = result[0];
   return {
     id: profile.id,
@@ -87,8 +125,8 @@ export async function getProfileById(id: string): Promise<Profile | null> {
 export async function getAllProfiles(): Promise<Profile[]> {
   const db = getDatabase();
   const result = await db.select().from(profiles).orderBy(asc(profiles.createdAt));
-  
-  return result.map(profile => ({
+
+  return result.map((profile) => ({
     id: profile.id,
     name: profile.name,
     avatarUri: profile.avatarUri || undefined,
@@ -101,14 +139,10 @@ export async function getAllProfiles(): Promise<Profile[]> {
 
 export async function getActiveProfile(): Promise<Profile | null> {
   const db = getDatabase();
-  const result = await db
-    .select()
-    .from(profiles)
-    .where(eq(profiles.isActive, true))
-    .limit(1);
-  
+  const result = await db.select().from(profiles).where(eq(profiles.isActive, true)).limit(1);
+
   if (result.length === 0) return null;
-  
+
   const profile = result[0];
   return {
     id: profile.id,
@@ -121,28 +155,31 @@ export async function getActiveProfile(): Promise<Profile | null> {
   };
 }
 
-export async function updateProfile(id: string, input: UpdateProfileInput): Promise<Profile | null> {
+export async function updateProfile(
+  id: string,
+  input: UpdateProfileInput
+): Promise<Profile | null> {
   const db = getDatabase();
   const existing = await getProfileById(id);
-  
+
   if (!existing) return null;
-  
+
   const now = new Date().toISOString();
-  const updatedSettings = input.settings 
+  const updatedSettings = input.settings
     ? { ...existing.settings, ...input.settings }
     : existing.settings;
-  
+
   const updateData: any = {
     updatedAt: now,
   };
-  
+
   if (input.name !== undefined) updateData.name = input.name;
   if (input.avatarUri !== undefined) updateData.avatarUri = input.avatarUri;
   if (input.settings !== undefined) updateData.settings = JSON.stringify(updatedSettings);
   if (input.isActive !== undefined) updateData.isActive = input.isActive;
-  
+
   await db.update(profiles).set(updateData).where(eq(profiles.id, id));
-  
+
   return getProfileById(id);
 }
 
@@ -154,13 +191,13 @@ export async function deleteProfile(id: string): Promise<boolean> {
 
 export async function setActiveProfile(id: string): Promise<boolean> {
   const db = getDatabase();
-  
+
   // First, set all profiles to inactive
   await db.update(profiles).set({ isActive: false });
-  
+
   // Then, set the specified profile to active
   await db.update(profiles).set({ isActive: true }).where(eq(profiles.id, id));
-  
+
   return true;
 }
 
@@ -235,10 +272,14 @@ export async function createMedication(input: CreateMedicationInput): Promise<Me
   const now = new Date();
   const nowISO = now.toISOString();
   const id = generateUUID();
-  
+
   // Calculate scheduleStartDate based on schedule config
-  const scheduleStartDateISO = calculateScheduleStartDate(input.scheduleType, input.scheduleConfig, now);
-  
+  const scheduleStartDateISO = calculateScheduleStartDate(
+    input.scheduleType,
+    input.scheduleConfig,
+    now
+  );
+
   const medicationData = {
     id,
     profileId: input.profileId,
@@ -264,9 +305,9 @@ export async function createMedication(input: CreateMedicationInput): Promise<Me
     createdAt: nowISO,
     updatedAt: nowISO,
   };
-  
+
   await db.insert(medications).values(medicationData);
-  
+
   return {
     id,
     profileId: input.profileId,
@@ -297,9 +338,9 @@ export async function createMedication(input: CreateMedicationInput): Promise<Me
 export async function getMedicationById(id: string): Promise<Medication | null> {
   const db = getDatabase();
   const result = await db.select().from(medications).where(eq(medications.id, id)).limit(1);
-  
+
   if (result.length === 0) return null;
-  
+
   const med = result[0];
   return {
     id: med.id,
@@ -328,21 +369,24 @@ export async function getMedicationById(id: string): Promise<Medication | null> 
   };
 }
 
-export async function getMedicationsByProfile(profileId: string, activeOnly: boolean = true): Promise<Medication[]> {
+export async function getMedicationsByProfile(
+  profileId: string,
+  activeOnly: boolean = true
+): Promise<Medication[]> {
   const db = getDatabase();
-  
+
   let query = db.select().from(medications).where(eq(medications.profileId, profileId));
-  
+
   if (activeOnly) {
     query = db
       .select()
       .from(medications)
       .where(and(eq(medications.profileId, profileId), eq(medications.isActive, true)));
   }
-  
+
   const result = await query.orderBy(asc(medications.name));
-  
-  return result.map(med => ({
+
+  return result.map((med) => ({
     id: med.id,
     profileId: med.profileId,
     name: med.name,
@@ -369,49 +413,61 @@ export async function getMedicationsByProfile(profileId: string, activeOnly: boo
   }));
 }
 
-export async function updateMedication(id: string, input: UpdateMedicationInput): Promise<Medication | null> {
+export async function updateMedication(
+  id: string,
+  input: UpdateMedicationInput
+): Promise<Medication | null> {
   const db = getDatabase();
   const existing = await getMedicationById(id);
-  
+
   if (!existing) return null;
-  
+
   const now = new Date();
   const nowISO = now.toISOString();
   const updateData: any = {
     updatedAt: nowISO,
   };
-  
+
   // Detect schedule changes
   const scheduleChanged = input.scheduleType !== undefined || input.scheduleConfig !== undefined;
-  
+
   if (input.name !== undefined) updateData.name = input.name;
   if (input.imageUri !== undefined) updateData.imageUri = input.imageUri;
   if (input.notes !== undefined) updateData.notes = input.notes;
   if (input.dosageAmount !== undefined) updateData.dosageAmount = input.dosageAmount;
   if (input.dosageUnit !== undefined) updateData.dosageUnit = input.dosageUnit;
   if (input.scheduleType !== undefined) updateData.scheduleType = input.scheduleType;
-  if (input.scheduleConfig !== undefined) updateData.scheduleConfig = JSON.stringify(input.scheduleConfig);
+  if (input.scheduleConfig !== undefined)
+    updateData.scheduleConfig = JSON.stringify(input.scheduleConfig);
   if (input.inventoryCount !== undefined) updateData.inventoryCount = input.inventoryCount;
   if (input.packageSize !== undefined) updateData.packageSize = input.packageSize;
   if (input.maxDailyDose !== undefined) updateData.maxDailyDose = input.maxDailyDose;
-  if (input.minHoursBetweenDoses !== undefined) updateData.minHoursBetweenDoses = input.minHoursBetweenDoses;
-  if (input.expirationDate !== undefined) updateData.expirationDate = input.expirationDate?.toISOString();
-  if (input.refillReminderType !== undefined) updateData.refillReminderType = input.refillReminderType;
-  if (input.refillReminderValue !== undefined) updateData.refillReminderValue = input.refillReminderValue;
+  if (input.minHoursBetweenDoses !== undefined)
+    updateData.minHoursBetweenDoses = input.minHoursBetweenDoses;
+  if (input.expirationDate !== undefined)
+    updateData.expirationDate = input.expirationDate?.toISOString();
+  if (input.refillReminderType !== undefined)
+    updateData.refillReminderType = input.refillReminderType;
+  if (input.refillReminderValue !== undefined)
+    updateData.refillReminderValue = input.refillReminderValue;
   if (input.bypassDnd !== undefined) updateData.bypassDnd = input.bypassDnd;
   if (input.isActive !== undefined) updateData.isActive = input.isActive;
   if (input.isPrn !== undefined) updateData.isPrn = input.isPrn;
-  
+
   // If schedule changed, reset scheduleStartDate and clear override
   if (scheduleChanged) {
     const newScheduleType = input.scheduleType ?? existing.scheduleType;
     const newScheduleConfig = input.scheduleConfig ?? JSON.parse(existing.scheduleConfig);
-    updateData.scheduleStartDate = calculateScheduleStartDate(newScheduleType, newScheduleConfig, now);
+    updateData.scheduleStartDate = calculateScheduleStartDate(
+      newScheduleType,
+      newScheduleConfig,
+      now
+    );
     updateData.nextDoseOverrideTime = null; // Clear stale override
   }
-  
+
   await db.update(medications).set(updateData).where(eq(medications.id, id));
-  
+
   return getMedicationById(id);
 }
 
@@ -425,21 +481,27 @@ export async function markMedicationInactive(id: string): Promise<Medication | n
   return updateMedication(id, { isActive: false });
 }
 
-export async function updateMedicationInventory(id: string, newCount: number): Promise<Medication | null> {
-  return updateMedication(id, { inventoryCount: newCount });
+export async function updateMedicationInventory(
+  id: string,
+  newCount: number
+): Promise<Medication | null> {
+  return updateMedication(id, { inventoryCount: Math.max(0, newCount) });
 }
 
 // Helper functions for managing next dose override
-export async function setNextDoseOverrideTime(medicationId: string, override: Date | null): Promise<Medication | null> {
+export async function setNextDoseOverrideTime(
+  medicationId: string,
+  override: Date | null
+): Promise<Medication | null> {
   const db = getDatabase();
   const now = new Date().toISOString();
   const updateData: any = {
     nextDoseOverrideTime: override ? override.toISOString() : null,
     updatedAt: now,
   };
-  
+
   await db.update(medications).set(updateData).where(eq(medications.id, medicationId));
-  
+
   return getMedicationById(medicationId);
 }
 
@@ -465,17 +527,18 @@ export async function createIntakeLog(input: CreateIntakeLogInput): Promise<Inta
   const db = getDatabase();
   const now = new Date().toISOString();
   const id = generateUUID();
-  
+
   // Handle scheduledTime - convert to ISO string if it's a Date, otherwise use as-is
-  const scheduledTimeStr = input.scheduledTime 
-    ? (typeof input.scheduledTime === 'string' ? input.scheduledTime : input.scheduledTime.toISOString())
+  const scheduledTimeStr = input.scheduledTime
+    ? typeof input.scheduledTime === 'string'
+      ? input.scheduledTime
+      : input.scheduledTime.toISOString()
     : undefined;
-  
+
   // Handle actualTime - convert to ISO string if it's a Date, otherwise use as-is
-  const actualTimeStr = typeof input.actualTime === 'string' 
-    ? input.actualTime 
-    : input.actualTime.toISOString();
-  
+  const actualTimeStr =
+    typeof input.actualTime === 'string' ? input.actualTime : input.actualTime.toISOString();
+
   const logData = {
     id,
     medicationId: input.medicationId,
@@ -488,26 +551,28 @@ export async function createIntakeLog(input: CreateIntakeLogInput): Promise<Inta
     createdAt: now,
     updatedAt: now,
   };
-  
+
   await db.insert(intakeLogs).values(logData);
-  
+
   // Check if this log matches a next-dose override and clear it if so
   if (input.scheduledTime) {
     const medication = await getMedicationById(input.medicationId);
     if (medication?.nextDoseOverrideTime) {
       const overrideTime = new Date(medication.nextDoseOverrideTime);
-      const scheduledTime = typeof input.scheduledTime === 'string' 
-        ? new Date(input.scheduledTime) 
-        : input.scheduledTime;
-      
+      const scheduledTime =
+        typeof input.scheduledTime === 'string'
+          ? new Date(input.scheduledTime)
+          : input.scheduledTime;
+
       // Clear override if scheduledTime matches overrideTime (within 1 minute tolerance)
       const timeDiff = Math.abs(scheduledTime.getTime() - overrideTime.getTime());
-      if (timeDiff < 60000) { // 1 minute tolerance
+      if (timeDiff < 60000) {
+        // 1 minute tolerance
         await clearNextDoseOverrideTime(input.medicationId);
       }
     }
   }
-  
+
   return {
     id,
     medicationId: input.medicationId,
@@ -522,6 +587,165 @@ export async function createIntakeLog(input: CreateIntakeLogInput): Promise<Inta
   };
 }
 
+/**
+ * Creates an intake log and (when applicable) decrements inventory.
+ * This enforces that inventory cannot go below zero, i.e. you cannot log more than you have.
+ */
+export async function createIntakeLogAndUpdateInventory(
+  input: CreateIntakeLogInput
+): Promise<{ log: IntakeLog; updatedMedication: Medication | null }> {
+  const medication = await getMedicationById(input.medicationId);
+  if (!medication) {
+    throw new Error(`Medication not found: ${input.medicationId}`);
+  }
+
+  const decrementAmount = isInventoryDecrementAction(input.action) ? input.dosageAmount : 0;
+  assertSufficientInventory({
+    medicationId: medication.id,
+    inventoryCount: medication.inventoryCount ?? 0,
+    decrementAmount,
+  });
+
+  const db: any = getDatabase();
+  const nowISO = new Date().toISOString();
+
+  const newInventoryCount = (medication.inventoryCount ?? 0) - decrementAmount;
+
+  const createLogInTx = async (tx: any): Promise<IntakeLog> => {
+    const id = generateUUID();
+
+    const scheduledTimeStr = input.scheduledTime
+      ? typeof input.scheduledTime === 'string'
+        ? input.scheduledTime
+        : input.scheduledTime.toISOString()
+      : undefined;
+
+    const actualTimeStr =
+      typeof input.actualTime === 'string' ? input.actualTime : input.actualTime.toISOString();
+
+    const logData = {
+      id,
+      medicationId: input.medicationId,
+      profileId: input.profileId,
+      scheduledTime: scheduledTimeStr,
+      actualTime: actualTimeStr,
+      action: input.action,
+      dosageAmount: input.dosageAmount,
+      notes: input.notes,
+      createdAt: nowISO,
+      updatedAt: nowISO,
+    };
+
+    await tx.insert(intakeLogs).values(logData);
+
+    return {
+      id,
+      medicationId: input.medicationId,
+      profileId: input.profileId,
+      scheduledTime: input.scheduledTime,
+      actualTime: input.actualTime,
+      action: input.action,
+      dosageAmount: input.dosageAmount,
+      notes: input.notes,
+      createdAt: new Date(nowISO),
+      updatedAt: new Date(nowISO),
+    };
+  };
+
+  const run = async (tx: any) => {
+    if (decrementAmount > 0) {
+      await tx
+        .update(medications)
+        .set({ inventoryCount: Math.max(0, newInventoryCount), updatedAt: nowISO })
+        .where(eq(medications.id, medication.id));
+    }
+
+    const log = await createLogInTx(tx);
+    return log;
+  };
+
+  const log: IntakeLog =
+    typeof db.transaction === 'function' ? await db.transaction(run) : await run(db);
+
+  // Preserve existing next-dose override clearing behavior (not inventory-critical).
+  if (input.scheduledTime) {
+    const refreshedMedication = await getMedicationById(input.medicationId);
+    if (refreshedMedication?.nextDoseOverrideTime) {
+      const overrideTime = new Date(refreshedMedication.nextDoseOverrideTime);
+      const scheduledTime =
+        typeof input.scheduledTime === 'string'
+          ? new Date(input.scheduledTime)
+          : input.scheduledTime;
+
+      const timeDiff = Math.abs(scheduledTime.getTime() - overrideTime.getTime());
+      if (timeDiff < 60000) {
+        await clearNextDoseOverrideTime(input.medicationId);
+      }
+    }
+  }
+
+  const updatedMedication = decrementAmount > 0 ? await getMedicationById(medication.id) : null;
+  return { log, updatedMedication };
+}
+
+/**
+ * Updates an existing intake log and reconciles inventory based on the delta.
+ * Requires the old log to calculate how inventory should change.
+ */
+export async function updateIntakeLogAndReconcileInventory(params: {
+  existingLog: IntakeLog;
+  medication: Medication;
+  nextAction: 'taken' | 'skipped' | 'partial';
+  nextDosageAmount: number;
+  nextNotes?: string;
+}): Promise<void> {
+  const { existingLog, medication, nextAction, nextDosageAmount, nextNotes } = params;
+
+  const oldDecrement = isInventoryDecrementAction(existingLog.action)
+    ? existingLog.dosageAmount
+    : 0;
+  const newDecrement = isInventoryDecrementAction(nextAction) ? nextDosageAmount : 0;
+  const delta = oldDecrement - newDecrement; // positive restores, negative consumes more
+
+  const currentInventory = medication.inventoryCount ?? 0;
+  const nextInventory = currentInventory + delta;
+
+  if (delta < 0) {
+    assertSufficientInventory({
+      medicationId: medication.id,
+      inventoryCount: currentInventory,
+      decrementAmount: -delta,
+    });
+  }
+
+  const db: any = getDatabase();
+  const nowISO = new Date().toISOString();
+
+  const run = async (tx: any) => {
+    if (delta !== 0) {
+      await tx
+        .update(medications)
+        .set({ inventoryCount: Math.max(0, nextInventory), updatedAt: nowISO })
+        .where(eq(medications.id, medication.id));
+    }
+
+    const updateData: any = {
+      updatedAt: nowISO,
+      action: nextAction,
+      dosageAmount: nextDosageAmount,
+      notes: nextNotes,
+    };
+
+    await tx.update(intakeLogs).set(updateData).where(eq(intakeLogs.id, existingLog.id));
+  };
+
+  if (typeof db.transaction === 'function') {
+    await db.transaction(run);
+  } else {
+    await run(db);
+  }
+}
+
 export async function getIntakeLogsByMedication(medicationId: string): Promise<IntakeLog[]> {
   const db = getDatabase();
   const result = await db
@@ -529,8 +753,8 @@ export async function getIntakeLogsByMedication(medicationId: string): Promise<I
     .from(intakeLogs)
     .where(eq(intakeLogs.medicationId, medicationId))
     .orderBy(desc(intakeLogs.actualTime));
-  
-  return result.map(log => ({
+
+  return result.map((log) => ({
     id: log.id,
     medicationId: log.medicationId,
     profileId: log.profileId,
@@ -551,8 +775,8 @@ export async function getIntakeLogsByProfile(profileId: string): Promise<IntakeL
     .from(intakeLogs)
     .where(eq(intakeLogs.profileId, profileId))
     .orderBy(desc(intakeLogs.actualTime));
-  
-  return result.map(log => ({
+
+  return result.map((log) => ({
     id: log.id,
     medicationId: log.medicationId,
     profileId: log.profileId,
@@ -580,13 +804,16 @@ export interface UpdateIntakeLogInput {
   notes?: string;
 }
 
-export async function updateIntakeLog(id: string, input: UpdateIntakeLogInput): Promise<IntakeLog | null> {
+export async function updateIntakeLog(
+  id: string,
+  input: UpdateIntakeLogInput
+): Promise<IntakeLog | null> {
   const db = getDatabase();
   const now = new Date().toISOString();
   const updateData: any = {
     updatedAt: now,
   };
-  
+
   if (input.scheduledTime !== undefined) {
     updateData.scheduledTime = input.scheduledTime?.toISOString();
   }
@@ -596,13 +823,13 @@ export async function updateIntakeLog(id: string, input: UpdateIntakeLogInput): 
   if (input.action !== undefined) updateData.action = input.action;
   if (input.dosageAmount !== undefined) updateData.dosageAmount = input.dosageAmount;
   if (input.notes !== undefined) updateData.notes = input.notes;
-  
+
   await db.update(intakeLogs).set(updateData).where(eq(intakeLogs.id, id));
-  
+
   // Fetch and return updated log
   const result = await db.select().from(intakeLogs).where(eq(intakeLogs.id, id)).limit(1);
   if (result.length === 0) return null;
-  
+
   const log = result[0];
   return {
     id: log.id,
@@ -642,11 +869,13 @@ export interface CreateInventoryAdjustmentInput {
   reason?: string;
 }
 
-export async function createInventoryAdjustment(input: CreateInventoryAdjustmentInput): Promise<InventoryAdjustment> {
+export async function createInventoryAdjustment(
+  input: CreateInventoryAdjustmentInput
+): Promise<InventoryAdjustment> {
   const db = getDatabase();
   const now = new Date().toISOString();
   const id = generateUUID();
-  
+
   const adjustmentData = {
     id,
     medicationId: input.medicationId,
@@ -657,9 +886,9 @@ export async function createInventoryAdjustment(input: CreateInventoryAdjustment
     reason: input.reason,
     createdAt: now,
   };
-  
+
   await db.insert(medications.prototype).values(adjustmentData);
-  
+
   return {
     id,
     medicationId: input.medicationId,
@@ -672,7 +901,9 @@ export async function createInventoryAdjustment(input: CreateInventoryAdjustment
   };
 }
 
-export async function getInventoryAdjustmentsByMedication(medicationId: string): Promise<InventoryAdjustment[]> {
+export async function getInventoryAdjustmentsByMedication(
+  medicationId: string
+): Promise<InventoryAdjustment[]> {
   const db = getDatabase();
   // Note: inventory_adjustments table would need to be added to schema
   // For now, this is a placeholder implementation
@@ -695,7 +926,7 @@ export async function createDisclaimerAcknowledgment(
   const db = getDatabase();
   const now = new Date().toISOString();
   const id = generateUUID();
-  
+
   const data = {
     id,
     profileId: input.profileId,
@@ -703,7 +934,7 @@ export async function createDisclaimerAcknowledgment(
     acknowledgedAt: now,
     deviceInfo: input.deviceInfo,
   };
-  
+
   await db.insert(disclaimerAcknowledgments).values(data);
 }
 
@@ -714,7 +945,7 @@ export async function hasAcknowledgedDisclaimer(version: string): Promise<boolea
     .from(disclaimerAcknowledgments)
     .where(eq(disclaimerAcknowledgments.version, version))
     .limit(1);
-  
+
   return result.length > 0;
 }
 
@@ -725,6 +956,6 @@ export async function getLatestDisclaimerAcknowledgment() {
     .from(disclaimerAcknowledgments)
     .orderBy(desc(disclaimerAcknowledgments.acknowledgedAt))
     .limit(1);
-  
+
   return result.length > 0 ? result[0] : null;
 }

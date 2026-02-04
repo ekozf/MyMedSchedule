@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { useState } from 'react';
 import { X } from 'lucide-react-native';
-import { createIntakeLog, updateMedicationInventory } from '@/lib/db/operations';
+import { createIntakeLogAndUpdateInventory, InventoryInsufficientError } from '@/lib/db/operations';
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
 import type { Medication } from '@/types';
@@ -63,8 +63,7 @@ export function RetroactiveLogDialog({
 
     setIsLoading(true);
     try {
-      // Create the log
-      await createIntakeLog({
+      await createIntakeLogAndUpdateInventory({
         medicationId: selectedMedication.id,
         profileId: activeProfile.id,
         scheduledTime: undefined, // No scheduled time for retroactive logs
@@ -74,12 +73,7 @@ export function RetroactiveLogDialog({
         notes: notes || undefined,
       });
 
-      // Update inventory if taken or partial
-      if (action === 'taken' || action === 'partial') {
-        const newCount = Math.max(0, selectedMedication.inventoryCount - amount);
-        await updateMedicationInventory(selectedMedication.id, newCount);
-        await loadMedications(activeProfile.id);
-      }
+      await loadMedications(activeProfile.id);
 
       // Reset form
       setMedicationId('');
@@ -92,7 +86,20 @@ export function RetroactiveLogDialog({
       onClose();
     } catch (error) {
       console.error('Failed to create log:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      if (
+        error instanceof InventoryInsufficientError ||
+        (error as any)?.name === 'InventoryInsufficientError'
+      ) {
+        Alert.alert(
+          i18n.t('intakeLog.inventoryWarning'),
+          i18n.t('intakeLog.inventoryInsufficient', {
+            count: selectedMedication.inventoryCount,
+            unit: i18n.t(`medications.units.${selectedMedication.dosageUnit}`),
+          })
+        );
+      } else {
+        Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      }
     } finally {
       setIsLoading(false);
     }

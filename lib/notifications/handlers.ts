@@ -1,9 +1,9 @@
 import * as Notifications from 'expo-notifications';
-import { 
-  createIntakeLog, 
+import {
+  createIntakeLog,
+  createIntakeLogAndUpdateInventory,
   getActiveProfile,
-  getMedicationById,
-  updateMedicationInventory 
+  InventoryInsufficientError,
 } from '@/lib/db/operations';
 import i18n from '@/lib/i18n';
 import { ensureNext3DoseNotificationsForMedication } from '@/lib/notifications/scheduler';
@@ -74,8 +74,7 @@ async function handleTakeAction(data: any) {
     const profile = await getActiveProfile();
     if (!profile) return;
 
-    // Create intake log
-    await createIntakeLog({
+    await createIntakeLogAndUpdateInventory({
       medicationId: data.medicationId,
       profileId: profile.id,
       scheduledTime: data.scheduledTime,
@@ -84,16 +83,17 @@ async function handleTakeAction(data: any) {
       dosageAmount: data.dosageAmount,
     });
 
-    // Update inventory
-    const medication = await getMedicationById(data.medicationId);
-    if (medication) {
-      const newCount = Math.max(0, medication.inventoryCount - data.dosageAmount);
-      await updateMedicationInventory(medication.id, newCount);
-    }
-
     // Keep next-3 buffer topped up
     await ensureNext3DoseNotificationsForMedication(data.medicationId);
   } catch (error) {
+    if (
+      error instanceof InventoryInsufficientError ||
+      (error as any)?.name === 'InventoryInsufficientError'
+    ) {
+      // Not enough inventory: do not log or decrement.
+      console.warn('Skipped logging intake from notification due to insufficient inventory');
+      return;
+    }
     console.error('Failed to log intake from notification:', error);
   }
 }

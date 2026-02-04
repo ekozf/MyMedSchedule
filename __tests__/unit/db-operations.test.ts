@@ -6,6 +6,8 @@ import {
   setNextDoseOverrideTime,
   clearNextDoseOverrideTime,
   createIntakeLog,
+  createIntakeLogAndUpdateInventory,
+  InventoryInsufficientError,
 } from '@/lib/db/operations';
 import { getDatabase } from '@/lib/db/index';
 import { medications } from '@/lib/db/schema';
@@ -152,10 +154,12 @@ describe('DB Operations - Medications', () => {
       const mockSelect = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([{
-              id: 'med-1',
-              nextDoseOverrideTime: overrideTime.toISOString(),
-            }]),
+            limit: vi.fn().mockResolvedValue([
+              {
+                id: 'med-1',
+                nextDoseOverrideTime: overrideTime.toISOString(),
+              },
+            ]),
           }),
         }),
       });
@@ -179,10 +183,12 @@ describe('DB Operations - Medications', () => {
       const mockSelect = vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([{
-              id: 'med-1',
-              nextDoseOverrideTime: null,
-            }]),
+            limit: vi.fn().mockResolvedValue([
+              {
+                id: 'med-1',
+                nextDoseOverrideTime: null,
+              },
+            ]),
           }),
         }),
       });
@@ -204,14 +210,17 @@ describe('DB Operations - Medications', () => {
       });
       mockDb.insert = vi.fn().mockReturnValue({ values: mockInsert });
 
-      const mockSelect = vi.fn()
+      const mockSelect = vi
+        .fn()
         .mockReturnValueOnce({
           from: vi.fn().mockReturnValue({
             where: vi.fn().mockReturnValue({
-              limit: vi.fn().mockResolvedValue([{
-                id: 'med-1',
-                nextDoseOverrideTime: overrideTime.toISOString(),
-              }]),
+              limit: vi.fn().mockResolvedValue([
+                {
+                  id: 'med-1',
+                  nextDoseOverrideTime: overrideTime.toISOString(),
+                },
+              ]),
             }),
           }),
         })
@@ -242,6 +251,108 @@ describe('DB Operations - Medications', () => {
 
       // Should have attempted to clear override
       expect(mockSelect).toHaveBeenCalled();
+    });
+  });
+
+  describe('createIntakeLogAndUpdateInventory', () => {
+    it('should decrement inventory and create log when sufficient', async () => {
+      const mockInsertValues = vi.fn().mockResolvedValue(undefined);
+      mockDb.insert = vi.fn().mockReturnValue({ values: mockInsertValues });
+
+      const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
+      const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
+      mockDb.update = vi.fn().mockReturnValue({ set: mockUpdateSet });
+
+      const medRow = {
+        id: 'med-1',
+        profileId: 'profile-1',
+        name: 'Test Med',
+        imageUri: null,
+        notes: null,
+        dosageAmount: 1,
+        dosageUnit: 'mg',
+        scheduleType: 'prn',
+        scheduleConfig: '{}',
+        inventoryCount: 10,
+        packageSize: null,
+        maxDailyDose: null,
+        minHoursBetweenDoses: null,
+        expirationDate: null,
+        refillReminderType: null,
+        refillReminderValue: null,
+        bypassDnd: false,
+        isActive: true,
+        isPrn: true,
+        scheduleStartDate: null,
+        nextDoseOverrideTime: null,
+        createdAt: new Date('2026-02-01T00:00:00').toISOString(),
+        updatedAt: new Date('2026-02-01T00:00:00').toISOString(),
+      };
+
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([medRow]),
+          }),
+        }),
+      });
+
+      await createIntakeLogAndUpdateInventory({
+        medicationId: 'med-1',
+        profileId: 'profile-1',
+        scheduledTime: undefined,
+        actualTime: new Date(),
+        action: 'taken',
+        dosageAmount: 3,
+      });
+
+      expect(mockDb.update).toHaveBeenCalled();
+      expect(mockUpdateSet).toHaveBeenCalledWith(expect.objectContaining({ inventoryCount: 7 }));
+      expect(mockDb.insert).toHaveBeenCalled();
+      expect(mockInsertValues).toHaveBeenCalled();
+    });
+
+    it('should throw InventoryInsufficientError when inventory is insufficient', async () => {
+      mockDb.insert = vi.fn();
+      mockDb.update = vi.fn();
+
+      const medRow = {
+        id: 'med-1',
+        profileId: 'profile-1',
+        name: 'Test Med',
+        dosageAmount: 1,
+        dosageUnit: 'mg',
+        scheduleType: 'prn',
+        scheduleConfig: '{}',
+        inventoryCount: 2,
+        bypassDnd: false,
+        isActive: true,
+        isPrn: true,
+        createdAt: new Date('2026-02-01T00:00:00').toISOString(),
+        updatedAt: new Date('2026-02-01T00:00:00').toISOString(),
+      };
+
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([medRow]),
+          }),
+        }),
+      });
+
+      await expect(
+        createIntakeLogAndUpdateInventory({
+          medicationId: 'med-1',
+          profileId: 'profile-1',
+          scheduledTime: undefined,
+          actualTime: new Date(),
+          action: 'taken',
+          dosageAmount: 3,
+        })
+      ).rejects.toBeInstanceOf(InventoryInsufficientError);
+
+      expect(mockDb.update).not.toHaveBeenCalled();
+      expect(mockDb.insert).not.toHaveBeenCalled();
     });
   });
 });

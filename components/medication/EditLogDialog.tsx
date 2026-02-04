@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react-native';
-import { updateIntakeLog, updateMedicationInventory } from '@/lib/db/operations';
+import {
+  getMedicationById,
+  updateIntakeLogAndReconcileInventory,
+  InventoryInsufficientError,
+} from '@/lib/db/operations';
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
 import type { IntakeLog, Medication } from '@/types';
@@ -56,42 +60,39 @@ export function EditLogDialog({
 
     setIsLoading(true);
     try {
-      // Calculate inventory adjustment needed
-      const oldAction = log.action;
-      const oldAmount = log.dosageAmount;
-      const newAction = action;
-      const newAmount = newDosageAmount;
-
-      // Restore old inventory impact
-      let inventoryAdjustment = 0;
-      if (oldAction === 'taken' || oldAction === 'partial') {
-        inventoryAdjustment += oldAmount; // Add back what was taken
+      const freshMedication = await getMedicationById(medication.id);
+      if (!freshMedication) {
+        throw new Error('Medication not found');
       }
 
-      // Apply new inventory impact
-      if (newAction === 'taken' || newAction === 'partial') {
-        inventoryAdjustment -= newAmount; // Remove new amount
-      }
-
-      // Update inventory if needed
-      if (inventoryAdjustment !== 0) {
-        const newCount = Math.max(0, medication.inventoryCount + inventoryAdjustment);
-        await updateMedicationInventory(medication.id, newCount);
-        await loadMedications(activeProfile.id);
-      }
-
-      // Update the log (keeping original timestamp)
-      await updateIntakeLog(log.id, {
-        action,
-        dosageAmount: newDosageAmount,
-        notes: notes || undefined,
+      await updateIntakeLogAndReconcileInventory({
+        existingLog: log,
+        medication: freshMedication,
+        nextAction: action,
+        nextDosageAmount: newDosageAmount,
+        nextNotes: notes || undefined,
       });
+
+      await loadMedications(activeProfile.id);
 
       onSuccess();
       onClose();
     } catch (error) {
       console.error('Failed to update log:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      if (
+        error instanceof InventoryInsufficientError ||
+        (error as any)?.name === 'InventoryInsufficientError'
+      ) {
+        Alert.alert(
+          i18n.t('intakeLog.inventoryWarning'),
+          i18n.t('intakeLog.inventoryInsufficient', {
+            count: medication.inventoryCount,
+            unit: i18n.t(`medications.units.${medication.dosageUnit}`),
+          })
+        );
+      } else {
+        Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      }
     } finally {
       setIsLoading(false);
     }
