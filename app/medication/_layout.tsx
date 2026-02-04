@@ -5,8 +5,7 @@ export default function MedicationLayout() {
   return (
     <Stack
       screenOptions={{
-        headerShown: true,
-        headerBackTitle: i18n.t('common.back'),
+        headerShown: false,
       }}
     >
       <Stack.Screen

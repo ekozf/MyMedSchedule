@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useState, useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useStore } from '@/store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
   getMedicationById, 
   updateMedication, 
@@ -36,6 +37,7 @@ import type { Medication, IntakeLog } from '@/types';
 import { InventoryManager } from '@/components/medication/InventoryManager';
 
 export default function MedicationDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { loadMedications, activeProfile } = useStore();
   const [medication, setMedication] = useState<Medication | null>(null);
@@ -166,7 +168,7 @@ export default function MedicationDetailScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
+      <View className="flex-1 items-center justify-center bg-background" style={{ paddingTop: insets.top + 16 }}>
         <Text className="text-muted-foreground">{i18n.t('common.loading')}</Text>
       </View>
     );
@@ -174,7 +176,7 @@ export default function MedicationDetailScreen() {
 
   if (!medication) {
     return (
-      <View className="flex-1 items-center justify-center bg-background p-4">
+      <View className="flex-1 items-center justify-center bg-background p-4" style={{ paddingTop: insets.top + 16 }}>
         <Text className="text-lg text-foreground">{i18n.t('medications.loadError')}</Text>
         <Button onPress={() => router.back()} className="mt-4">
           <Text>{i18n.t('common.back')}</Text>
@@ -195,7 +197,7 @@ export default function MedicationDetailScreen() {
     <View className="flex-1 bg-background">
       <ScrollView className="flex-1">
         {/* Back Button */}
-        <View className="pt-4 pl-4">
+        <View className="pl-4" style={{ paddingTop: insets.top + 16 }}>
           <Pressable 
             onPress={() => router.back()}
             className="flex-row items-center gap-1 active:opacity-70"

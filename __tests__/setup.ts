@@ -1,11 +1,4 @@
-import '@testing-library/jest-native/extend-expect';
-import { cleanup } from '@testing-library/react-native';
-import { afterEach, vi } from 'vitest';
-
-// Cleanup after each test
-afterEach(() => {
-  cleanup();
-});
+import { vi } from 'vitest';
 
 // Mock expo modules
 vi.mock('expo-router', () => ({
@@ -62,6 +55,13 @@ vi.mock('expo-notifications', () => ({
   setNotificationChannelAsync: vi.fn(),
   addNotificationReceivedListener: vi.fn(() => ({ remove: vi.fn() })),
   addNotificationResponseReceivedListener: vi.fn(() => ({ remove: vi.fn() })),
+  SchedulableTriggerInputTypes: {
+    DATE: 'date',
+  },
+  AndroidNotificationPriority: {
+    HIGH: 'high',
+    MAX: 'max',
+  },
 }));
 
 vi.mock('expo-image-picker', () => ({
@@ -101,9 +101,6 @@ vi.mock('expo-constants', () => ({
 vi.mock('expo-localization', () => ({
   getLocales: vi.fn(() => [{ languageCode: 'en' }]),
 }));
-
-// Mock react-native modules
-vi.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
 
 // Global test utilities
 global.mockDate = (date: Date) => {

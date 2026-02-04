@@ -8,6 +8,7 @@ import { SchedulePicker } from '@/components/medication/SchedulePicker';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { useStore } from '@/store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createMedication } from '@/lib/db/operations';
 import { validateScheduleConfig } from '@/lib/validation/medication';
 import { scheduleNotificationsForMedication, scheduleRefillReminder } from '@/lib/notifications/scheduler';
@@ -40,6 +41,7 @@ const getScheduleTypeOptions = () => [
 ];
 
 export default function AddMedicationScreen() {
+  const insets = useSafeAreaInsets();
   const { activeProfile, loadMedications } = useStore();
   const [isLoading, setIsLoading] = useState(false);
   
@@ -168,7 +170,11 @@ export default function AddMedicationScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScrollView className="flex-1 px-4 pt-4">
+      <ScrollView 
+        className="flex-1 px-4" 
+        style={{ paddingTop: insets.top + 16 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      >
         {/* Basic Information */}
         <Card className="mb-4">
           <CardHeader>

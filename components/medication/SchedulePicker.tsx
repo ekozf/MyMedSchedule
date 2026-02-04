@@ -7,12 +7,20 @@ import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format, startOfDay } from 'date-fns';
+import i18n from '@/lib/i18n';
+import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 
 interface SchedulePickerProps {
   scheduleType: string;
   scheduleConfig: any;
   onChange: (config: any) => void;
   error?: string;
+}
+
+interface MultipleDailyTimeItem {
+  time: string;
+  dateObj: Date;
+  dosageAmount?: number;
 }
 
 export function SchedulePicker({ scheduleType, scheduleConfig, onChange, error }: SchedulePickerProps) {
@@ -41,6 +49,7 @@ export function SchedulePicker({ scheduleType, scheduleConfig, onChange, error }
 }
 
 function OnceDailyPicker({ config, onChange, error }: any) {
+  const dateFnsLocale = getDateFnsLocale();
   // Parse existing time or default to current time
   const getInitialTime = () => {
     if (config?.time) {
@@ -70,13 +79,15 @@ function OnceDailyPicker({ config, onChange, error }: any) {
   return (
     <View className="gap-4">
       <View>
-        <Text className="text-sm font-medium text-foreground mb-2">Schedule Time</Text>
+        <Text className="text-sm font-medium text-foreground mb-2">
+          {i18n.t('schedulePicker.scheduleTime')}
+        </Text>
         <Button
           variant="outline"
           onPress={() => setShowTimePicker(true)}
           className="justify-start"
         >
-          <Text>{format(time, 'HH:mm')}</Text>
+          <Text>{format(time, 'p', { locale: dateFnsLocale })}</Text>
         </Button>
       </View>
       
@@ -95,9 +106,10 @@ function OnceDailyPicker({ config, onChange, error }: any) {
 }
 
 function MultipleDailyPicker({ config, onChange, error }: any) {
-  const getInitialTimes = () => {
+  const dateFnsLocale = getDateFnsLocale();
+  const getInitialTimes = (): MultipleDailyTimeItem[] => {
     if (config?.times && config.times.length > 0) {
-      return config.times.map((t: any) => {
+      return config.times.map((t: any): MultipleDailyTimeItem => {
         if (t.time) {
           const [hours, minutes] = t.time.split(':');
           const date = new Date();
@@ -110,7 +122,7 @@ function MultipleDailyPicker({ config, onChange, error }: any) {
     return [{ time: '', dateObj: new Date(), dosageAmount: undefined }];
   };
   
-  const [times, setTimes] = useState(getInitialTimes());
+  const [times, setTimes] = useState<MultipleDailyTimeItem[]>(() => getInitialTimes());
   const [activePickerIndex, setActivePickerIndex] = useState<number | null>(null);
   
   const addTime = () => {
@@ -120,7 +132,7 @@ function MultipleDailyPicker({ config, onChange, error }: any) {
   };
   
   const removeTime = (index: number) => {
-    const newTimes = times.filter((_: any, i: number) => i !== index);
+    const newTimes = times.filter((_, i) => i !== index);
     setTimes(newTimes);
     onChange({ times: newTimes.map(t => ({ time: t.time, dosageAmount: t.dosageAmount })) });
   };
@@ -145,15 +157,21 @@ function MultipleDailyPicker({ config, onChange, error }: any) {
   
   return (
     <View className="gap-4">
-      <Text className="text-base font-medium text-foreground">Schedule Times</Text>
-      {times.map((timeItem: any, index: number) => (
+      <Text className="text-base font-medium text-foreground">
+        {i18n.t('schedulePicker.scheduleTimes')}
+      </Text>
+      {times.map((timeItem, index: number) => (
         <View key={index} className="flex-row gap-2 items-center">
           <Button
             variant="outline"
             onPress={() => setActivePickerIndex(index)}
             className="flex-1 justify-start"
           >
-            <Text>{timeItem.time || 'Select time'}</Text>
+            <Text>
+              {timeItem.time
+                ? format(timeItem.dateObj, 'p', { locale: dateFnsLocale })
+                : i18n.t('schedulePicker.selectTime')}
+            </Text>
           </Button>
           {times.length > 1 && (
             <Button variant="ghost" onPress={() => removeTime(index)}>
@@ -174,7 +192,7 @@ function MultipleDailyPicker({ config, onChange, error }: any) {
       
       <Button variant="outline" onPress={addTime} className="flex-row gap-2">
         <Plus size={20} className="text-foreground" />
-        <Text>Add Time</Text>
+        <Text>{i18n.t('schedulePicker.addTime')}</Text>
       </Button>
       {error && <Text className="text-sm text-destructive">{error}</Text>}
     </View>
@@ -182,6 +200,7 @@ function MultipleDailyPicker({ config, onChange, error }: any) {
 }
 
 function EveryXDaysPicker({ config, onChange, error }: any) {
+  const dateFnsLocale = getDateFnsLocale();
   const [intervalDays, setIntervalDays] = useState(config?.intervalDays?.toString() || '');
   
   const getInitialTime = () => {
@@ -240,24 +259,26 @@ function EveryXDaysPicker({ config, onChange, error }: any) {
   return (
     <View className="gap-4">
       <Input
-        label="Repeat every X days"
+        label={i18n.t('schedulePicker.repeatEveryXDays')}
         value={intervalDays}
         onChangeText={(text) => {
           setIntervalDays(text);
           handleChange({});
         }}
         keyboardType="number-pad"
-        placeholder="e.g., 1"
+        placeholder={i18n.t('schedulePicker.repeatEveryXDaysPlaceholder')}
       />
       
       <View>
-        <Text className="text-sm font-medium text-foreground mb-2">Start Date</Text>
+        <Text className="text-sm font-medium text-foreground mb-2">
+          {i18n.t('schedulePicker.startDate')}
+        </Text>
         <Button
           variant="outline"
           onPress={() => setShowStartDatePicker(true)}
           className="justify-start"
         >
-          <Text>{format(startDate, 'MMM d, yyyy')}</Text>
+          <Text>{format(startDate, 'PP', { locale: dateFnsLocale })}</Text>
         </Button>
       </View>
       
@@ -271,13 +292,13 @@ function EveryXDaysPicker({ config, onChange, error }: any) {
       )}
       
       <View>
-        <Text className="text-sm font-medium text-foreground mb-2">Time</Text>
+        <Text className="text-sm font-medium text-foreground mb-2">{i18n.t('schedulePicker.time')}</Text>
         <Button
           variant="outline"
           onPress={() => setShowTimePicker(true)}
           className="justify-start"
         >
-          <Text>{format(time, 'HH:mm')}</Text>
+          <Text>{format(time, 'p', { locale: dateFnsLocale })}</Text>
         </Button>
       </View>
       
@@ -296,6 +317,7 @@ function EveryXDaysPicker({ config, onChange, error }: any) {
 }
 
 function SpecificWeekdaysPicker({ config, onChange, error }: any) {
+  const dateFnsLocale = getDateFnsLocale();
   const [selectedDays, setSelectedDays] = useState<number[]>(config?.weekdays || []);
   
   const getInitialTime = () => {
@@ -312,13 +334,13 @@ function SpecificWeekdaysPicker({ config, onChange, error }: any) {
   const [showTimePicker, setShowTimePicker] = useState(false);
   
   const days = [
-    { label: 'Sun', value: 0 },
-    { label: 'Mon', value: 1 },
-    { label: 'Tue', value: 2 },
-    { label: 'Wed', value: 3 },
-    { label: 'Thu', value: 4 },
-    { label: 'Fri', value: 5 },
-    { label: 'Sat', value: 6 },
+    { label: i18n.t('medications.weekdaysShort.sun'), value: 0 },
+    { label: i18n.t('medications.weekdaysShort.mon'), value: 1 },
+    { label: i18n.t('medications.weekdaysShort.tue'), value: 2 },
+    { label: i18n.t('medications.weekdaysShort.wed'), value: 3 },
+    { label: i18n.t('medications.weekdaysShort.thu'), value: 4 },
+    { label: i18n.t('medications.weekdaysShort.fri'), value: 5 },
+    { label: i18n.t('medications.weekdaysShort.sat'), value: 6 },
   ];
   
   const toggleDay = (day: number) => {
@@ -344,7 +366,7 @@ function SpecificWeekdaysPicker({ config, onChange, error }: any) {
   
   return (
     <View className="gap-4">
-      <Text className="text-base font-medium text-foreground">Select Days</Text>
+      <Text className="text-base font-medium text-foreground">{i18n.t('schedulePicker.selectDays')}</Text>
       <View className="flex-row flex-wrap gap-2">
         {days.map((day) => (
           <Button
@@ -359,13 +381,13 @@ function SpecificWeekdaysPicker({ config, onChange, error }: any) {
       </View>
       
       <View>
-        <Text className="text-sm font-medium text-foreground mb-2">Time</Text>
+        <Text className="text-sm font-medium text-foreground mb-2">{i18n.t('schedulePicker.time')}</Text>
         <Button
           variant="outline"
           onPress={() => setShowTimePicker(true)}
           className="justify-start"
         >
-          <Text>{format(time, 'HH:mm')}</Text>
+          <Text>{format(time, 'p', { locale: dateFnsLocale })}</Text>
         </Button>
       </View>
       
@@ -384,6 +406,7 @@ function SpecificWeekdaysPicker({ config, onChange, error }: any) {
 }
 
 function XthWeekdayPicker({ config, onChange, error }: any) {
+  const dateFnsLocale = getDateFnsLocale();
   const [weekday, setWeekday] = useState(config?.weekday?.toString() || '0');
   const [occurrence, setOccurrence] = useState(config?.occurrence?.toString() || '1');
   
@@ -401,21 +424,21 @@ function XthWeekdayPicker({ config, onChange, error }: any) {
   const [showTimePicker, setShowTimePicker] = useState(false);
   
   const weekdayOptions = [
-    { label: 'Sunday', value: '0' },
-    { label: 'Monday', value: '1' },
-    { label: 'Tuesday', value: '2' },
-    { label: 'Wednesday', value: '3' },
-    { label: 'Thursday', value: '4' },
-    { label: 'Friday', value: '5' },
-    { label: 'Saturday', value: '6' },
+    { label: i18n.t('medications.weekdays.sunday'), value: '0' },
+    { label: i18n.t('medications.weekdays.monday'), value: '1' },
+    { label: i18n.t('medications.weekdays.tuesday'), value: '2' },
+    { label: i18n.t('medications.weekdays.wednesday'), value: '3' },
+    { label: i18n.t('medications.weekdays.thursday'), value: '4' },
+    { label: i18n.t('medications.weekdays.friday'), value: '5' },
+    { label: i18n.t('medications.weekdays.saturday'), value: '6' },
   ];
   
   const occurrenceOptions = [
-    { label: '1st', value: '1' },
-    { label: '2nd', value: '2' },
-    { label: '3rd', value: '3' },
-    { label: '4th', value: '4' },
-    { label: 'Last', value: '5' },
+    { label: i18n.t('medications.occurrences.first'), value: '1' },
+    { label: i18n.t('medications.occurrences.second'), value: '2' },
+    { label: i18n.t('medications.occurrences.third'), value: '3' },
+    { label: i18n.t('medications.occurrences.fourth'), value: '4' },
+    { label: i18n.t('medications.occurrences.last'), value: '5' },
   ];
   
   const handleChange = () => {
@@ -455,34 +478,34 @@ function XthWeekdayPicker({ config, onChange, error }: any) {
   return (
     <View className="gap-4">
       <Select
-        label="Occurrence"
+        label={i18n.t('schedulePicker.occurrence')}
         options={occurrenceOptions}
         value={occurrence}
         onValueChange={(value) => {
           setOccurrence(value);
           handleChange();
         }}
-        placeholder="Select occurrence"
+        placeholder={i18n.t('schedulePicker.selectOccurrence')}
       />
       <Select
-        label="Weekday"
+        label={i18n.t('schedulePicker.weekday')}
         options={weekdayOptions}
         value={weekday}
         onValueChange={(value) => {
           setWeekday(value);
           handleChange();
         }}
-        placeholder="Select weekday"
+        placeholder={i18n.t('schedulePicker.selectWeekday')}
       />
       
       <View>
-        <Text className="text-sm font-medium text-foreground mb-2">Time</Text>
+        <Text className="text-sm font-medium text-foreground mb-2">{i18n.t('schedulePicker.time')}</Text>
         <Button
           variant="outline"
           onPress={() => setShowTimePicker(true)}
           className="justify-start"
         >
-          <Text>{format(time, 'HH:mm')}</Text>
+          <Text>{format(time, 'p', { locale: dateFnsLocale })}</Text>
         </Button>
       </View>
       
@@ -496,7 +519,7 @@ function XthWeekdayPicker({ config, onChange, error }: any) {
       )}
       
       <Text className="text-sm text-muted-foreground">
-        Example: Every 3rd Tuesday of the month at 14:00
+        {i18n.t('schedulePicker.xthWeekdayExample')}
       </Text>
       {error && <Text className="text-sm text-destructive">{error}</Text>}
     </View>
@@ -504,6 +527,7 @@ function XthWeekdayPicker({ config, onChange, error }: any) {
 }
 
 function CyclePicker({ config, onChange, error }: any) {
+  const dateFnsLocale = getDateFnsLocale();
   const [daysOn, setDaysOn] = useState(config?.daysOn?.toString() || '');
   const [daysOff, setDaysOff] = useState(config?.daysOff?.toString() || '');
   
@@ -572,34 +596,36 @@ function CyclePicker({ config, onChange, error }: any) {
   return (
     <View className="gap-4">
       <Input
-        label="Days On"
+        label={i18n.t('schedulePicker.daysOn')}
         value={daysOn}
         onChangeText={(text) => {
           setDaysOn(text);
           handleChange();
         }}
         keyboardType="number-pad"
-        placeholder="e.g., 21"
+        placeholder={i18n.t('schedulePicker.daysOnPlaceholder')}
       />
       <Input
-        label="Days Off"
+        label={i18n.t('schedulePicker.daysOff')}
         value={daysOff}
         onChangeText={(text) => {
           setDaysOff(text);
           handleChange();
         }}
         keyboardType="number-pad"
-        placeholder="e.g., 7"
+        placeholder={i18n.t('schedulePicker.daysOffPlaceholder')}
       />
       
       <View>
-        <Text className="text-sm font-medium text-foreground mb-2">Cycle Start Date</Text>
+        <Text className="text-sm font-medium text-foreground mb-2">
+          {i18n.t('schedulePicker.cycleStartDate')}
+        </Text>
         <Button
           variant="outline"
           onPress={() => setShowStartDatePicker(true)}
           className="justify-start"
         >
-          <Text>{format(startDate, 'MMM d, yyyy')}</Text>
+          <Text>{format(startDate, 'PP', { locale: dateFnsLocale })}</Text>
         </Button>
       </View>
       
@@ -613,13 +639,13 @@ function CyclePicker({ config, onChange, error }: any) {
       )}
       
       <View>
-        <Text className="text-sm font-medium text-foreground mb-2">Time</Text>
+        <Text className="text-sm font-medium text-foreground mb-2">{i18n.t('schedulePicker.time')}</Text>
         <Button
           variant="outline"
           onPress={() => setShowTimePicker(true)}
           className="justify-start"
         >
-          <Text>{format(time, 'HH:mm')}</Text>
+          <Text>{format(time, 'p', { locale: dateFnsLocale })}</Text>
         </Button>
       </View>
       
@@ -638,6 +664,7 @@ function CyclePicker({ config, onChange, error }: any) {
 }
 
 function EveryXHoursPicker({ config, onChange, error }: any) {
+  const dateFnsLocale = getDateFnsLocale();
   const [intervalHours, setIntervalHours] = useState(config?.intervalHours?.toString() || '');
   
   const getInitialTime = () => {
@@ -683,24 +710,26 @@ function EveryXHoursPicker({ config, onChange, error }: any) {
   return (
     <View className="gap-4">
       <Input
-        label="Repeat every X hours"
+        label={i18n.t('schedulePicker.repeatEveryXHours')}
         value={intervalHours}
         onChangeText={(text) => {
           setIntervalHours(text);
           handleChange();
         }}
         keyboardType="number-pad"
-        placeholder="e.g., 8"
+        placeholder={i18n.t('schedulePicker.repeatEveryXHoursPlaceholder')}
       />
       
       <View>
-        <Text className="text-sm font-medium text-foreground mb-2">First dose time</Text>
+        <Text className="text-sm font-medium text-foreground mb-2">
+          {i18n.t('schedulePicker.firstDoseTime')}
+        </Text>
         <Button
           variant="outline"
           onPress={() => setShowTimePicker(true)}
           className="justify-start"
         >
-          <Text>{format(firstDoseTime, 'HH:mm')}</Text>
+          <Text>{format(firstDoseTime, 'p', { locale: dateFnsLocale })}</Text>
         </Button>
       </View>
       
@@ -719,6 +748,7 @@ function EveryXHoursPicker({ config, onChange, error }: any) {
 }
 
 function TaperingPicker({ config, onChange, error }: any) {
+  const dateFnsLocale = getDateFnsLocale();
   const [startDose, setStartDose] = useState(config?.startDose?.toString() || '');
   const [decrementAmount, setDecrementAmount] = useState(config?.decrementAmount?.toString() || '');
   const [decrementIntervalDays, setDecrementIntervalDays] = useState(config?.decrementIntervalDays?.toString() || '');
@@ -795,44 +825,46 @@ function TaperingPicker({ config, onChange, error }: any) {
   return (
     <View className="gap-4">
       <Input
-        label="Starting Dose"
+        label={i18n.t('schedulePicker.startingDose')}
         value={startDose}
         onChangeText={(text) => {
           setStartDose(text);
           handleChange();
         }}
         keyboardType="decimal-pad"
-        placeholder="e.g., 4"
+        placeholder={i18n.t('schedulePicker.startingDosePlaceholder')}
       />
       <Input
-        label="Decrease By"
+        label={i18n.t('schedulePicker.decreaseBy')}
         value={decrementAmount}
         onChangeText={(text) => {
           setDecrementAmount(text);
           handleChange();
         }}
         keyboardType="decimal-pad"
-        placeholder="e.g., 1"
+        placeholder={i18n.t('schedulePicker.decreaseByPlaceholder')}
       />
       <Input
-        label="Every X Days"
+        label={i18n.t('schedulePicker.everyXDays')}
         value={decrementIntervalDays}
         onChangeText={(text) => {
           setDecrementIntervalDays(text);
           handleChange();
         }}
         keyboardType="number-pad"
-        placeholder="e.g., 7"
+        placeholder={i18n.t('schedulePicker.everyXDaysPlaceholder')}
       />
       
       <View>
-        <Text className="text-sm font-medium text-foreground mb-2">Start Date</Text>
+        <Text className="text-sm font-medium text-foreground mb-2">
+          {i18n.t('schedulePicker.startDate')}
+        </Text>
         <Button
           variant="outline"
           onPress={() => setShowStartDatePicker(true)}
           className="justify-start"
         >
-          <Text>{format(startDate, 'MMM d, yyyy')}</Text>
+          <Text>{format(startDate, 'PP', { locale: dateFnsLocale })}</Text>
         </Button>
       </View>
       
@@ -846,13 +878,13 @@ function TaperingPicker({ config, onChange, error }: any) {
       )}
       
       <View>
-        <Text className="text-sm font-medium text-foreground mb-2">Time</Text>
+        <Text className="text-sm font-medium text-foreground mb-2">{i18n.t('schedulePicker.time')}</Text>
         <Button
           variant="outline"
           onPress={() => setShowTimePicker(true)}
           className="justify-start"
         >
-          <Text>{format(time, 'HH:mm')}</Text>
+          <Text>{format(time, 'p', { locale: dateFnsLocale })}</Text>
         </Button>
       </View>
       
@@ -866,7 +898,7 @@ function TaperingPicker({ config, onChange, error }: any) {
       )}
       
       <Text className="text-sm text-muted-foreground">
-        Example: Start at 4mg, decrease by 1mg every 7 days (4→3→2→1→0)
+        {i18n.t('schedulePicker.taperingExample')}
       </Text>
       {error && <Text className="text-sm text-destructive">{error}</Text>}
     </View>
@@ -881,17 +913,17 @@ function PrnPicker({ config, onChange, error }: any) {
   return (
     <View className="gap-4">
       <Text className="text-base text-muted-foreground">
-        As-needed medications have no scheduled doses. You can log when you take them.
+        {i18n.t('schedulePicker.prnDescription')}
       </Text>
       <Input
-        label="Low inventory alert (optional)"
+        label={i18n.t('schedulePicker.lowInventoryAlert')}
         value={lowInventoryAlert}
         onChangeText={(text) => {
           setLowInventoryAlert(text);
           onChange({ lowInventoryAlert: text ? parseInt(text) : undefined });
         }}
         keyboardType="number-pad"
-        placeholder="e.g., 5"
+        placeholder={i18n.t('schedulePicker.lowInventoryAlertPlaceholder')}
       />
       {error && <Text className="text-sm text-destructive">{error}</Text>}
     </View>

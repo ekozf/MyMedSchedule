@@ -7,6 +7,7 @@ import { ProfileCard } from '@/components/profile/ProfileCard';
 import { router } from 'expo-router';
 import { useStore } from '@/store';
 import { useState, useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   User,
   Globe,
@@ -28,6 +29,7 @@ const getLanguageOptions = () => [
 ];
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const { activeProfile, profiles, setActiveProfile, loadProfiles } = useStore();
   const [authMethod, setAuthMethodState] = useState<string>('none');
   const [language, setLanguage] = useState('en');
@@ -146,7 +148,7 @@ export default function SettingsScreen() {
   
   return (
     <ScrollView className="flex-1 bg-background">
-      <View className="p-4">
+      <View className="p-4" style={{ paddingTop: insets.top + 16 }}>
         <Text className="text-2xl font-bold mb-6 text-foreground">
           {i18n.t('settings.title')}
         </Text>

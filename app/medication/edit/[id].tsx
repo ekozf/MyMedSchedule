@@ -8,6 +8,7 @@ import { SchedulePicker } from '@/components/medication/SchedulePicker';
 import { useState, useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useStore } from '@/store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getMedicationById, updateMedication } from '@/lib/db/operations';
 import { validateScheduleConfig } from '@/lib/validation/medication';
 import { 
@@ -51,6 +52,7 @@ const getRefillReminderTypeOptions = () => [
 ];
 
 export default function EditMedicationScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { activeProfile, loadMedications } = useStore();
   const [isLoading, setIsLoading] = useState(true);
@@ -237,7 +239,7 @@ export default function EditMedicationScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
+      <View className="flex-1 items-center justify-center bg-background" style={{ paddingTop: insets.top + 16 }}>
         <Text className="text-muted-foreground">{i18n.t('common.loading')}</Text>
       </View>
     );
@@ -245,7 +247,11 @@ export default function EditMedicationScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScrollView className="flex-1 px-4 pt-4">
+      <ScrollView 
+        className="flex-1 px-4" 
+        style={{ paddingTop: insets.top + 16 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+      >
         {/* Basic Information */}
         <Card className="mb-4">
           <CardHeader>

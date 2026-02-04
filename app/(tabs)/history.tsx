@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
   getIntakeLogsByProfile, 
   getMedicationsByProfile,
@@ -21,8 +22,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
 import { EditLogDialog } from '@/components/medication/EditLogDialog';
 import { RetroactiveLogDialog } from '@/components/medication/RetroactiveLogDialog';
+import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 
 export default function HistoryScreen() {
+  const insets = useSafeAreaInsets();
+  const dateFnsLocale = getDateFnsLocale();
   const { activeProfile, loadMedications } = useStore();
   const [logs, setLogs] = useState<IntakeLog[]>([]);
   const [medications, setMedications] = useState<Medication[]>([]);
@@ -106,7 +110,7 @@ export default function HistoryScreen() {
 
   const getMedicationName = (medicationId: string) => {
     const med = medications.find(m => m.id === medicationId);
-    return med?.name || 'Unknown';
+    return med?.name || i18n.t('history.unknownMedication');
   };
 
   const getActionBadge = (action: string) => {
@@ -184,7 +188,7 @@ export default function HistoryScreen() {
 
   if (logs.length === 0) {
     return (
-      <View className="flex-1 items-center justify-center bg-background p-4">
+      <View className="flex-1 items-center justify-center bg-background p-4" style={{ paddingTop: insets.top + 16 }}>
         <View className="w-20 h-20 rounded-full bg-muted items-center justify-center mb-4">
           <Calendar size={40} className="text-muted-foreground" />
         </View>
@@ -201,7 +205,7 @@ export default function HistoryScreen() {
   return (
     <View className="flex-1 bg-background">
       {/* Header */}
-      <View className="p-4 border-b border-border">
+      <View className="p-4 border-b border-border" style={{ paddingTop: insets.top + 16 }}>
         <View className="flex-row justify-between items-center mb-4">
           <Text className="text-2xl font-bold text-foreground">
             {i18n.t('history.title')}
@@ -224,7 +228,7 @@ export default function HistoryScreen() {
             options={dateRangeOptions}
             value={dateRange}
             onValueChange={setDateRange}
-            placeholder="Select date range"
+            placeholder={i18n.t('history.selectDateRange')}
           />
           <View className="flex-row gap-2">
             <View className="flex-1">
@@ -256,7 +260,7 @@ export default function HistoryScreen() {
       >
         {filteredLogs.length === 0 ? (
           <View className="items-center justify-center py-12">
-            <Text className="text-muted-foreground">No logs match the filters</Text>
+            <Text className="text-muted-foreground">{i18n.t('history.noLogsMatch')}</Text>
           </View>
         ) : (
           filteredLogs.map(log => (
@@ -268,11 +272,11 @@ export default function HistoryScreen() {
                       {getMedicationName(log.medicationId)}
                     </Text>
                     <Text className="text-muted-foreground">
-                      {format(new Date(log.actualTime), 'MMM d, yyyy • HH:mm')}
+                      {format(new Date(log.actualTime), 'PP • p', { locale: dateFnsLocale })}
                     </Text>
                     {log.scheduledTime && (
                       <Text className="text-muted-foreground mt-1">
-                        {i18n.t('history.scheduledFor')}: {format(new Date(log.scheduledTime), 'MMM d, yyyy • HH:mm')}
+                        {i18n.t('history.scheduledFor')}: {format(new Date(log.scheduledTime), 'PP • p', { locale: dateFnsLocale })}
                       </Text>
                     )}
                   </View>

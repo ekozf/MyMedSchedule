@@ -16,6 +16,9 @@ vi.mock('expo-notifications', () => ({
   getAllScheduledNotificationsAsync: vi.fn(async () => hoisted.scheduledNotifications),
   cancelScheduledNotificationAsync: vi.fn(),
   cancelAllScheduledNotificationsAsync: vi.fn(),
+  SchedulableTriggerInputTypes: {
+    DATE: 'date',
+  },
   AndroidNotificationPriority: {
     MAX: 'max',
     HIGH: 'high',

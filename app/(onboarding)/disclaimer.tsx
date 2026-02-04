@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useStore } from '@/store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createDisclaimerAcknowledgment } from '@/lib/db/operations';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
@@ -30,6 +31,7 @@ import i18n from '@/lib/i18n';
 const DISCLAIMER_VERSION = '1.0.0';
 
 export default function DisclaimerScreen() {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const viewOnly = params.viewOnly === 'true';
   
@@ -73,8 +75,12 @@ export default function DisclaimerScreen() {
   };
 
   return (
-    <View className="flex-1 bg-background pt-12">
-      <ScrollView className="flex-1 px-4 pt-4">
+    <View className="flex-1 bg-background">
+      <ScrollView 
+        className="flex-1 px-4" 
+        style={{ paddingTop: insets.top + 16 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 120 }}
+      >
         <Text className="text-3xl font-bold mb-2 text-foreground">
           {i18n.t('disclaimer.title')}
         </Text>
@@ -242,7 +248,7 @@ export default function DisclaimerScreen() {
         </Card>
         
         {/* Acknowledgment Checkbox */}
-        <View className="bg-muted/50 p-4 rounded-lg mb-6">
+        <View className="bg-muted/50 p-4 rounded-lg mb-6 border border-border">
           <Checkbox
             checked={acknowledged}
             onCheckedChange={setAcknowledged}

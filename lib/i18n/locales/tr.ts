@@ -1,4 +1,7 @@
-export default {
+import en from './en';
+import { mergeLocale } from './merge';
+
+const trOverrides = {
   common: {
     cancel: 'İptal',
     save: 'Kaydet',
@@ -360,3 +363,5 @@ export default {
     maxLength: 'En fazla {{count}} karakter olmalıdır',
   },
 };
+
+export default mergeLocale(en, trOverrides);

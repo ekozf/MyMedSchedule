@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { router } from 'expo-router';
 import { useStore } from '@/store';
 import { useState, useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fingerprint, Lock } from 'lucide-react-native';
 import {
   authenticate,
@@ -15,6 +16,7 @@ import {
 import i18n from '@/lib/i18n';
 
 export default function LockScreen() {
+  const insets = useSafeAreaInsets();
   const { setAuthenticated } = useStore();
   const [authMethod, setAuthMethodState] = useState<'biometric' | 'pin' | 'none'>('none');
   const [pin, setPin] = useState('');
@@ -95,7 +97,7 @@ export default function LockScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background items-center justify-center p-6">
+    <View className="flex-1 bg-background items-center justify-center p-6" style={{ paddingTop: insets.top + 24 }}>
       <Text className="text-3xl font-bold mb-4 text-foreground">
         MyMedSchedule
       </Text>

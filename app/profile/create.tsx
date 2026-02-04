@@ -6,11 +6,13 @@ import { Avatar } from '@/components/ui/avatar';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { useStore } from '@/store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createProfile } from '@/lib/db/operations';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Image as ImageIcon, X } from 'lucide-react-native';
 
 export default function CreateProfileScreen() {
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
@@ -102,7 +104,7 @@ export default function CreateProfileScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScrollView className="flex-1 px-6 pt-6">
+      <ScrollView className="flex-1 px-6" style={{ paddingTop: insets.top + 24 }}>
         <View className="items-center mb-8">
           <Avatar
             uri={avatarUri}

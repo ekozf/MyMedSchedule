@@ -9,8 +9,10 @@ import { Icon } from '@/components/ui/icon';
 import { useStore } from '@/store';
 import { useState, useEffect } from 'react';
 import i18n from '@/lib/i18n';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MedicationsScreen() {
+  const insets = useSafeAreaInsets();
   const { medications, activeProfile, loadMedications } = useStore();
   const [refreshing, setRefreshing] = useState(false);
   
@@ -38,7 +40,7 @@ export default function MedicationsScreen() {
   return (
     <View className="flex-1 bg-background">
       {/* Header with Profile Switcher */}
-      <View className="px-4 pt-4 pb-2 border-b border-border">
+      <View className="px-4 pb-2 border-b border-border" style={{ paddingTop: insets.top + 16 }}>
         <ProfileSwitcher />
       </View>
       

@@ -12,6 +12,7 @@ import {
   format,
 } from 'date-fns';
 import type { Medication } from '@/types';
+import i18n from '@/lib/i18n';
 
 // Schedule config types
 export interface OnceDailyConfig {
@@ -545,7 +546,7 @@ export function getNextDose(medication: Medication, afterTime: Date = new Date()
 // Get a human-readable description of the schedule
 export function getScheduleDescription(medication: Medication): string {
   if (medication.isPrn) {
-    return 'As needed (PRN)';
+    return i18n.t('schedule.description.prn');
   }
   
   try {
@@ -553,45 +554,86 @@ export function getScheduleDescription(medication: Medication): string {
     
     switch (medication.scheduleType) {
       case 'once_daily':
-        return `Once daily at ${(config as OnceDailyConfig).time}`;
+        return i18n.t('schedule.description.onceDaily', {
+          time: (config as OnceDailyConfig).time,
+        });
       
       case 'multiple_daily':
-        const times = (config as MultipleDailyConfig).times;
-        return `${times.length} times daily`;
+        const dailyCount = (config as MultipleDailyConfig).times.length;
+        return i18n.t(
+          dailyCount === 1
+            ? 'schedule.description.timesDaily'
+            : 'schedule.description.timesDaily_other',
+          { count: dailyCount }
+        );
       
       case 'every_x_days':
-        const { intervalDays } = config as EveryXDaysConfig;
-        return `Every ${intervalDays} day${intervalDays > 1 ? 's' : ''}`;
+        const intervalDays = (config as EveryXDaysConfig).intervalDays;
+        return i18n.t(
+          intervalDays === 1
+            ? 'schedule.description.everyXDays'
+            : 'schedule.description.everyXDays_other',
+          { count: intervalDays }
+        );
       
       case 'specific_weekdays':
         const { weekdays } = config as SpecificWeekdaysConfig;
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const selectedDays = weekdays.map(d => dayNames[d]).join(', ');
-        return `On ${selectedDays}`;
+        const shortKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+        const selectedDays = weekdays
+          .map((d) => shortKeys[d])
+          .filter(Boolean)
+          .map((k) => i18n.t(`medications.weekdaysShort.${k}`))
+          .join(', ');
+        return i18n.t('schedule.description.specificWeekdays', { days: selectedDays });
       
       case 'xth_weekday':
         const xthConfig = config as XthWeekdayConfig;
-        const weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const occurrenceNames = ['', '1st', '2nd', '3rd', '4th', 'Last'];
-        const occurrenceName = occurrenceNames[xthConfig.occurrence] || `${xthConfig.occurrence}th`;
-        return `${occurrenceName} ${weekdayNames[xthConfig.weekday]} of month`;
+        const weekdayKeys = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const;
+        const weekdayKey = weekdayKeys[xthConfig.weekday];
+        const weekdayName = weekdayKey ? i18n.t(`medications.weekdays.${weekdayKey}`) : '';
+        const occurrenceName =
+          xthConfig.occurrence === 1
+            ? i18n.t('medications.occurrences.first')
+            : xthConfig.occurrence === 2
+              ? i18n.t('medications.occurrences.second')
+              : xthConfig.occurrence === 3
+                ? i18n.t('medications.occurrences.third')
+                : xthConfig.occurrence === 4
+                  ? i18n.t('medications.occurrences.fourth')
+                  : xthConfig.occurrence === 5
+                    ? i18n.t('medications.occurrences.last')
+                    : i18n.t('schedule.description.occurrenceNth', { n: xthConfig.occurrence });
+
+        return i18n.t('schedule.description.xthWeekday', {
+          occurrence: occurrenceName,
+          weekday: weekdayName,
+        });
       
       case 'cycle':
         const { daysOn, daysOff } = config as CycleConfig;
-        return `${daysOn} days on, ${daysOff} days off`;
+        return i18n.t('schedule.description.cycle', { daysOn, daysOff });
       
       case 'every_x_hours':
         const { intervalHours } = config as EveryXHoursConfig;
-        return `Every ${intervalHours} hour${intervalHours > 1 ? 's' : ''}`;
+        return i18n.t(
+          intervalHours === 1
+            ? 'schedule.description.everyXHours'
+            : 'schedule.description.everyXHours_other',
+          { count: intervalHours }
+        );
       
       case 'tapering':
         const taperingConfig = config as TaperingConfig;
-        return `Tapering: Start ${taperingConfig.startDose}, reduce ${taperingConfig.decrementAmount} every ${taperingConfig.decrementIntervalDays} days`;
+        return i18n.t('schedule.description.tapering', {
+          startDose: taperingConfig.startDose,
+          decrementAmount: taperingConfig.decrementAmount,
+          decrementIntervalDays: taperingConfig.decrementIntervalDays,
+        });
       
       default:
-        return 'Custom schedule';
+        return i18n.t('schedule.description.custom');
     }
   } catch (error) {
-    return 'Invalid schedule';
+    return i18n.t('schedule.description.invalid');
   }
 }

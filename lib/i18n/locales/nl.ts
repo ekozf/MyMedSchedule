@@ -1,4 +1,7 @@
-export default {
+import en from './en';
+import { mergeLocale } from './merge';
+
+const nlOverrides = {
   common: {
     cancel: 'Annuleren',
     save: 'Opslaan',
@@ -360,3 +363,5 @@ export default {
     maxLength: 'Moet maximaal {{count}} tekens zijn',
   },
 };
+
+export default mergeLocale(en, nlOverrides);

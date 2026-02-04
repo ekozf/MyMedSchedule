@@ -11,8 +11,10 @@ import { Calendar } from 'lucide-react-native';
 import { getIntakeLogsByProfile } from '@/lib/db/operations';
 import type { IntakeLog } from '@/types';
 import i18n from '@/lib/i18n';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function DashboardScreen() {
+  const insets = useSafeAreaInsets();
   const { medications, activeProfile } = useStore();
   // Initialize with today at start of day for consistent comparisons
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -73,7 +75,7 @@ export default function DashboardScreen() {
   return (
     <View className="flex-1 bg-background">
       {/* Header with Profile Switcher */}
-      <View className="px-4 pt-4 pb-2 border-b border-border">
+      <View className="px-4 pb-2 border-b border-border" style={{ paddingTop: insets.top + 16 }}>
         <ProfileSwitcher />
       </View>
       

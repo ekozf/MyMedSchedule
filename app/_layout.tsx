@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initDatabase } from '@/lib/db';
 import { useStore } from '@/store';
 import * as Notifications from 'expo-notifications';
@@ -68,10 +69,12 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-      <Slot />
-      <PortalHost />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        <Slot />
+        <PortalHost />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

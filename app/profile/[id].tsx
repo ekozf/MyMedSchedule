@@ -6,12 +6,14 @@ import { Avatar } from '@/components/ui/avatar';
 import { useState, useEffect } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useStore } from '@/store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getProfileById, updateProfile, deleteProfile } from '@/lib/db/operations';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Image as ImageIcon, X, Trash2 } from 'lucide-react-native';
 import type { Profile } from '@/types';
 
 export default function EditProfileScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [name, setName] = useState('');
@@ -154,7 +156,7 @@ export default function EditProfileScreen() {
 
   if (!profile) {
     return (
-      <View className="flex-1 bg-background items-center justify-center">
+      <View className="flex-1 bg-background items-center justify-center" style={{ paddingTop: insets.top + 16 }}>
         <Text className="text-muted-foreground">Loading...</Text>
       </View>
     );
@@ -162,7 +164,7 @@ export default function EditProfileScreen() {
 
   return (
     <View className="flex-1 bg-background">
-      <ScrollView className="flex-1 px-6 pt-6">
+      <ScrollView className="flex-1 px-6" style={{ paddingTop: insets.top + 24 }}>
         <View className="items-center mb-8">
           <Avatar
             uri={avatarUri}
