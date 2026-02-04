@@ -626,6 +626,7 @@ const nlOverrides = {
     profileName: 'Profiel',
     reportPeriod: 'Rapportperiode',
     generatedOn: 'Gegenereerd op',
+    medicationsSummary: 'Medicatieoverzicht',
     dosage: 'Dosering',
     scheduleType: 'Schema',
     asneedmedication: 'Zo Nodig (PRN)',

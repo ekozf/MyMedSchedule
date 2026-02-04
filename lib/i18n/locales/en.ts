@@ -569,6 +569,7 @@ export default {
     profileName: 'Profile',
     reportPeriod: 'Report Period',
     generatedOn: 'Generated on',
+    medicationsSummary: 'Medications Summary',
     dosage: 'Dosage',
     scheduleType: 'Schedule',
     asneedmedication: 'As Needed (PRN)',

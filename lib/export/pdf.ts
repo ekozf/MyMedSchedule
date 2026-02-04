@@ -143,12 +143,20 @@ function generatePDFHTML(data: ExportData): string {
 
   // Helper to get action text
   const getActionText = (action: 'taken' | 'skipped' | 'partial') => {
-    return i18n.t(`medications.actions.${action}`);
+    return i18n.t(`history.actions.${action}`);
   };
 
   // Get dosage unit text
   const getDosageUnitText = (unit: string) => {
     return i18n.t(`medications.units.${unit}`);
+  };
+
+  // Get schedule type text
+  const getScheduleTypeText = (scheduleType: string) => {
+    if (scheduleType === 'prn') {
+      return i18n.t('export.asneedmedication');
+    }
+    return i18n.t(`medications.scheduleTypes.${scheduleType}`);
   };
 
   // Build HTML
@@ -264,6 +272,32 @@ function generatePDFHTML(data: ExportData): string {
       font-weight: 600;
     }
     
+    .status-active {
+      color: #16a34a;
+      font-weight: 600;
+    }
+    
+    .status-inactive {
+      color: #6b7280;
+      font-style: italic;
+    }
+    
+    .medications-summary-table {
+      background-color: #f9fafb;
+      margin-bottom: 15px;
+    }
+    
+    .medications-summary-table th {
+      background-color: #e5e7eb;
+      font-weight: 700;
+      font-size: 9px;
+    }
+    
+    .medications-summary-table td {
+      padding: 5px 3px;
+      font-size: 9px;
+    }
+    
     .late-badge {
       background-color: #fef3c7;
       color: #92400e;
@@ -323,6 +357,42 @@ function generatePDFHTML(data: ExportData): string {
     <div class="subtitle">${i18n.t('export.profileName')}: ${profile.name}</div>
     <div class="subtitle">${i18n.t('export.reportPeriod')}: ${formatDateOnly(startDate)} - ${formatDateOnly(endDate)}</div>
     <div class="subtitle">${i18n.t('export.generatedOn')}: ${formatDate(new Date())}</div>
+  </div>
+  
+  <div class="section">
+    <div class="section-title">${i18n.t('export.medicationsSummary')}</div>
+    <table class="medications-summary-table">
+      <thead>
+        <tr>
+          <th>${i18n.t('medications.nameLabel')}</th>
+          <th>${i18n.t('export.dosage')}</th>
+          <th>${i18n.t('export.scheduleType')}</th>
+          <th>${i18n.t('medications.status')}</th>
+        </tr>
+      </thead>
+      <tbody>
+`;
+
+  // Add each medication to the summary table
+  medicationsWithLogs.forEach(({ medication }) => {
+    const statusText = medication.isActive 
+      ? i18n.t('medications.active') 
+      : i18n.t('medications.inactive');
+    const statusClass = medication.isActive ? 'status-active' : 'status-inactive';
+    
+    html += `
+        <tr>
+          <td><strong>${medication.name}</strong></td>
+          <td>${medication.dosageAmount} ${getDosageUnitText(medication.dosageUnit)}</td>
+          <td>${getScheduleTypeText(medication.scheduleType)}</td>
+          <td class="${statusClass}">${statusText}</td>
+        </tr>
+`;
+  });
+
+  html += `
+      </tbody>
+    </table>
   </div>
 `;
 

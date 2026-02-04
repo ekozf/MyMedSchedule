@@ -621,6 +621,7 @@ const trOverrides = {
     profileName: 'Profil',
     reportPeriod: 'Rapor Dönemi',
     generatedOn: 'Oluşturma tarihi',
+    medicationsSummary: 'İlaçlar Özeti',
     dosage: 'Doz',
     scheduleType: 'Program',
     asneedmedication: 'Gerektiğinde (PRN)',
