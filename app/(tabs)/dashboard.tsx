@@ -1,9 +1,9 @@
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, RefreshControl } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { DayPicker } from '@/components/dashboard/DayPicker';
 import { MedicationScheduleItem } from '@/components/dashboard/MedicationScheduleItem';
 import { ProfileSwitcher } from '@/components/profile/ProfileSwitcher';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useStore } from '@/store';
 import { getAllDosesForDate } from '@/lib/schedule/calculator';
 import { format, isToday, startOfDay, endOfDay } from 'date-fns';
@@ -12,10 +12,11 @@ import { getIntakeLogsByProfile } from '@/lib/db/operations';
 import type { IntakeLog } from '@/types';
 import i18n from '@/lib/i18n';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
-  const { medications, activeProfile } = useStore();
+  const { medications, activeProfile, loadMedications } = useStore();
   // Initialize with today at start of day for consistent comparisons
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
@@ -24,21 +25,9 @@ export default function DashboardScreen() {
   });
   const [doses, setDoses] = useState<any[]>([]);
   const [intakeLogs, setIntakeLogs] = useState<IntakeLog[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   
-  useEffect(() => {
-    if (medications.length > 0) {
-      const scheduledDoses = getAllDosesForDate(medications, selectedDate);
-      setDoses(scheduledDoses);
-    } else {
-      setDoses([]);
-    }
-  }, [medications, selectedDate]);
-
-  useEffect(() => {
-    loadIntakeLogs();
-  }, [activeProfile, selectedDate]);
-
-  const loadIntakeLogs = async () => {
+  const loadIntakeLogs = useCallback(async () => {
     if (!activeProfile) return;
     try {
       const logs = await getIntakeLogsByProfile(activeProfile.id);
@@ -53,7 +42,30 @@ export default function DashboardScreen() {
     } catch (error) {
       console.error('Failed to load intake logs:', error);
     }
-  };
+  }, [activeProfile, selectedDate]);
+
+  useEffect(() => {
+    if (medications.length > 0) {
+      const scheduledDoses = getAllDosesForDate(medications, selectedDate);
+      setDoses(scheduledDoses);
+    } else {
+      setDoses([]);
+    }
+  }, [medications, selectedDate]);
+
+  useEffect(() => {
+    loadIntakeLogs();
+  }, [loadIntakeLogs]);
+
+  // Refresh data when screen comes into focus (e.g., after logging intake from notification)
+  useFocusEffect(
+    useCallback(() => {
+      if (activeProfile) {
+        loadMedications(activeProfile.id);
+        loadIntakeLogs();
+      }
+    }, [activeProfile, loadMedications, loadIntakeLogs])
+  );
 
   const getDoseLogInfo = (dose: any): { isLogged: boolean; action?: 'taken' | 'skipped' | 'partial' } => {
     const log = intakeLogs.find(log => 
@@ -66,6 +78,22 @@ export default function DashboardScreen() {
     }
     
     return { isLogged: false };
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Reload medications from database
+      if (activeProfile) {
+        await loadMedications(activeProfile.id);
+      }
+      // Reload intake logs
+      await loadIntakeLogs();
+    } catch (error) {
+      console.error('Failed to refresh dashboard:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
   
   const dateLabel = isToday(selectedDate)
@@ -83,7 +111,15 @@ export default function DashboardScreen() {
       <DayPicker selectedDate={selectedDate} onDateChange={setSelectedDate} />
       
       {/* Schedule Content */}
-      <ScrollView className="flex-1">
+      <ScrollView 
+        className="flex-1"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+          />
+        }
+      >
         <View className="p-4">
           <Text className="text-xl font-bold text-foreground mb-4">
             {dateLabel}
