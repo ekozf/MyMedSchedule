@@ -3,6 +3,9 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [],
+  define: {
+    __DEV__: false,
+  },
   test: {
     globals: true,
     environment: 'node',

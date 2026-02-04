@@ -1,113 +1,235 @@
 import * as Notifications from 'expo-notifications';
-import { getDosesForDate, getAllDosesForDate } from '@/lib/schedule/calculator';
+import { getNextDose, type ScheduledDose } from '@/lib/schedule/calculator';
 import type { Medication } from '@/types';
-import { addDays, startOfDay, setHours, setMinutes, isAfter, isBefore, isSameMinute } from 'date-fns';
+import i18n from '@/lib/i18n';
+import { addDays, startOfDay, isAfter, isBefore } from 'date-fns';
 
-// Schedule notifications for next 7 days with batching support
+const NEXT_DOSE_BUFFER_SIZE = 3;
+const MIN_SCHEDULE_LEAD_TIME_MS = 30_000; // avoid "instant delivery" loops / releasing past-due backlogs
+
+function getDoseNotificationPriority(medication: Medication) {
+  return medication.bypassDnd
+    ? Notifications.AndroidNotificationPriority.MAX
+    : Notifications.AndroidNotificationPriority.HIGH;
+}
+
+function getDoseNotificationBody(input: {
+  medicationName: string;
+  dosageAmount: number;
+  dosageUnit: string;
+}): string {
+  return i18n.t('notifications.doseReminderBody', {
+    medication: input.medicationName,
+    amount: input.dosageAmount,
+    unit: input.dosageUnit,
+  });
+}
+
+async function scheduleDoseNotification(input: {
+  medication: Medication;
+  dose: ScheduledDose;
+}): Promise<void> {
+  const { medication, dose } = input;
+  const nowMs = Date.now();
+  const triggerMs = dose.time.getTime();
+  if (!Number.isFinite(triggerMs) || triggerMs <= nowMs + MIN_SCHEDULE_LEAD_TIME_MS) {
+    // Never schedule "immediate" notifications here; it can create runaway loops when permissions are toggled
+    // and/or a large backlog exists.
+    return;
+  }
+  const priority = getDoseNotificationPriority(medication);
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: i18n.t('notifications.medicationReminder'),
+      body: getDoseNotificationBody({
+        medicationName: medication.name,
+        dosageAmount: dose.dosageAmount,
+        dosageUnit: dose.dosageUnit,
+      }),
+      data: {
+        kind: 'dose',
+        medicationId: medication.id,
+        medicationName: medication.name,
+        dosageAmount: dose.dosageAmount,
+        dosageUnit: dose.dosageUnit,
+        scheduledTime: dose.time.toISOString(),
+        imageUri: medication.imageUri,
+        notes: medication.notes,
+      },
+      sound: 'default',
+      priority,
+      categoryIdentifier: 'MEDICATION_REMINDER',
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: dose.time,
+      channelId: 'medication_reminders',
+    },
+  });
+}
+
+function getOverrideOriginalNextToSkip(
+  medication: Medication,
+  seedTime: Date
+): { originalNextTimeMs: number } | null {
+  if (!medication.nextDoseOverrideTime) return null;
+
+  const baseMedication: Medication = { ...medication, nextDoseOverrideTime: undefined };
+  const originalNext = getNextDose(baseMedication, seedTime);
+  if (!originalNext) return null;
+  return { originalNextTimeMs: originalNext.time.getTime() };
+}
+
+function isDoseKind(data: any): boolean {
+  if (!data) return false;
+  if (data.kind === 'dose') return true;
+
+  // Back-compat: older scheduled dose notifications lacked kind.
+  // Treat as dose if it looks like a dose reminder payload and is not a refill.
+  if (data.kind == null && data.type !== 'refill' && data.medicationId && data.scheduledTime && data.dosageUnit) {
+    return true;
+  }
+
+  return false;
+}
+
+function getScheduledNotificationTime(notification: Notifications.NotificationRequest): Date | null {
+  const data: any = notification.content?.data;
+  if (data?.scheduledTime) {
+    const parsed = new Date(data.scheduledTime);
+    if (Number.isFinite(parsed.getTime())) return parsed;
+  }
+
+  const trigger: any = notification.trigger;
+  if (!trigger) return null;
+
+  if (trigger.date) {
+    const parsed = new Date(trigger.date);
+    if (Number.isFinite(parsed.getTime())) return parsed;
+  }
+
+  if (trigger.type === 'date' && typeof trigger.value === 'number') {
+    const parsed = new Date(trigger.value);
+    if (Number.isFinite(parsed.getTime())) return parsed;
+  }
+
+  return null;
+}
+
+async function pruneDoseNotificationsForMedication(input: {
+  medicationId: string;
+  keepNext: number;
+}): Promise<void> {
+  const { medicationId, keepNext } = input;
+  const now = new Date(Date.now());
+
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const relevant: Array<{ id: string; time: Date | null; timeMs: number | null }> = [];
+
+  for (const notification of scheduled) {
+    const data: any = notification.content?.data;
+    if (!data) continue;
+    if (data.medicationId !== medicationId) continue;
+    if (!isDoseKind(data)) continue;
+
+    const time = getScheduledNotificationTime(notification);
+    relevant.push({
+      id: notification.identifier,
+      time,
+      timeMs: time ? time.getTime() : null,
+    });
+  }
+
+  // Cancel anything past due or invalid first. These are the main cause of the "instant flood" after enabling permissions.
+  for (const n of relevant) {
+    if (!n.time || !Number.isFinite(n.time.getTime()) || !isAfter(n.time, now)) {
+      await Notifications.cancelScheduledNotificationAsync(n.id);
+    }
+  }
+
+  // Now trim future dose notifications down to the next `keepNext`.
+  const scheduledAfter = await Notifications.getAllScheduledNotificationsAsync();
+  const future = scheduledAfter
+    .map(notification => {
+      const data: any = notification.content?.data;
+      if (!data) return null;
+      if (data.medicationId !== medicationId) return null;
+      if (!isDoseKind(data)) return null;
+
+      const time = getScheduledNotificationTime(notification);
+      if (!time || !Number.isFinite(time.getTime())) return null;
+      if (!isAfter(time, now)) return null;
+      return { id: notification.identifier, timeMs: time.getTime() };
+    })
+    .filter(Boolean) as Array<{ id: string; timeMs: number }>;
+
+  future.sort((a, b) => a.timeMs - b.timeMs);
+  const extras = future.slice(keepNext);
+
+  for (const extra of extras) {
+    await Notifications.cancelScheduledNotificationAsync(extra.id);
+  }
+}
+
+async function getNextNDoses(input: {
+  medication: Medication;
+  seedTime: Date;
+  n: number;
+  excludeTimesMs?: Set<number>;
+}): Promise<ScheduledDose[]> {
+  const { medication, seedTime, n, excludeTimesMs } = input;
+  const results: ScheduledDose[] = [];
+  const seenTimes = new Set<number>(excludeTimesMs ?? []);
+  const overrideSkip = getOverrideOriginalNextToSkip(medication, seedTime);
+
+  let afterTime = seedTime;
+  while (results.length < n) {
+    const next = getNextDose(medication, afterTime);
+    if (!next) break;
+
+    const nextTimeMs = next.time.getTime();
+
+    if (overrideSkip && nextTimeMs === overrideSkip.originalNextTimeMs) {
+      afterTime = new Date(nextTimeMs + 1);
+      continue;
+    }
+
+    if (seenTimes.has(nextTimeMs)) {
+      afterTime = new Date(nextTimeMs + 1);
+      continue;
+    }
+
+    seenTimes.add(nextTimeMs);
+    results.push(next);
+    afterTime = new Date(nextTimeMs + 1);
+  }
+
+  return results;
+}
+
+// Schedule notifications for the next 3 doses
 export async function scheduleNotificationsForMedication(medication: Medication): Promise<void> {
   if (medication.isPrn || !medication.isActive) {
     return;
   }
 
-  // Cancel existing notifications for this medication
+  // Cancel only dose reminders for this medication, keep refill reminders intact.
   await cancelNotificationsForMedication(medication.id);
 
-  const today = startOfDay(new Date());
-  const now = new Date();
-  const scheduledTimes = new Set<string>(); // Track scheduled times to avoid duplicates
-  
-  // Schedule for next 7 days
-  for (let i = 0; i < 7; i++) {
-    const date = addDays(today, i);
-    const doses = getDosesForDate(medication, date);
+  const now = new Date(Date.now());
+  const nextDoses = await getNextNDoses({
+    medication,
+    seedTime: now,
+    n: NEXT_DOSE_BUFFER_SIZE,
+  });
 
-    for (const dose of doses) {
-      // Only schedule future doses
-      if (isAfter(dose.time, now)) {
-        const timeKey = dose.time.toISOString();
-        
-        // Skip if we've already scheduled for this exact time
-        if (scheduledTimes.has(timeKey)) {
-          continue;
-        }
-        
-        scheduledTimes.add(timeKey);
-        
-        try {
-          // Determine notification priority based on bypassDnd setting
-          const priority = medication.bypassDnd 
-            ? Notifications.AndroidNotificationPriority.MAX 
-            : Notifications.AndroidNotificationPriority.HIGH;
-
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'Medication Reminder',
-              body: `Time to take ${medication.name} - ${dose.dosageAmount} ${dose.dosageUnit}`,
-              data: {
-                medicationId: medication.id,
-                medicationName: medication.name,
-                dosageAmount: dose.dosageAmount,
-                dosageUnit: dose.dosageUnit,
-                scheduledTime: dose.time.toISOString(),
-                imageUri: medication.imageUri,
-                notes: medication.notes,
-              },
-              sound: 'default',
-              priority,
-              categoryIdentifier: 'MEDICATION_REMINDER',
-            },
-            trigger: {
-              date: dose.time,
-              channelId: 'medication_reminders',
-            },
-          });
-        } catch (error) {
-          console.error('Failed to schedule notification:', error);
-        }
-      }
-    }
-  }
-  
-  // Handle next-dose override: schedule notification for override time if it's in the future
-  if (medication.nextDoseOverrideTime) {
-    const overrideTime = new Date(medication.nextDoseOverrideTime);
-    
-    if (isAfter(overrideTime, now)) {
-      const overrideTimeKey = overrideTime.toISOString();
-      
-      // Only schedule if we haven't already scheduled for this time
-      if (!scheduledTimes.has(overrideTimeKey)) {
-        try {
-          const priority = medication.bypassDnd 
-            ? Notifications.AndroidNotificationPriority.MAX 
-            : Notifications.AndroidNotificationPriority.HIGH;
-
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'Medication Reminder',
-              body: `Time to take ${medication.name} - ${medication.dosageAmount} ${medication.dosageUnit}`,
-              data: {
-                medicationId: medication.id,
-                medicationName: medication.name,
-                dosageAmount: medication.dosageAmount,
-                dosageUnit: medication.dosageUnit,
-                scheduledTime: overrideTime.toISOString(),
-                imageUri: medication.imageUri,
-                notes: medication.notes,
-              },
-              sound: 'default',
-              priority,
-              categoryIdentifier: 'MEDICATION_REMINDER',
-            },
-            trigger: {
-              date: overrideTime,
-              channelId: 'medication_reminders',
-            },
-          });
-        } catch (error) {
-          console.error('Failed to schedule override notification:', error);
-        }
-      }
+  for (const dose of nextDoses) {
+    if (!isAfter(dose.time, now)) continue;
+    try {
+      await scheduleDoseNotification({ medication, dose });
+    } catch (error) {
+      console.error('Failed to schedule dose notification:', error);
     }
   }
 }
@@ -117,104 +239,10 @@ export async function scheduleBatchedNotifications(medications: Medication[]): P
   const activeMedications = medications.filter(m => m.isActive && !m.isPrn);
   if (activeMedications.length === 0) return;
 
-  const today = startOfDay(new Date());
-  const now = new Date();
-  
-  // Get all doses for the next 7 days (getAllDosesForDate already handles schedule start gating and overrides)
-  for (let i = 0; i < 7; i++) {
-    const date = addDays(today, i);
-    const allDoses = getAllDosesForDate(activeMedications, date);
-    
-    // Group doses by time
-    const dosesByTime = new Map<string, typeof allDoses>();
-    for (const dose of allDoses) {
-      const timeKey = dose.time.toISOString();
-      if (!dosesByTime.has(timeKey)) {
-        dosesByTime.set(timeKey, []);
-      }
-      dosesByTime.get(timeKey)!.push(dose);
-    }
-    
-    // Schedule notifications
-    for (const [timeKey, doses] of dosesByTime) {
-      const doseTime = new Date(timeKey);
-      
-      // Only schedule future doses
-      if (!isAfter(doseTime, now)) continue;
-      
-      try {
-        if (doses.length === 1) {
-          // Single medication - regular notification
-          const dose = doses[0];
-          const med = activeMedications.find(m => m.id === dose.medicationId);
-          if (!med) continue;
-          
-          const priority = med.bypassDnd 
-            ? Notifications.AndroidNotificationPriority.MAX 
-            : Notifications.AndroidNotificationPriority.HIGH;
-
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: 'Medication Reminder',
-              body: `Time to take ${dose.medicationName} - ${dose.dosageAmount} ${dose.dosageUnit}`,
-              data: {
-                medicationId: dose.medicationId,
-                medicationName: dose.medicationName,
-                dosageAmount: dose.dosageAmount,
-                dosageUnit: dose.dosageUnit,
-                scheduledTime: doseTime.toISOString(),
-                imageUri: med.imageUri,
-                notes: med.notes,
-              },
-              sound: 'default',
-              priority,
-              categoryIdentifier: 'MEDICATION_REMINDER',
-            },
-            trigger: {
-              date: doseTime,
-              channelId: 'medication_reminders',
-            },
-          });
-        } else {
-          // Multiple medications - batched notification
-          const medicationList = doses.map(d => `• ${d.medicationName} (${d.dosageAmount} ${d.dosageUnit})`).join('\n');
-          const hasCritical = doses.some(d => {
-            const med = activeMedications.find(m => m.id === d.medicationId);
-            return med?.bypassDnd;
-          });
-          
-          const priority = hasCritical
-            ? Notifications.AndroidNotificationPriority.MAX 
-            : Notifications.AndroidNotificationPriority.HIGH;
-
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title: `${doses.length} Medications Due`,
-              body: medicationList,
-              data: {
-                isBatched: true,
-                doses: doses.map(d => ({
-                  medicationId: d.medicationId,
-                  medicationName: d.medicationName,
-                  dosageAmount: d.dosageAmount,
-                  dosageUnit: d.dosageUnit,
-                })),
-                scheduledTime: doseTime.toISOString(),
-              },
-              sound: 'default',
-              priority,
-              categoryIdentifier: 'MEDICATION_REMINDER',
-            },
-            trigger: {
-              date: doseTime,
-              channelId: 'medication_reminders',
-            },
-          });
-        }
-      } catch (error) {
-        console.error('Failed to schedule notification:', error);
-      }
-    }
+  // NOTE: The app uses per-medication "next 3" scheduling. Batched scheduling is retained for potential future use,
+  // but is no longer used for priming notifications to avoid large notification spam.
+  for (const medication of activeMedications) {
+    await scheduleNotificationsForMedication(medication);
   }
 }
 
@@ -228,7 +256,8 @@ export async function cancelNotificationsForMedication(medicationId: string): Pr
   const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
   
   for (const notification of scheduledNotifications) {
-    if (notification.content.data?.medicationId === medicationId) {
+    const data: any = notification.content?.data;
+    if (data?.medicationId === medicationId && isDoseKind(data)) {
       await Notifications.cancelScheduledNotificationAsync(notification.identifier);
     }
   }
@@ -239,13 +268,91 @@ export async function cancelNotificationForDose(medicationId: string, scheduledT
   const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
   
   for (const notification of scheduledNotifications) {
-    const data = notification.content.data;
+    const data: any = notification.content?.data;
     if (
       data?.medicationId === medicationId &&
+      isDoseKind(data) &&
       data?.scheduledTime === scheduledTimeIso
     ) {
       await Notifications.cancelScheduledNotificationAsync(notification.identifier);
     }
+  }
+}
+
+export async function cancelAllNotificationsForMedication(medicationId: string): Promise<void> {
+  const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+
+  for (const notification of scheduledNotifications) {
+    const data: any = notification.content?.data;
+    if (data?.medicationId === medicationId) {
+      await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+    }
+  }
+}
+
+export async function ensureNext3DoseNotificationsForMedication(medicationId: string): Promise<void> {
+  const { getMedicationById } = await import('@/lib/db/operations');
+  const medication = await getMedicationById(medicationId);
+  if (!medication) return;
+  if (!medication.isActive || medication.isPrn) return;
+
+  // Safety: old versions could have scheduled huge 7-day backlogs. Trim them down before ensuring.
+  await pruneDoseNotificationsForMedication({ medicationId, keepNext: NEXT_DOSE_BUFFER_SIZE });
+
+  const now = new Date(Date.now());
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+
+  const scheduledDoseTimes: Array<{ timeMs: number; notificationId: string }> = [];
+  for (const notification of scheduled) {
+    const data: any = notification.content?.data;
+    if (!data) continue;
+    if (data.medicationId !== medicationId) continue;
+    if (!isDoseKind(data)) continue;
+
+    const time = getScheduledNotificationTime(notification) ?? (data.scheduledTime ? new Date(data.scheduledTime) : null);
+    if (!time) continue;
+    if (!isAfter(time, now)) continue;
+
+    scheduledDoseTimes.push({ timeMs: time.getTime(), notificationId: notification.identifier });
+  }
+
+  // De-dupe by time
+  const uniqueFutureTimesMs = Array.from(new Set(scheduledDoseTimes.map(s => s.timeMs))).sort((a, b) => a - b);
+  const futureCount = uniqueFutureTimesMs.length;
+  if (futureCount >= NEXT_DOSE_BUFFER_SIZE) return;
+
+  const seedTimeMs = uniqueFutureTimesMs.length > 0 ? uniqueFutureTimesMs[uniqueFutureTimesMs.length - 1] : now.getTime();
+  const seedTime = new Date(seedTimeMs);
+  const excludeTimesMs = new Set<number>(uniqueFutureTimesMs);
+
+  const missing = NEXT_DOSE_BUFFER_SIZE - futureCount;
+  const additional = await getNextNDoses({
+    medication,
+    seedTime,
+    n: missing,
+    excludeTimesMs,
+  });
+
+  for (const dose of additional) {
+    if (!isAfter(dose.time, now)) continue;
+    try {
+      await scheduleDoseNotification({ medication, dose });
+    } catch (error) {
+      console.error('Failed to ensure next-3 dose notification:', error);
+    }
+  }
+}
+
+export async function ensureNext3DoseNotificationsForAllActiveMedications(): Promise<void> {
+  const { getActiveProfile, getMedicationsByProfile } = await import('@/lib/db/operations');
+  const profile = await getActiveProfile();
+  if (!profile) return;
+
+  const medications = await getMedicationsByProfile(profile.id, true);
+  const active = medications.filter(m => m.isActive && !m.isPrn);
+
+  for (const medication of active) {
+    await ensureNext3DoseNotificationsForMedication(medication.id);
   }
 }
 
@@ -339,10 +446,15 @@ export async function scheduleRefillReminder(medication: Medication): Promise<vo
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Refill Reminder',
-        body: `Time to refill ${medication.name}. You have ${medication.inventoryCount} ${medication.dosageUnit} remaining.`,
+        title: i18n.t('notifications.refillReminderTitle'),
+        body: i18n.t('notifications.refillReminderBody', {
+          medication: medication.name,
+          count: medication.inventoryCount,
+          unit: medication.dosageUnit,
+        }),
         data: {
           type: 'refill',
+          kind: 'refill',
           medicationId: medication.id,
           medicationName: medication.name,
         },
@@ -350,6 +462,7 @@ export async function scheduleRefillReminder(medication: Medication): Promise<vo
         priority: Notifications.AndroidNotificationPriority.HIGH,
       },
       trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: reminderDate,
         channelId: 'medication_reminders',
       },

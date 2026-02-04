@@ -11,7 +11,11 @@ import {
   updateMedicationInventory,
   setNextDoseOverrideTime
 } from '@/lib/db/operations';
-import { cancelNotificationForDose, scheduleNotificationsForMedication, cancelNotificationsForMedication } from '@/lib/notifications/scheduler';
+import {
+  cancelNotificationForDose,
+  ensureNext3DoseNotificationsForMedication,
+  scheduleNotificationsForMedication,
+} from '@/lib/notifications/scheduler';
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
 import { format, differenceInMinutes, differenceInHours, isAfter } from 'date-fns';
@@ -108,6 +112,8 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
         await cancelNotificationForDose(dose.medicationId, dose.time.toISOString());
       }
 
+      await ensureNext3DoseNotificationsForMedication(dose.medicationId);
+
       onSuccess();
       onClose();
     } catch (error) {
@@ -189,6 +195,8 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
         await loadMedications(activeProfile.id);
       }
 
+      await ensureNext3DoseNotificationsForMedication(dose.medicationId);
+
       onSuccess();
       onClose();
     } catch (error) {
@@ -216,11 +224,13 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
     setIsLoading(true);
     try {
       // Apply override for the next dose only
-      await setNextDoseOverrideTime(dose.medicationId, selectedTime);
+      const updated = await setNextDoseOverrideTime(dose.medicationId, selectedTime);
 
-      // Reschedule notifications for this medication
-      await cancelNotificationsForMedication(dose.medicationId);
-      await scheduleNotificationsForMedication(medication);
+      // Reset + prime dose notifications (next-3) for this medication
+      if (updated) {
+        await scheduleNotificationsForMedication(updated);
+        await ensureNext3DoseNotificationsForMedication(updated.id);
+      }
 
       setIsRescheduleNextOpen(false);
       // Finally, log this dose as taken now (bypass warning since user is already handling it)
@@ -326,7 +336,9 @@ export function DoseActionDialog({ visible, dose, onClose, onSuccess }: DoseActi
                     label={i18n.t('intakeLog.amountTaken')}
                     value={partialAmount}
                     onChangeText={setPartialAmount}
-                    placeholder={`e.g., ${dose.dosageAmount / 2}`}
+                    placeholder={i18n.t('intakeLog.partialAmountPlaceholder', {
+                      example: dose.dosageAmount / 2,
+                    })}
                     keyboardType="numeric"
                   />
                 </View>

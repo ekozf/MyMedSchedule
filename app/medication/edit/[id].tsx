@@ -1,4 +1,4 @@
-import { View, ScrollView, Alert, Switch } from 'react-native';
+import { View, ScrollView, Alert, Switch, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -411,8 +411,20 @@ export default function EditMedicationScreen() {
                   mode="date"
                   minimumDate={new Date()}
                   onChange={(event, date) => {
-                    setShowExpirationPicker(false);
-                    if (date) setExpirationDate(date);
+                    if (Platform.OS === 'android') {
+                      setShowExpirationPicker(false);
+                      if (event.type === 'dismissed') {
+                        return;
+                      }
+                      if (date) {
+                        setExpirationDate(date);
+                      }
+                      return;
+                    }
+                    // iOS
+                    if (date) {
+                      setExpirationDate(date);
+                    }
                   }}
                 />
               )}

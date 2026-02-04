@@ -1,4 +1,4 @@
-import { View, Modal, Pressable, Alert, ScrollView } from 'react-native';
+import { View, Modal, Pressable, Alert, ScrollView, Platform } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -156,8 +156,20 @@ export function RetroactiveLogDialog({ visible, medications, onClose, onSuccess 
                       value={actualTime}
                       mode="datetime"
                       onChange={(event, date) => {
-                        setShowTimePicker(false);
-                        if (date) setActualTime(date);
+                        if (Platform.OS === 'android') {
+                          setShowTimePicker(false);
+                          if (event.type === 'dismissed') {
+                            return;
+                          }
+                          if (date) {
+                            setActualTime(date);
+                          }
+                          return;
+                        }
+                        // iOS
+                        if (date) {
+                          setActualTime(date);
+                        }
                       }}
                     />
                   )}

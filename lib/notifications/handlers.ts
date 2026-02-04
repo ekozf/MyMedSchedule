@@ -5,12 +5,16 @@ import {
   getMedicationById,
   updateMedicationInventory 
 } from '@/lib/db/operations';
+import i18n from '@/lib/i18n';
+import { ensureNext3DoseNotificationsForMedication } from '@/lib/notifications/scheduler';
 
 // Set up how notifications should be handled when the app is in the foreground
 export function setupNotificationHandler() {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
+      // shouldShowAlert is deprecated; keep notifications visible in foreground via banner/list.
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
     }),
@@ -22,21 +26,21 @@ export async function setupNotificationCategories() {
   await Notifications.setNotificationCategoryAsync('MEDICATION_REMINDER', [
     {
       identifier: 'TAKE',
-      buttonTitle: 'Mark as Taken',
+      buttonTitle: i18n.t('notifications.actions.take'),
       options: {
         opensAppToForeground: false,
       },
     },
     {
       identifier: 'SNOOZE',
-      buttonTitle: 'Snooze 15min',
+      buttonTitle: i18n.t('notifications.actions.snooze15'),
       options: {
         opensAppToForeground: false,
       },
     },
     {
       identifier: 'SKIP',
-      buttonTitle: 'Skip',
+      buttonTitle: i18n.t('notifications.actions.skip'),
       options: {
         opensAppToForeground: false,
       },
@@ -86,6 +90,9 @@ async function handleTakeAction(data: any) {
       const newCount = Math.max(0, medication.inventoryCount - data.dosageAmount);
       await updateMedicationInventory(medication.id, newCount);
     }
+
+    // Keep next-3 buffer topped up
+    await ensureNext3DoseNotificationsForMedication(data.medicationId);
   } catch (error) {
     console.error('Failed to log intake from notification:', error);
   }
@@ -98,17 +105,26 @@ async function handleSnoozeAction(data: any) {
 
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Medication Reminder (Snoozed)',
-        body: `Time to take ${data.medicationName}`,
-        data,
+        title: i18n.t('notifications.snoozedTitle'),
+        body: i18n.t('notifications.snoozedBody', { medication: data.medicationName }),
+        data: {
+          ...data,
+          kind: 'snooze',
+        },
         sound: 'default',
         categoryIdentifier: 'MEDICATION_REMINDER',
       },
       trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: snoozeTime,
         channelId: 'medication_reminders',
       },
     });
+
+    // Also keep normal dose reminders at next-3
+    if (data?.medicationId) {
+      await ensureNext3DoseNotificationsForMedication(data.medicationId);
+    }
   } catch (error) {
     console.error('Failed to snooze notification:', error);
   }
@@ -127,6 +143,9 @@ async function handleSkipAction(data: any) {
       action: 'skipped',
       dosageAmount: data.dosageAmount,
     });
+
+    // Keep next-3 buffer topped up
+    await ensureNext3DoseNotificationsForMedication(data.medicationId);
   } catch (error) {
     console.error('Failed to log skip from notification:', error);
   }

@@ -14,8 +14,9 @@ import {
 } from '@/lib/db/operations';
 import { getNextDose, getScheduleDescription } from '@/lib/schedule/calculator';
 import { 
-  cancelNotificationsForMedication, 
-  scheduleNotificationsForMedication 
+  cancelAllNotificationsForMedication,
+  scheduleNotificationsForMedication,
+  scheduleRefillReminder,
 } from '@/lib/notifications/scheduler';
 import { format, differenceInDays } from 'date-fns';
 import { 
@@ -27,7 +28,8 @@ import {
   CheckCircle2, 
   XCircle,
   Pill,
-  History
+  History,
+  ChevronLeft
 } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import type { Medication, IntakeLog } from '@/types';
@@ -104,9 +106,10 @@ export default function MedicationDetailScreen() {
               if (newActiveState && updatedMed && !updatedMed.isPrn) {
                 // Reactivating - schedule notifications
                 await scheduleNotificationsForMedication(updatedMed);
+                await scheduleRefillReminder(updatedMed);
               } else {
                 // Deactivating - cancel notifications
-                await cancelNotificationsForMedication(medication.id);
+                await cancelAllNotificationsForMedication(medication.id);
               }
               
               await loadMedicationData();
@@ -136,7 +139,7 @@ export default function MedicationDetailScreen() {
           onPress: async () => {
             try {
               // Cancel notifications before deleting
-              await cancelNotificationsForMedication(medication.id);
+              await cancelAllNotificationsForMedication(medication.id);
               await deleteMedication(medication.id);
               await loadMedications(activeProfile!.id);
               router.back();
@@ -191,6 +194,17 @@ export default function MedicationDetailScreen() {
   return (
     <View className="flex-1 bg-background">
       <ScrollView className="flex-1">
+        {/* Back Button */}
+        <View className="pt-4 pl-4">
+          <Pressable 
+            onPress={() => router.back()}
+            className="flex-row items-center gap-1 active:opacity-70"
+          >
+            <ChevronLeft size={24} className="text-foreground" />
+            <Text className="text-base text-foreground">{i18n.t('common.back')}</Text>
+          </Pressable>
+        </View>
+
         {/* Header Card */}
         <Card className="m-4">
           <CardContent className="p-4">
@@ -233,16 +247,16 @@ export default function MedicationDetailScreen() {
                       variant="default" 
                     />
                   )}
-                  {isLowInventory && (
-                    <Badge 
-                      label={i18n.t('medications.lowInventory')} 
-                      variant="warning" 
-                    />
-                  )}
                   {isExpired && (
                     <Badge 
                       label={i18n.t('medications.expired')} 
                       variant="destructive" 
+                    />
+                  )}
+                  {isLowInventory && !isExpired && (
+                    <Badge 
+                      label={i18n.t('medications.lowInventory')} 
+                      variant="warning" 
                     />
                   )}
                 </View>
@@ -271,30 +285,30 @@ export default function MedicationDetailScreen() {
               </View>
               
               {nextDose && medication.isActive && !medication.isPrn && (
-                <View className="mt-2 p-3 bg-primary/10 rounded-lg">
-                  <Text className="text-sm font-medium text-foreground mb-1">
+                <View className="mt-2 p-3 bg-muted/50 rounded-lg">
+                  <Text className="font-medium text-foreground mb-1">
                     {i18n.t('medications.nextDose')}
                   </Text>
-                  <Text className="text-base font-semibold text-primary">
+                  <Text className="text-lg font-semibold text-foreground">
                     {format(nextDose.time, 'MMM d, yyyy • HH:mm')}
                   </Text>
                 </View>
               )}
               
               {lastLog && (
-                <View className="mt-2 p-3 bg-muted rounded-lg">
-                  <Text className="text-sm font-medium text-foreground mb-1">
+                <View className="mt-2 p-3 bg-muted/50 rounded-lg">
+                  <Text className="font-medium text-foreground mb-1">
                     {i18n.t('medications.lastTaken')}
                   </Text>
-                  <Text className="text-sm text-muted-foreground">
+                  <Text className="text-muted-foreground">
                     {format(new Date(lastLog.actualTime), 'MMM d, yyyy • HH:mm')}
                   </Text>
                 </View>
               )}
               
               {!lastLog && medication.isActive && (
-                <View className="mt-2 p-3 bg-muted rounded-lg">
-                  <Text className="text-sm text-muted-foreground">
+                <View className="mt-2 p-3 bg-muted/50 rounded-lg">
+                  <Text className="text-muted-foreground">
                     {i18n.t('medications.neverTaken')}
                   </Text>
                 </View>
@@ -328,8 +342,8 @@ export default function MedicationDetailScreen() {
                 )}
                 
                 {medication.refillReminderType && medication.refillReminderValue && (
-                  <View className="mt-2 p-3 bg-muted rounded-lg">
-                    <Text className="text-sm text-muted-foreground">
+                  <View className="mt-2 p-3 bg-muted/50 rounded-lg">
+                    <Text className="text-muted-foreground">
                       {i18n.t('medications.refillReminderLabel')}: {' '}
                       {medication.refillReminderType === 'days'
                         ? i18n.t('medications.refillWhenDaysLeft', { days: medication.refillReminderValue })
@@ -363,22 +377,22 @@ export default function MedicationDetailScreen() {
             <CardContent>
               <View className="gap-3">
                 {medication.expirationDate && (
-                  <View className="p-3 bg-muted rounded-lg">
+                  <View className="p-3 bg-muted/50 rounded-lg">
                     <View className="flex-row items-center gap-2 mb-1">
                       {isExpired ? (
                         <AlertTriangle size={16} className="text-destructive" />
                       ) : (
                         <CheckCircle2 size={16} className="text-muted-foreground" />
                       )}
-                      <Text className="text-sm font-medium text-foreground">
+                      <Text className="font-medium text-foreground">
                         {i18n.t('medications.expirationDateLabel')}
                       </Text>
                     </View>
-                    <Text className={`text-sm ${isExpired ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    <Text className={`${isExpired ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
                       {format(new Date(medication.expirationDate), 'MMM d, yyyy')}
                     </Text>
                     {daysUntilExpiration !== null && (
-                      <Text className="text-xs text-muted-foreground mt-1">
+                      <Text className="text-muted-foreground mt-1">
                         {daysUntilExpiration > 0 
                           ? i18n.t('medications.expiresIn', { days: daysUntilExpiration })
                           : i18n.t('medications.expiredDaysAgo', { days: Math.abs(daysUntilExpiration) })
@@ -390,8 +404,8 @@ export default function MedicationDetailScreen() {
                 
                 {medication.maxDailyDose && (
                   <View className="flex-row items-center gap-2">
-                    <AlertTriangle size={16} className="text-warning" />
-                    <Text className="text-sm text-foreground">
+                    <AlertTriangle size={16} className="text-destructive" />
+                    <Text className="text-foreground flex-1">
                       {i18n.t('medications.maxDailyDoseLabel')}: {medication.maxDailyDose} {medication.dosageUnit}
                     </Text>
                   </View>
@@ -400,7 +414,7 @@ export default function MedicationDetailScreen() {
                 {medication.minHoursBetweenDoses && (
                   <View className="flex-row items-center gap-2">
                     <Clock size={16} className="text-muted-foreground" />
-                    <Text className="text-sm text-foreground">
+                    <Text className="text-foreground flex-1">
                       {i18n.t('medications.minHoursBetweenLabel')}: {medication.minHoursBetweenDoses}h
                     </Text>
                   </View>
@@ -408,8 +422,8 @@ export default function MedicationDetailScreen() {
                 
                 {medication.bypassDnd && (
                   <View className="flex-row items-center gap-2">
-                    <AlertTriangle size={16} className="text-warning" />
-                    <Text className="text-sm text-foreground">
+                    <AlertTriangle size={16} className="text-destructive" />
+                    <Text className="text-foreground flex-1">
                       {i18n.t('medications.bypassDndLabel')}
                     </Text>
                   </View>

@@ -40,10 +40,10 @@ const buttonVariants = cva(
         link: '',
       },
       size: {
-        default: cn('h-10 px-4 py-2 sm:h-9', Platform.select({ web: 'has-[>svg]:px-3' })),
-        sm: cn('h-9 gap-1.5 rounded-md px-3 sm:h-8', Platform.select({ web: 'has-[>svg]:px-2.5' })),
-        lg: cn('h-11 rounded-md px-6 sm:h-10', Platform.select({ web: 'has-[>svg]:px-4' })),
-        icon: 'h-10 w-10 sm:h-9 sm:w-9',
+        default: cn('h-12 px-4 py-2.5 sm:h-11', Platform.select({ web: 'has-[>svg]:px-3' })),
+        sm: cn('h-11 gap-1.5 rounded-md px-3 sm:h-10', Platform.select({ web: 'has-[>svg]:px-2.5' })),
+        lg: cn('h-14 rounded-md px-6 sm:h-12', Platform.select({ web: 'has-[>svg]:px-4' })),
+        icon: 'h-12 w-12 sm:h-11 sm:w-11',
       },
     },
     defaultVariants: {
@@ -92,12 +92,13 @@ type ButtonProps = React.ComponentProps<typeof Pressable> &
   React.RefAttributes<typeof Pressable> &
   VariantProps<typeof buttonVariants>;
 
-function Button({ className, variant, size, ...props }: ButtonProps) {
+function Button({ className, variant, size, hitSlop, ...props }: ButtonProps) {
   return (
     <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>
       <Pressable
         className={cn(props.disabled && 'opacity-50', buttonVariants({ variant, size }), className)}
         role="button"
+        hitSlop={hitSlop ?? { top: 8, bottom: 8, left: 8, right: 8 }}
         {...props}
       />
     </TextClassContext.Provider>

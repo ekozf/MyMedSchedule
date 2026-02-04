@@ -64,11 +64,44 @@ export default {
   
   disclaimer: {
     title: 'Belangrijk: Lees Dit Voor U Deze App Gebruikt',
+    subtitle: 'By using this application, you acknowledge and agree to the following:',
     acknowledge: 'Ik heb het bovenstaande gelezen en begrepen',
     dataPrivacyTitle: 'Gegevens en Privacy',
     medicalDisclaimerTitle: 'Medische Disclaimer',
     userResponsibilityTitle: 'Gebruikersverantwoordelijkheid',
     technicalConsiderationsTitle: 'Technische Overwegingen',
+    buttonClose: 'Close',
+    buttonContinue: 'Continue',
+    buttonProcessing: 'Processing...',
+    
+    dataPrivacy: {
+      noDataCollection: 'We do not collect any data. Absolutely nothing.',
+      fullyLocal: 'This app is fully local; there is no cloud save or online backup.',
+      secureStorage: 'Your data is stored securely and encrypted on your device. Nobody else can access it, not even the developer.',
+      exportUnencrypted: 'Exporting your data puts the data you have saved into that document, and it is completely unencrypted. It is your own responsibility to keep it safe.',
+      dataLoss: 'Because data is encrypted on your device, if you lose your phone or delete the app, your data is gone forever. We cannot recover it for you. Please use the \'Export Backup\' feature regularly.',
+    },
+    
+    medical: {
+      notAdvising: 'We are NOT advising or diagnosing anything. We are just a digital replacement for a paper calendar or diary.',
+      noInstructions: 'This app does NOT tell you when or what to take. It just reminds you of the things you decided on your own to put in the app.',
+      noInteractionCheck: 'We do NOT check for interactions between medications or overdose risks.',
+      notResponsible: 'We are NOT responsible for any medication you do or don\'t decide to take.',
+      digitalVersion: 'This is strictly a digital version of what you would use to keep track of your medication in real life outside of this app.',
+    },
+    
+    userResponsibility: {
+      inputErrors: 'Just like in real life, making a mistake during an input in the app is your own fault. We are not responsible for faults that you made in the app.',
+      yourResponsibility: 'Anything you put in and mark in the app is fully your own responsibility. We do not guarantee anything by using this app.',
+      yourChoice: 'Everything you do and put in the app is your own choice.',
+      reminderTool: 'We are just a reminder app. This is strictly a reminder tool.',
+    },
+    
+    technical: {
+      timeZones: 'Reminders/Notifications are based on your phone\'s current time. If you travel across time zones, your reminders will be based on the current device time.',
+      batteryOptimization: 'Android and iOS Battery Optimization settings may delay or suppress notifications. You are responsible for whitelisting this app in your phone\'s battery settings.',
+      clockChanges: 'Reminders rely on your device\'s internal clock. Manually changing your time or date may result in missed or premature reminders.',
+    },
   },
   
   onboarding: {
@@ -231,6 +264,7 @@ export default {
     addNotes: 'Notities Toevoegen (optioneel)',
     notesPlaceholder: 'Waarom overgeslagen of gedeeltelijk?',
     amountTaken: 'Ingenomen Hoeveelheid',
+    partialAmountPlaceholder: 'e.g., {{example}}',
     logIntake: 'Inname Registreren',
     undoLast: 'Laatste Registratie Ongedaan Maken',
     confirmUndo: 'Weet u zeker dat u deze registratie ongedaan wilt maken?',
@@ -291,9 +325,19 @@ export default {
     medicationReminder: 'Medicijnherinnering',
     timeToTake: 'Tijd om {{medication}} in te nemen',
     dosage: '{{amount}} {{unit}}',
+    doseReminderBody: 'Time to take {{medication}} - {{amount}} {{unit}}',
     snooze15: 'Herinner over 15 min',
+    snoozedTitle: 'Medication Reminder (Snoozed)',
+    snoozedBody: 'Time to take {{medication}}',
     snoozeWarning: 'Uitstellen overlapt met uw volgende dosis om {{time}}',
     continueAnyway: 'Toch Doorgaan',
+    refillReminderTitle: 'Refill Reminder',
+    refillReminderBody: 'Time to refill {{medication}}. You have {{count}} {{unit}} remaining.',
+    actions: {
+      take: 'Mark as taken',
+      snooze15: 'Snooze 15 min',
+      skip: 'Skip',
+    },
   },
   
   errors: {

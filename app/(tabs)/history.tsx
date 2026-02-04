@@ -179,7 +179,7 @@ export default function HistoryScreen() {
     { label: i18n.t('history.last7Days'), value: '7' },
     { label: i18n.t('history.last30Days'), value: '30' },
     { label: i18n.t('history.last90Days'), value: '90' },
-    { label: 'All Time', value: 'all' },
+    { label: i18n.t('history.allTime'), value: 'all' },
   ];
 
   if (logs.length === 0) {
@@ -267,11 +267,11 @@ export default function HistoryScreen() {
                     <Text className="text-lg font-semibold text-foreground mb-1">
                       {getMedicationName(log.medicationId)}
                     </Text>
-                    <Text className="text-sm text-muted-foreground">
+                    <Text className="text-muted-foreground">
                       {format(new Date(log.actualTime), 'MMM d, yyyy • HH:mm')}
                     </Text>
                     {log.scheduledTime && (
-                      <Text className="text-xs text-muted-foreground mt-1">
+                      <Text className="text-muted-foreground mt-1">
                         {i18n.t('history.scheduledFor')}: {format(new Date(log.scheduledTime), 'MMM d, yyyy • HH:mm')}
                       </Text>
                     )}
@@ -280,13 +280,13 @@ export default function HistoryScreen() {
                 </View>
 
                 {log.dosageAmount > 0 && (
-                  <Text className="text-sm text-muted-foreground mb-1">
+                  <Text className="text-muted-foreground mb-1">
                     {i18n.t('history.amount')}: {log.dosageAmount}
                   </Text>
                 )}
 
                 {log.notes && (
-                  <Text className="text-sm text-muted-foreground italic mt-2">
+                  <Text className="text-muted-foreground italic mt-2">
                     {log.notes}
                   </Text>
                 )}
@@ -300,7 +300,7 @@ export default function HistoryScreen() {
                     className="flex-1 flex-row gap-2"
                   >
                     <Edit3 size={14} className="text-foreground" />
-                    <Text className="text-xs">{i18n.t('common.edit')}</Text>
+                    <Text>{i18n.t('common.edit')}</Text>
                   </Button>
                   <Button
                     variant="outline"
@@ -309,7 +309,7 @@ export default function HistoryScreen() {
                     className="flex-1 flex-row gap-2"
                   >
                     <Trash2 size={14} className="text-destructive" />
-                    <Text className="text-xs text-destructive">{i18n.t('common.delete')}</Text>
+                    <Text className="text-destructive">{i18n.t('common.delete')}</Text>
                   </Button>
                 </View>
               </CardContent>

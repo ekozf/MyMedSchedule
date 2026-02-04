@@ -4,11 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react-native';
-import { updateIntakeLog, updateMedicationInventory, getMedicationById } from '@/lib/db/operations';
+import { updateIntakeLog, updateMedicationInventory } from '@/lib/db/operations';
 import { useStore } from '@/store';
 import i18n from '@/lib/i18n';
 import type { IntakeLog, Medication } from '@/types';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 
 export interface EditLogDialogProps {
@@ -24,8 +23,6 @@ export function EditLogDialog({ visible, log, medications, onClose, onSuccess }:
   const [action, setAction] = useState<'taken' | 'skipped' | 'partial'>('taken');
   const [dosageAmount, setDosageAmount] = useState('');
   const [notes, setNotes] = useState('');
-  const [actualTime, setActualTime] = useState(new Date());
-  const [showTimePicker, setShowTimePicker] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -33,7 +30,6 @@ export function EditLogDialog({ visible, log, medications, onClose, onSuccess }:
       setAction(log.action);
       setDosageAmount(log.dosageAmount.toString());
       setNotes(log.notes || '');
-      setActualTime(new Date(log.actualTime));
     }
   }, [log, visible]);
 
@@ -47,12 +43,6 @@ export function EditLogDialog({ visible, log, medications, onClose, onSuccess }:
     const newDosageAmount = parseFloat(dosageAmount);
     if (!dosageAmount || isNaN(newDosageAmount) || newDosageAmount <= 0) {
       Alert.alert(i18n.t('common.error'), i18n.t('errors.invalidInput'));
-      return;
-    }
-
-    // Check if actualTime is in the future
-    if (actualTime > new Date()) {
-      Alert.alert(i18n.t('common.error'), i18n.t('intakeLog.cannotLogFuture'));
       return;
     }
 
@@ -82,11 +72,10 @@ export function EditLogDialog({ visible, log, medications, onClose, onSuccess }:
         await loadMedications(activeProfile.id);
       }
 
-      // Update the log
+      // Update the log (keeping original timestamp)
       await updateIntakeLog(log.id, {
         action,
         dosageAmount: newDosageAmount,
-        actualTime,
         notes: notes || undefined,
       });
 
@@ -131,31 +120,8 @@ export function EditLogDialog({ visible, log, medications, onClose, onSuccess }:
               {medication?.name || 'Unknown'}
             </Text>
             <Text className="text-sm text-muted-foreground">
-              Original: {format(new Date(log.actualTime), 'MMM d, yyyy • HH:mm')}
+              Logged: {format(new Date(log.actualTime), 'MMM d, yyyy • HH:mm')}
             </Text>
-          </View>
-
-          {/* Time Selection */}
-          <View className="mb-4">
-            <Text className="text-sm font-medium text-foreground mb-2">
-              {i18n.t('intakeLog.timeLabel')}
-            </Text>
-            <Button 
-              variant="outline" 
-              onPress={() => setShowTimePicker(true)}
-            >
-              <Text>{format(actualTime, 'MMM d, yyyy • HH:mm')}</Text>
-            </Button>
-            {showTimePicker && (
-              <DateTimePicker
-                value={actualTime}
-                mode="datetime"
-                onChange={(event, date) => {
-                  setShowTimePicker(false);
-                  if (date) setActualTime(date);
-                }}
-              />
-            )}
           </View>
 
           {/* Action Selection */}
