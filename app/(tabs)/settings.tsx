@@ -19,6 +19,8 @@ import {
 } from '@/lib/db/operations';
 import { generatePDFReport, sharePDFReport, savePDFReportLocally } from '@/lib/export/pdf';
 import Constants from 'expo-constants';
+import { ExportDestinationDialog } from '../export/ExportDestinationDialog';
+import { ExportWarningDialog } from '../export/ExportWarningDialog';
 
 const getLanguageOptions = () => [
   { label: i18n.t('settings.languages.en'), value: 'en' },
@@ -327,6 +329,20 @@ export default function SettingsScreen() {
           </CardContent>
         </Card>
       </View>
+
+      <ExportWarningDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        onConfirm={handleConfirmExport}
+        isExporting={isExporting}
+      />
+
+      <ExportDestinationDialog
+        open={showDestinationDialog}
+        onOpenChange={setShowDestinationDialog}
+        onSaveLocally={handleSaveLocally}
+        onShare={handleShare}
+      />
     </ScrollView>
   );
 }
