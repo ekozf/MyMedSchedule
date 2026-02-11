@@ -135,7 +135,7 @@ export default function SettingsScreen() {
   };
 
   const handleExportReport = () => {
-    setShowExportDialog(true);
+    router.push('/export/warning');
   };
 
   const handleConfirmExport = async () => {
