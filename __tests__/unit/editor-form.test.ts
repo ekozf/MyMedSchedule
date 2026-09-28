@@ -301,7 +301,58 @@ describe('editor form model', () => {
       expect(input.maxDailyDose).toBeNull();
       expect(input.minHoursBetweenDoses).toBeUndefined();
       expect(input.isPrn).toBe(false);
-      expect(input.scheduleConfig).toEqual({ time: '08:00' });
+      // Unchanged schedule / supply are left alone (a schedule update resets its start date).
+      expect(input.scheduleType).toBeUndefined();
+      expect(input.scheduleConfig).toBeUndefined();
+      expect(input.inventoryCount).toBeUndefined();
+    });
+
+    it('toUpdateInput sends the schedule only when the type or the config changed', () => {
+      const initial = formFromMedication(
+        med({
+          scheduleType: 'multiple_daily',
+          scheduleConfig: JSON.stringify({ times: [{ time: '20:00' }, { time: '08:00' }] }),
+        })
+      );
+      // Same config, different object / key order / unsorted times → unchanged.
+      const reordered: MedicineForm = {
+        ...initial,
+        scheduleConfig: { times: [{ time: '20:00' }, { time: '08:00' }] },
+      };
+      expect(toUpdateInput(reordered, initial).scheduleConfig).toBeUndefined();
+      expect(toUpdateInput(reordered, initial).scheduleType).toBeUndefined();
+
+      const moreTimes: MedicineForm = {
+        ...initial,
+        scheduleConfig: { times: [{ time: '08:00' }, { time: '14:00' }, { time: '20:00' }] },
+      };
+      const changed = toUpdateInput(moreTimes, initial);
+      expect(changed.scheduleType).toBe('multiple_daily');
+      expect(changed.scheduleConfig).toEqual({
+        times: [{ time: '08:00' }, { time: '14:00' }, { time: '20:00' }],
+      });
+
+      const onceDaily = formFromMedication(med({}));
+      const toPrn = toUpdateInput(
+        { ...onceDaily, scheduleType: 'prn', scheduleConfig: {} },
+        onceDaily
+      );
+      expect(toPrn.scheduleType).toBe('prn');
+      expect(toPrn.scheduleConfig).toEqual({});
+      expect(toPrn.isPrn).toBe(true);
+    });
+
+    it('toUpdateInput sends the supply only when it changed', () => {
+      const initial = formFromMedication(med({ inventoryCount: 30 }));
+      expect(toUpdateInput({ ...initial, name: 'Metformin XR' }, initial).inventoryCount).toBe(
+        undefined
+      );
+      expect(toUpdateInput({ ...initial, inventoryCount: 60 }, initial).inventoryCount).toBe(60);
+      expect(toUpdateInput({ ...initial, inventoryCount: 0 }, initial).inventoryCount).toBe(0);
+      // Without an initial form everything is sent.
+      const all = toUpdateInput(initial);
+      expect(all.inventoryCount).toBe(30);
+      expect(all.scheduleConfig).toEqual({ time: '08:00' });
     });
 
     it('toUpdateInput clears a removed expiry date and leaves an unset one alone', () => {

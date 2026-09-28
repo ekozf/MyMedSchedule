@@ -14,7 +14,7 @@ import i18n, { getCurrentLocale } from '@/lib/i18n';
 import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 import { getScheduleDescription } from '@/lib/schedule/calculator';
 import { getRunningLowStatus, type RunningLowStatus } from '@/lib/medications/refill';
-import { formatDose, formatNumber } from '@/lib/ui/format';
+import { formatDose, formatNumber, formatUnit } from '@/lib/ui/format';
 import type { IntakeLog, Medication } from '@/types';
 
 const t = (key: string, options?: Record<string, unknown>) =>
@@ -208,12 +208,28 @@ export function getExpiryInfo(med: Medication, now = new Date()): ExpiryInfo | n
   };
 }
 
+/** Units measured by mass/volume: their supply reads better as doses ("84 doses left"). */
+const MEASURED_UNITS: readonly string[] = ['milligrams', 'grams', 'milliliters'];
+
+/** "42,000" / "42.000" — thousands grouped with the locale's separator. */
+function formatGrouped(n: number): string {
+  const s = formatNumber(n);
+  const comma = getCurrentLocale() === 'nl' || getCurrentLocale() === 'tr';
+  const [int, frac] = s.split(comma ? ',' : '.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, comma ? '.' : ',');
+  return frac ? `${grouped}${comma ? ',' : '.'}${frac}` : grouped;
+}
+
 export interface SupplyState {
   /** Whether the supply is worth showing on the list card. */
   show: boolean;
   count: number;
-  /** "24 pills left". */
+  /** "24 pills left", or "84 doses left" for mg / g / ml. */
   leftLabel: string;
+  /** mg / g / ml with a known dose: whole doses left (else null). */
+  dosesLeft: number | null;
+  /** mg / g / ml with a known dose: the raw amount, "42,000 mg" (else null). */
+  amountLabel: string | null;
   /** 0..1 vs the pack size, or null when no pack size is known. */
   progress: number | null;
   /** "About 12 days left" (only when the refill reminder is day-based). */
@@ -265,10 +281,20 @@ export function getSupplyState(med: Medication, now = new Date()): SupplyState {
 
   const packageSize = med.packageSize && med.packageSize > 0 ? med.packageSize : null;
 
+  const byDoses = MEASURED_UNITS.includes(med.dosageUnit) && med.dosageAmount > 0;
+  const dosesLeft = byDoses ? Math.floor(count / med.dosageAmount + 1e-9) : null;
+
   return {
     show: count > 0 || hasReminder || med.isActive,
     count,
-    leftLabel: t('supply.left', { amount: formatDose(count, med.dosageUnit) }),
+    leftLabel: t('supply.left', {
+      amount:
+        dosesLeft !== null
+          ? t('supply.doseCount', { count: dosesLeft })
+          : formatDose(count, med.dosageUnit),
+    }),
+    dosesLeft,
+    amountLabel: byDoses ? `${formatGrouped(count)} ${formatUnit(count, med.dosageUnit)}` : null,
     progress: packageSize ? Math.min(1, count / packageSize) : null,
     daysLabel,
     low,

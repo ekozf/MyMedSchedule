@@ -13,7 +13,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { useTheme } from '@/lib/theme';
+import { useTheme, withAlpha } from '@/lib/theme';
 
 export interface MeterProps {
   /** 0..1 */
@@ -53,7 +53,7 @@ export function Meter({
         {
           height,
           borderRadius: height / 2,
-          backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,27,45,0.07)',
+          backgroundColor: withAlpha(colors.ink, isDark ? 0.08 : 0.07),
           overflow: 'hidden',
         },
         style,

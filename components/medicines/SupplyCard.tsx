@@ -36,14 +36,27 @@ export function SupplyCard({ medication: med, onUpdate, now }: SupplyCardProps) 
 
       <View
         accessible
-        accessibilityLabel={[supply.leftLabel, supply.daysLabel].filter(Boolean).join(', ')}
-        style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap', columnGap: 8 }}>
-        <Text variant="title1" tabular tone={numberTone} style={{ fontSize: 40, lineHeight: 46 }}>
-          {formatNumber(supply.count)}
-        </Text>
-        <Text variant="headline" tone="secondary" style={{ marginBottom: 6 }}>
-          {formatUnit(supply.count, med.dosageUnit)} {i18n.t('ui.medicines.supply.leftShort')}
-        </Text>
+        accessibilityLabel={[supply.leftLabel, supply.amountLabel, supply.daysLabel]
+          .filter(Boolean)
+          .join(', ')}>
+        <View
+          style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap', columnGap: 8 }}>
+          <Text variant="title1" tabular tone={numberTone} style={{ fontSize: 40, lineHeight: 46 }}>
+            {formatNumber(supply.dosesLeft ?? supply.count)}
+          </Text>
+          <Text variant="headline" tone="secondary" style={{ marginBottom: 6 }}>
+            {supply.dosesLeft !== null
+              ? i18n.t('ui.medicines.asNeeded.doseUnit', { count: supply.dosesLeft })
+              : formatUnit(supply.count, med.dosageUnit)}{' '}
+            {i18n.t('ui.medicines.supply.leftShort')}
+          </Text>
+        </View>
+        {/* mg / g / ml: doses lead, the raw amount follows ("42,000 mg"). */}
+        {supply.amountLabel ? (
+          <Text variant="subhead" tone="secondary" tabular>
+            {supply.amountLabel}
+          </Text>
+        ) : null}
       </View>
       {supply.daysLabel ? (
         <Text variant="subhead" tone="secondary" style={{ marginTop: 2 }}>

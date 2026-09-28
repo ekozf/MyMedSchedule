@@ -10,7 +10,7 @@ import i18n from '@/lib/i18n';
 import { useStore } from '@/store';
 import { undoIntakeLog } from '@/lib/ui/dose-actions';
 import { formatDose, useTimeFormat } from '@/lib/ui/format';
-import { goBackOrHome, useToast } from '@/components/ds';
+import { OverlayScope, goBackOrHome, useToast } from '@/components/ds';
 import { AsNeededSheet, type AsNeededResult } from '@/components/medicines/AsNeededSheet';
 import { useLogAsNeeded } from '@/components/medicines/actions';
 
@@ -26,6 +26,10 @@ export default function LogAsNeededScreen() {
     goBackOrHome();
     if (result.type === 'addMedicine') {
       router.push('/medication/add');
+      return;
+    }
+    if (result.type === 'updateSupply') {
+      router.push({ pathname: '/medication/[id]', params: { id: result.medicationId } });
       return;
     }
     if (result.type !== 'logged') return;
@@ -59,14 +63,17 @@ export default function LogAsNeededScreen() {
     });
   };
 
+  // A modal route: overlays opened while it is up are presented from it (see OverlayHost).
   return (
-    <AsNeededSheet
-      visible={visible}
-      onClose={() => setVisible(false)}
-      onDismissed={onDismissed}
-      medications={medications}
-      medicationId={medicationId}
-      onLog={logAsNeeded}
-    />
+    <OverlayScope>
+      <AsNeededSheet
+        visible={visible}
+        onClose={() => setVisible(false)}
+        onDismissed={onDismissed}
+        medications={medications}
+        medicationId={medicationId}
+        onLog={logAsNeeded}
+      />
+    </OverlayScope>
   );
 }

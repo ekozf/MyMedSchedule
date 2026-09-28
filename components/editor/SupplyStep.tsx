@@ -1,16 +1,26 @@
 /**
  * Supply section: how many you have, package size and the refill reminder.
  * "Days left" is not offered for as-needed medicines (no fixed schedule to count down).
+ * With 0 left, a warning explains that doses can't be logged until supply is added (the backend
+ * refuses to log more than what's left).
  *
  * @example
  * <SupplyStep form={form} update={update} variant="guided" issue={issue} />
  */
 import * as React from 'react';
 import { View } from 'react-native';
-import { Package } from 'lucide-react-native';
+import { Package, TriangleAlert } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import { formatDose, formatUnit } from '@/lib/ui/format';
-import { ListGroup, SegmentedControl, Stepper, Text } from '@/components/ds';
+import {
+  Icon,
+  ListGroup,
+  SegmentedControl,
+  Stepper,
+  Text,
+  statusColors,
+  useTheme,
+} from '@/components/ds';
 import { DEFAULT_REFILL_VALUE, type RefillType, type StepIssue } from './form-model';
 import { EditorCard, FieldLabel, IssueHint, StepHeader } from './parts';
 import { OptionalNumberRow } from './NumberSheet';
@@ -24,6 +34,8 @@ export function SupplyStep({
   variant = 'guided',
   issue,
 }: StepProps & { issue?: StepIssue | null }) {
+  const { colors } = useTheme();
+  const warn = statusColors(colors, 'warning');
   const unit = form.dosageUnit;
   const isPrn = form.scheduleType === 'prn';
   const refill = form.refillReminderType;
@@ -57,6 +69,25 @@ export function SupplyStep({
           unit={formatUnit(form.inventoryCount, unit)}
           accessibilityLabel={t('count')}
         />
+        {form.inventoryCount <= 0 ? (
+          <View
+            accessible
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={t('zeroWarning')}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              gap: 10,
+              padding: 12,
+              borderRadius: 16,
+              backgroundColor: warn.bg,
+            }}>
+            <Icon as={TriangleAlert} size={18} color={warn.fg} style={{ marginTop: 1 }} />
+            <Text variant="subhead" style={{ flex: 1 }}>
+              {t('zeroWarning')}
+            </Text>
+          </View>
+        ) : null}
       </EditorCard>
 
       <ListGroup footer={t('packageSizeHint')}>

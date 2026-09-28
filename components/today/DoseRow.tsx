@@ -45,6 +45,8 @@ export interface DoseRowProps {
   canQuickTake?: boolean;
   /** Allow swipe shortcuts at all. Default true. */
   swipeEnabled?: boolean;
+  /** View only (a dose on a later day): no take / skip shortcuts; tap still opens the sheet. */
+  readOnly?: boolean;
 }
 
 interface ChipSpec {
@@ -53,10 +55,16 @@ interface ChipSpec {
   tone: StatusTone;
 }
 
-function DoseRowImpl({ entry, onAction, canQuickTake = true, swipeEnabled = true }: DoseRowProps) {
+function DoseRowImpl({
+  entry,
+  onAction,
+  canQuickTake = true,
+  swipeEnabled = true,
+  readOnly = false,
+}: DoseRowProps) {
   const onPress = () => onAction('open', entry);
-  const onTake = canQuickTake ? () => onAction('take', entry) : undefined;
-  const onSkip = () => onAction('skip', entry);
+  const onTake = canQuickTake && !readOnly ? () => onAction('take', entry) : undefined;
+  const onSkip = readOnly ? undefined : () => onAction('skip', entry);
   const onUndo = () => onAction('undo', entry);
   const { colors } = useTheme();
   const { formatTime } = useTimeFormat();
@@ -98,13 +106,22 @@ function DoseRowImpl({ entry, onAction, canQuickTake = true, swipeEnabled = true
   const rightActions: SwipeRightAction[] = logged
     ? [{ label: i18n.t('ui.today.row.undo'), icon: Undo2, tone: 'default', onPress: onUndo }]
     : [
-        { label: i18n.t('ui.today.row.skip'), icon: X, tone: 'danger', onPress: onSkip },
+        ...(onSkip
+          ? [
+              {
+                label: i18n.t('ui.today.row.skip'),
+                icon: X,
+                tone: 'danger' as const,
+                onPress: onSkip,
+              },
+            ]
+          : []),
         { label: i18n.t('ui.today.row.more'), icon: Ellipsis, tone: 'default', onPress },
       ];
 
   const a11yActions = [
     ...(!logged && onTake ? [{ name: 'take', label: i18n.t('ui.today.a11y.take') }] : []),
-    ...(!logged ? [{ name: 'skip', label: i18n.t('ui.today.a11y.skip') }] : []),
+    ...(!logged && onSkip ? [{ name: 'skip', label: i18n.t('ui.today.a11y.skip') }] : []),
     ...(logged ? [{ name: 'undo', label: i18n.t('ui.today.a11y.undo') }] : []),
   ];
 
@@ -132,7 +149,7 @@ function DoseRowImpl({ entry, onAction, canQuickTake = true, swipeEnabled = true
         onAccessibilityAction={(e) => {
           const name = e.nativeEvent.actionName;
           if (name === 'take') onTake?.();
-          if (name === 'skip') onSkip();
+          if (name === 'skip') onSkip?.();
           if (name === 'undo') onUndo();
         }}
         style={

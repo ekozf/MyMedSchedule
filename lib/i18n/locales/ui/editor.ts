@@ -136,7 +136,9 @@ export default defineFragment({
     },
     supply: {
       title: 'Your supply',
-      helper: 'So we can remind you before you run out.',
+      helper:
+        'Count what you have right now. We use it to track your doses and remind you before you run out.',
+      zeroWarning: "With 0 left you won't be able to log doses until you add supply.",
       count: 'How many do you have?',
       packageSize: 'Package size',
       packageSizeHint: 'How many come in a new pack',
@@ -386,7 +388,9 @@ export default defineFragment({
     },
     supply: {
       title: 'Je voorraad',
-      helper: 'Zo herinneren we je voordat het op is.',
+      helper:
+        'Tel wat je nu hebt. Zo houden we je doses bij en herinneren we je voordat het op is.',
+      zeroWarning: 'Met 0 over kun je geen doses registreren totdat je voorraad toevoegt.',
       count: 'Hoeveel heb je er?',
       packageSize: 'Verpakkingsgrootte',
       packageSizeHint: 'Hoeveel er in een nieuwe verpakking zitten',
@@ -638,7 +642,9 @@ export default defineFragment({
     },
     supply: {
       title: 'Stokunuz',
-      helper: 'Bitmeden önce size hatırlatabilmemiz için.',
+      helper:
+        'Şu an elinizde olanı sayın. Dozlarınızı takip etmek ve bitmeden önce size hatırlatmak için kullanırız.',
+      zeroWarning: 'Stok 0 iken, stok ekleyene kadar doz kaydedemezsiniz.',
       count: 'Kaç tane var?',
       packageSize: 'Kutu boyutu',
       packageSizeHint: 'Yeni bir kutuda kaç tane var',

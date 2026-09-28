@@ -26,6 +26,7 @@ import {
   ChevronRight,
   Clock,
   NotebookPen,
+  PackageOpen,
   PackageX,
   PillBottle,
   Plus,
@@ -33,6 +34,7 @@ import {
 } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import { formatDose } from '@/lib/ui/format';
+import { isSupplyShort } from '@/lib/ui/supply';
 import {
   Button,
   EmptyState,
@@ -53,6 +55,8 @@ import { Notice } from './parts';
 export type AsNeededResult =
   | { type: 'logged'; medication: Medication; log: IntakeLog; amount: number }
   | { type: 'addMedicine' }
+  /** Not enough supply for the dose: open the medicine so the supply can be updated. */
+  | { type: 'updateSupply'; medicationId: string }
   | { type: 'cancelled' };
 
 export interface AsNeededSheetProps {
@@ -127,6 +131,8 @@ export function AsNeededSheet({
   };
 
   const total = selected ? count * selected.dosageAmount : 0;
+  // The backend refuses to log more than what's left (InventoryInsufficientError).
+  const notEnough = !!selected && isSupplyShort(selected.inventoryCount, total);
 
   let title: string;
   let subtitle: string | undefined;
@@ -177,6 +183,8 @@ export function AsNeededSheet({
         onNoteChange={setNote}
         noteOpen={noteOpen}
         onOpenNote={() => setNoteOpen(true)}
+        notEnough={notEnough}
+        onUpdateSupply={() => finish({ type: 'updateSupply', medicationId: selected.id })}
       />
     );
     footer = (
@@ -189,6 +197,7 @@ export function AsNeededSheet({
         size="lg"
         fullWidth
         loading={busy}
+        disabled={notEnough && !busy}
         onPress={log}
       />
     );
@@ -287,6 +296,8 @@ function DoseForm({
   onNoteChange,
   noteOpen,
   onOpenNote,
+  notEnough,
+  onUpdateSupply,
 }: {
   medication: Medication;
   count: number;
@@ -296,11 +307,12 @@ function DoseForm({
   onNoteChange: (s: string) => void;
   noteOpen: boolean;
   onOpenNote: () => void;
+  notEnough: boolean;
+  onUpdateSupply: () => void;
 }) {
   const { colors } = useTheme();
   const reduceMotion = useReducedMotion();
   const supply = getSupplyState(med);
-  const notEnough = total > med.inventoryCount;
 
   return (
     <View style={{ gap: 18 }}>
@@ -357,13 +369,22 @@ function DoseForm({
       </View>
 
       {notEnough ? (
-        <Notice
-          icon={PackageX}
-          tone="danger"
-          text={i18n.t('ui.medicines.asNeeded.notEnough', {
-            amount: formatDose(med.inventoryCount, med.dosageUnit),
-          })}
-        />
+        <View style={{ gap: 8 }}>
+          <Notice
+            icon={PackageX}
+            tone="danger"
+            text={i18n.t('ui.medicines.asNeeded.notEnough', {
+              amount: formatDose(med.inventoryCount, med.dosageUnit),
+            })}
+          />
+          <Button
+            label={i18n.t('ui.medicines.supply.update')}
+            icon={PackageOpen}
+            variant="secondary"
+            fullWidth
+            onPress={onUpdateSupply}
+          />
+        </View>
       ) : supply.lowMessage ? (
         <Notice icon={TriangleAlert} tone="warning" text={supply.lowMessage} />
       ) : null}

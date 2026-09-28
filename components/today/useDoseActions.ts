@@ -14,6 +14,7 @@ import { useCallback, useMemo } from 'react';
 import i18n from '@/lib/i18n';
 import {
   createIntakeLogAndUpdateInventory,
+  getIntakeLogsByMedication,
   getMedicationById,
   setNextDoseOverrideTime,
   updateIntakeLogAndReconcileInventory,
@@ -51,9 +52,35 @@ export function useDoseActions({ profileId, reloadLogs }: UseDoseActionsOptions)
     await reloadLogs();
   }, [profileId, loadMedications, reloadLogs]);
 
+  /** The log already stored for this exact scheduled dose, if any (e.g. logged from a reminder). */
+  const findExistingLog = useCallback(
+    async (dose: Pick<ScheduledDose, 'medicationId' | 'time'>): Promise<IntakeLog | null> => {
+      try {
+        const logs = await getIntakeLogsByMedication(dose.medicationId);
+        const at = dose.time.getTime();
+        return logs.find((l) => l.scheduledTime?.getTime() === at) ?? null;
+      } catch (error) {
+        console.warn('Failed to check for an existing log:', error);
+        return null;
+      }
+    },
+    []
+  );
+
+  /** Already logged elsewhere: don't create a second log, just show the current state. */
+  const alreadyLogged = useCallback(
+    async (dose: ScheduledDose) => {
+      await refresh();
+      toast.show({ title: i18n.t('ui.today.toast.alreadyLogged', { name: dose.medicationName }) });
+    },
+    [refresh, toast]
+  );
+
   /**
    * Create a log for a scheduled dose. taken/partial run the dose safety check first (at now or
    * at the scheduled time). Early + taken + now cancels that dose's reminder.
+   * Never creates a second log for the same scheduled dose: when one exists already, reloads,
+   * says so and resolves null (see `hasLog`).
    */
   const logDose = useCallback(
     async (
@@ -65,10 +92,20 @@ export function useDoseActions({ profileId, reloadLogs }: UseDoseActionsOptions)
       if (!profileId) return null;
       const consumes = req.action === 'taken' || req.action === 'partial';
 
+      if (await findExistingLog(dose)) {
+        await alreadyLogged(dose);
+        return null;
+      }
+
       if (consumes && medication && !opts.skipSafety) {
         const at = req.at === 'now' ? new Date() : dose.time;
         const ok = await checkSafety(medication, req.amount, at);
         if (!ok) return null;
+        // The safety question may have been open for a while (a reminder could log it meanwhile).
+        if (await findExistingLog(dose)) {
+          await alreadyLogged(dose);
+          return null;
+        }
       }
 
       const now = new Date();
@@ -104,7 +141,13 @@ export function useDoseActions({ profileId, reloadLogs }: UseDoseActionsOptions)
       haptics.success();
       return log;
     },
-    [profileId, checkSafety, showLogError, refresh]
+    [profileId, checkSafety, showLogError, refresh, findExistingLog, alreadyLogged]
+  );
+
+  /** True when this scheduled dose has a log (used to close a now-stale dose sheet). */
+  const hasLog = useCallback(
+    async (dose: ScheduledDose) => (await findExistingLog(dose)) !== null,
+    [findExistingLog]
   );
 
   /**
@@ -119,6 +162,10 @@ export function useDoseActions({ profileId, reloadLogs }: UseDoseActionsOptions)
       req: Omit<DoseLogRequest, 'at'>
     ): Promise<IntakeLog | null> => {
       if (!profileId || !medication) return null;
+      if (await findExistingLog(dose)) {
+        await alreadyLogged(dose);
+        return null;
+      }
       if (req.action === 'taken' || req.action === 'partial') {
         const ok = await checkSafety(medication, req.amount, new Date());
         if (!ok) return null;
@@ -136,7 +183,7 @@ export function useDoseActions({ profileId, reloadLogs }: UseDoseActionsOptions)
       }
       return logDose(dose, medication, { ...req, at: 'now' }, { skipSafety: true });
     },
-    [profileId, checkSafety, showLogError, logDose]
+    [profileId, checkSafety, showLogError, logDose, findExistingLog, alreadyLogged]
   );
 
   /** Change an existing log (action / amount / notes), reconciling supply. */
@@ -150,7 +197,8 @@ export function useDoseActions({ profileId, reloadLogs }: UseDoseActionsOptions)
           medication: fresh,
           nextAction: req.action,
           nextDosageAmount: req.amount,
-          nextNotes: req.notes || undefined,
+          // '' (not undefined) so clearing a note actually clears it.
+          nextNotes: req.notes,
         });
       } catch (error) {
         await showLogError(error, unit as Unit | undefined);
@@ -184,6 +232,14 @@ export function useDoseActions({ profileId, reloadLogs }: UseDoseActionsOptions)
   const restore = useCallback(
     async (log: IntakeLog, unit?: string): Promise<boolean> => {
       if (!profileId) return false;
+      // Logged again in the meantime (e.g. swiped once more): keep that one.
+      if (
+        log.scheduledTime &&
+        (await findExistingLog({ medicationId: log.medicationId, time: log.scheduledTime }))
+      ) {
+        await refresh();
+        return false;
+      }
       try {
         await createIntakeLogAndUpdateInventory({
           medicationId: log.medicationId,
@@ -207,11 +263,11 @@ export function useDoseActions({ profileId, reloadLogs }: UseDoseActionsOptions)
       haptics.success();
       return true;
     },
-    [profileId, showLogError, refresh]
+    [profileId, showLogError, refresh, findExistingLog]
   );
 
   return useMemo(
-    () => ({ logDose, rescheduleAndLog, updateLog, undo, restore, refresh }),
-    [logDose, rescheduleAndLog, updateLog, undo, restore, refresh]
+    () => ({ logDose, rescheduleAndLog, updateLog, undo, restore, refresh, hasLog }),
+    [logDose, rescheduleAndLog, updateLog, undo, restore, refresh, hasLog]
   );
 }

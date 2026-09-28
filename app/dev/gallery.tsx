@@ -587,6 +587,37 @@ export default function GalleryScreen() {
           <Text tone="secondary">
             Drag down from the top or the handle to close. Content scrolls when tall.
           </Text>
+          {/* Overlays opened from here render in this sheet's OverlayHost (above the sheet). */}
+          <Row>
+            <Button
+              label="Confirm over sheet"
+              size="sm"
+              variant="secondary"
+              onPress={async () => {
+                const ok = await confirm({
+                  title: 'Skip this dose?',
+                  confirmLabel: 'Skip dose',
+                  tone: 'warning',
+                });
+                toast.show({ title: `confirm → ${ok}`, tone: ok ? 'success' : 'default' });
+              }}
+            />
+            <Button
+              label="Toast in sheet"
+              size="sm"
+              variant="plain"
+              onPress={() => toast.show({ title: 'Shown above the sheet', tone: 'success' })}
+            />
+            <Button
+              label="Close + toast"
+              size="sm"
+              variant="plain"
+              onPress={() => {
+                setSheet(false);
+                toast.show({ title: 'Moves to the screen when the sheet is gone' });
+              }}
+            />
+          </Row>
           <TextField label="Note" placeholder="Add a note" multiline />
           <Stepper value={amount} onChange={setAmount} min={0.5} max={20} step={0.5} unit="pills" />
           {Array.from({ length: 12 }).map((_, i) => (

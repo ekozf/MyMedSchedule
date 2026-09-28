@@ -191,7 +191,8 @@ export default defineFragment({
       noteLabel: 'Note',
       notePlaceholder: 'For example: headache after lunch',
       log: 'Log {{amount}}',
-      notEnough: 'Your supply shows only {{amount}} left.',
+      notEnough:
+        'Your supply shows only {{amount}} left, not enough for this dose. Update your supply to log it.',
       emptyTitle: 'No as-needed medicines',
       emptyMessage: 'Add a medicine and choose “Only when needed” to log doses here.',
       changeMedicine: 'Choose another medicine',
@@ -389,7 +390,8 @@ export default defineFragment({
       noteLabel: 'Notitie',
       notePlaceholder: 'Bijvoorbeeld: hoofdpijn na de lunch',
       log: '{{amount}} registreren',
-      notEnough: 'Je voorraad toont nog maar {{amount}}.',
+      notEnough:
+        'Je voorraad toont nog maar {{amount}}, niet genoeg voor deze dosis. Werk je voorraad bij om hem te registreren.',
       emptyTitle: 'Geen medicijnen voor wanneer nodig',
       emptyMessage:
         'Voeg een medicijn toe en kies “Alleen wanneer nodig” om hier doses te registreren.',
@@ -587,7 +589,8 @@ export default defineFragment({
       noteLabel: 'Not',
       notePlaceholder: 'Örneğin: öğleden sonra baş ağrısı',
       log: '{{amount}} kaydet',
-      notEnough: 'Stokunuzda yalnızca {{amount}} görünüyor.',
+      notEnough:
+        'Stokunuzda yalnızca {{amount}} görünüyor, bu doz için yeterli değil. Kaydetmek için stoğunuzu güncelleyin.',
       emptyTitle: 'Gerektiğinde alınan ilaç yok',
       emptyMessage: 'Burada doz kaydetmek için bir ilaç ekleyip “Yalnızca gerektiğinde” seçin.',
       changeMedicine: 'Başka ilaç seç',

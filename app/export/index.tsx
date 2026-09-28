@@ -7,30 +7,20 @@ import { UserRound } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import { useStore } from '@/store';
 import { generatePDFReport, savePDFReportLocally, sharePDFReport } from '@/lib/export/pdf';
-import {
-  EmptyState,
-  NavHeader,
-  Screen,
-  goBackOrHome,
-  haptics,
-  useToast,
-  type ToastApi,
-} from '@/components/ds';
+import { EmptyState, NavHeader, Screen, goBackOrHome, haptics, useToast } from '@/components/ds';
 import { ModalScope, MODAL_SAFE_TOP } from '@/components/you/ModalScope';
 import { ExportActions, ExportBody, type ExportBusy } from '@/components/you/ExportView';
 import { firstName } from '@/components/you/profile-actions';
-import { relayToast } from '@/components/you/toast-relay';
 
 export default function ExportRoute() {
-  const rootToast = useToast();
   return (
     <ModalScope>
-      <ExportScreen rootToast={rootToast} />
+      <ExportScreen />
     </ModalScope>
   );
 }
 
-function ExportScreen({ rootToast }: { rootToast: ToastApi }) {
+function ExportScreen() {
   const toast = useToast();
   const activeProfile = useStore((s) => s.activeProfile);
   const [acknowledged, setAcknowledged] = React.useState(false);
@@ -62,7 +52,8 @@ function ExportScreen({ rootToast }: { rootToast: ToastApi }) {
       if (kind === 'save') {
         const message = await savePDFReportLocally(uri, activeProfile.name);
         haptics.success();
-        relayToast({ title: message, tone: 'success' }, rootToast);
+        // Moves to the screen underneath once this modal closes.
+        toast.show({ title: message, tone: 'success' });
       } else {
         await sharePDFReport(uri);
       }

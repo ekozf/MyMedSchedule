@@ -7,32 +7,22 @@ import { Repeat } from 'lucide-react-native';
 import i18n, { getCurrentLocale } from '@/lib/i18n';
 import { useStore } from '@/store';
 import { createProfile, setActiveProfile as setActiveProfileDB } from '@/lib/db/operations';
-import {
-  Button,
-  NavHeader,
-  Screen,
-  haptics,
-  useConfirm,
-  useToast,
-  type ToastApi,
-} from '@/components/ds';
+import { Button, NavHeader, Screen, haptics, useConfirm, useToast } from '@/components/ds';
 import { ModalScope, MODAL_SAFE_TOP } from '@/components/you/ModalScope';
 import { ProfileForm } from '@/components/you/ProfileForm';
 import { isAppLanguage } from '@/components/you/LanguageSheet';
 import { firstName, switchToProfile } from '@/components/you/profile-actions';
-import { relayToast } from '@/components/you/toast-relay';
 import { useDiscardGuard } from '@/components/you/use-discard-guard';
 
 export default function CreateProfileRoute() {
-  const rootToast = useToast();
   return (
     <ModalScope>
-      <CreateProfileScreen rootToast={rootToast} />
+      <CreateProfileScreen />
     </ModalScope>
   );
 }
 
-function CreateProfileScreen({ rootToast }: { rootToast: ToastApi }) {
+function CreateProfileScreen() {
   const toast = useToast();
   const confirm = useConfirm();
   const [name, setName] = React.useState('');
@@ -104,7 +94,8 @@ function CreateProfileScreen({ rootToast }: { rootToast: ToastApi }) {
     }
 
     allowLeave();
-    relayToast({ title: toastTitle, tone: 'success' }, rootToast);
+    // Moves to the screen underneath once this modal closes.
+    toast.show({ title: toastTitle, tone: 'success' });
     router.back();
   };
 

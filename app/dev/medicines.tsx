@@ -204,6 +204,8 @@ export default function MedicinesPreview() {
       });
     } else if (r.type === 'addMedicine') {
       toast.show({ title: '→ /medication/add' });
+    } else if (r.type === 'updateSupply') {
+      toast.show({ title: `→ /medication/${r.medicationId}` });
     }
   };
 

@@ -19,7 +19,6 @@ import {
   haptics,
   useTheme,
   useToast,
-  type ToastApi,
 } from '@/components/ds';
 import type { Profile } from '@/types';
 import { ModalScope, MODAL_SAFE_TOP } from '@/components/you/ModalScope';
@@ -29,19 +28,17 @@ import {
   removeProfile,
   useConfirmDeleteProfile,
 } from '@/components/you/profile-actions';
-import { relayToast } from '@/components/you/toast-relay';
 import { useDiscardGuard } from '@/components/you/use-discard-guard';
 
 export default function EditProfileRoute() {
-  const rootToast = useToast();
   return (
     <ModalScope>
-      <EditProfileScreen rootToast={rootToast} />
+      <EditProfileScreen />
     </ModalScope>
   );
 }
 
-function EditProfileScreen({ rootToast }: { rootToast: ToastApi }) {
+function EditProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
   const toast = useToast();
@@ -111,7 +108,8 @@ function EditProfileScreen({ rootToast }: { rootToast: ToastApi }) {
       await loadProfiles();
       haptics.success();
       allowLeave();
-      relayToast({ title: i18n.t('ui.you.form.saved'), tone: 'success' }, rootToast);
+      // Moves to the screen underneath once this modal closes.
+      toast.show({ title: i18n.t('ui.you.form.saved'), tone: 'success' });
       router.back();
     } catch (e) {
       console.error('Failed to update profile:', e);
@@ -132,13 +130,10 @@ function EditProfileScreen({ rootToast }: { rootToast: ToastApi }) {
       await removeProfile(profile.id);
       haptics.success();
       allowLeave();
-      relayToast(
-        {
-          title: i18n.t('ui.you.form.deleted', { name: firstName(profile.name) }),
-          tone: 'success',
-        },
-        rootToast
-      );
+      toast.show({
+        title: i18n.t('ui.you.form.deleted', { name: firstName(profile.name) }),
+        tone: 'success',
+      });
       router.back();
     } catch (e) {
       console.error('Failed to delete profile:', e);

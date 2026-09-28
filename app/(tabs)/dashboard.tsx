@@ -70,6 +70,8 @@ function partLabel(part: DayPart): string {
 }
 
 interface SheetTarget {
+  /** DoseEntry key (medicationId + scheduled time); guards double logging. */
+  key: string;
   dose: ScheduledDose;
   log: IntakeLog | null;
   medication: Medication | null;
@@ -93,7 +95,19 @@ export default function TodayScreen() {
   const [sheetTarget, setSheetTarget] = React.useState<SheetTarget | null>(null);
   const [sheetOpen, setSheetOpen] = React.useState(false);
   const pendingToast = React.useRef<ToastOptions | null>(null);
+  // Medicine to open once the dose sheet is gone ("Update supply").
+  const pendingSupplyNav = React.useRef<string | null>(null);
+  // Dose keys with a log/undo running (swipe or sheet): every other log path for them is ignored.
   const inFlight = React.useRef(new Set<string>());
+  const guarded = React.useCallback(async <T,>(key: string, fn: () => Promise<T>, busy: T) => {
+    if (inFlight.current.has(key)) return busy;
+    inFlight.current.add(key);
+    try {
+      return await fn();
+    } finally {
+      inFlight.current.delete(key);
+    }
+  }, []);
 
   // --- data -----------------------------------------------------------------------------------
   const loadLogs = React.useCallback(async () => {
@@ -243,7 +257,10 @@ export default function TodayScreen() {
   // --- sheet ----------------------------------------------------------------------------------
   const openSheet = React.useCallback(
     (entry: DoseEntry, initialStep: 'main' | 'overlap' = 'main') => {
+      // A swipe is logging this dose right now: the sheet would offer a second log.
+      if (inFlight.current.has(entry.key)) return;
       setSheetTarget({
+        key: entry.key,
         dose: entry.dose,
         log: entry.log,
         medication: medsById.get(entry.dose.medicationId) ?? null,
@@ -258,26 +275,46 @@ export default function TodayScreen() {
     const t = pendingToast.current;
     pendingToast.current = null;
     if (t) toast.show(t);
+    const medId = pendingSupplyNav.current;
+    pendingSupplyNav.current = null;
+    if (medId) router.push({ pathname: '/medication/[id]', params: { id: medId } });
   }, [toast]);
+  const onUpdateSupply = React.useCallback(() => {
+    const medId = sheetTarget?.dose.medicationId;
+    if (!medId) return;
+    pendingSupplyNav.current = medId;
+    setSheetOpen(false);
+  }, [sheetTarget]);
 
   const sheetHandlers = React.useMemo(() => {
     const target = sheetTarget;
     const name = target?.dose.medicationName ?? '';
     return {
-      onLog: async (req: Parameters<typeof actions.logDose>[2]) => {
-        if (!target) return false;
-        const log = await actions.logDose(target.dose, target.medication, req);
-        if (!log) return false;
-        pendingToast.current = logToast(log, name);
-        return true;
+      onLog: (req: Parameters<typeof actions.logDose>[2]) => {
+        if (!target) return Promise.resolve(false);
+        return guarded(
+          target.key,
+          async () => {
+            const log = await actions.logDose(target.dose, target.medication, req);
+            // Logged elsewhere meanwhile: the sheet is stale, close it.
+            if (!log) return actions.hasLog(target.dose);
+            pendingToast.current = logToast(log, name);
+            return true;
+          },
+          false
+        );
       },
       onRescheduleAndLog: async (
         time: Date,
         req: Parameters<typeof actions.rescheduleAndLog>[3]
       ) => {
         if (!target) return false;
-        const log = await actions.rescheduleAndLog(target.dose, target.medication, time, req);
-        if (!log) return false;
+        const log = await guarded(
+          target.key,
+          () => actions.rescheduleAndLog(target.dose, target.medication, time, req),
+          null
+        );
+        if (!log) return actions.hasLog(target.dose);
         pendingToast.current = logToast(
           log,
           name,
@@ -303,7 +340,7 @@ export default function TodayScreen() {
         return ok;
       },
     };
-  }, [sheetTarget, actions, logToast, removedToast, formatTime]);
+  }, [sheetTarget, actions, logToast, removedToast, formatTime, guarded]);
 
   // --- row actions (one stable callback; latest logic via ref) --------------------------------
   const rowActionRef = React.useRef<(action: DoseRowAction, entry: DoseEntry) => void>(() => {});
@@ -313,15 +350,11 @@ export default function TodayScreen() {
       return;
     }
     if (inFlight.current.has(entry.key)) return;
-    const run = async (fn: () => Promise<void>) => {
-      inFlight.current.add(entry.key);
-      try {
-        await fn();
-      } finally {
-        inFlight.current.delete(entry.key);
-      }
-    };
     const { dose } = entry;
+    // Doses on a later day are view-only (the row hides these actions too).
+    if (action !== 'undo' && startOfDay(dose.time).getTime() > startOfDay(new Date()).getTime())
+      return;
+    const run = (fn: () => Promise<void>) => guarded(entry.key, fn, undefined);
     const medication = medsById.get(dose.medicationId) ?? null;
     if (action === 'take') {
       // Same path as "Take now": late-overlap question first (in the sheet), then safety + log.
@@ -487,7 +520,7 @@ export default function TodayScreen() {
                         <DoseRow
                           entry={entry}
                           onAction={onRowAction}
-                          canQuickTake={dayKind !== 'future'}
+                          readOnly={dayKind === 'future'}
                         />
                       </Animated.View>
                     ))}
@@ -525,6 +558,7 @@ export default function TodayScreen() {
         medication={sheetTarget?.medication ?? null}
         log={sheetTarget?.log ?? null}
         initialStep={sheetTarget?.initialStep}
+        onUpdateSupply={onUpdateSupply}
         {...sheetHandlers}
       />
     </Screen>

@@ -1,7 +1,7 @@
 /**
  * Promise-based action sheet with large rows. Mount `<ActionSheetProvider>` once (root layout
- * does this). Resolves with the chosen option's `key`, or `null` when dismissed — after the sheet
- * has fully closed.
+ * does this); the sheet renders in the topmost `OverlayHost`. Resolves with the chosen option's
+ * `key`, or `null` when dismissed — after the sheet has fully closed.
  *
  * @example
  * const showActionSheet = useActionSheet();
@@ -25,6 +25,7 @@ import { Text } from './Text';
 import { Icon } from './Icon';
 import { Button } from './Button';
 import { PressableScale } from './PressableScale';
+import { useExitFallback, useOverlayLayer } from './OverlayHost';
 
 export interface ActionSheetOption<K extends string = string> {
   key: K;
@@ -55,58 +56,84 @@ export function useActionSheet(): ShowActionSheet {
 }
 
 export function ActionSheetProvider({ children }: { children: React.ReactNode }) {
-  const [options, setOptions] = React.useState<ActionSheetOptions | null>(null);
+  const [current, setCurrent] = React.useState<{ options: ActionSheetOptions; gen: number } | null>(
+    null
+  );
   const [visible, setVisible] = React.useState(false);
   const resolver = React.useRef<((v: string | null) => void) | null>(null);
   const result = React.useRef<string | null>(null);
+  const gen = React.useRef(0);
+  const closing = React.useRef(false);
+  const fallback = useExitFallback();
 
-  const show = React.useCallback((opts: ActionSheetOptions) => {
-    resolver.current?.(null);
-    return new Promise<string | null>((resolve) => {
-      resolver.current = resolve;
-      result.current = null;
-      setOptions(opts);
-      setVisible(true);
-    });
-  }, []) as ShowActionSheet;
+  const show = React.useCallback(
+    (opts: ActionSheetOptions) => {
+      // A pending sheet is cancelled (one already answered and closing keeps its answer).
+      resolver.current?.(closing.current ? result.current : null);
+      closing.current = false;
+      fallback.cancel();
+      gen.current += 1;
+      const g = gen.current;
+      return new Promise<string | null>((resolve) => {
+        resolver.current = resolve;
+        result.current = null;
+        setCurrent({ options: opts, gen: g });
+        setVisible(true);
+      });
+    },
+    [fallback]
+  ) as ShowActionSheet;
+
+  /** Resolves the sheet of generation `g` (ignored when a newer one replaced it). */
+  const finish = React.useCallback(
+    (g: number) => {
+      if (g !== gen.current) return;
+      fallback.cancel();
+      closing.current = false;
+      const resolve = resolver.current;
+      resolver.current = null;
+      setCurrent(null);
+      resolve?.(result.current);
+    },
+    [fallback]
+  );
 
   const close = (value: string | null) => {
+    // First answer wins (e.g. a backdrop tap during the exit doesn't turn "yes" into "no").
+    if (!current || closing.current) return;
     result.current = value;
+    closing.current = true;
     setVisible(false);
+    // Safety net in case the sheet never reports its exit (see useExitFallback).
+    const g = current.gen;
+    fallback.arm(() => finish(g));
   };
 
-  const onDismissed = () => {
-    const resolve = resolver.current;
-    resolver.current = null;
-    setOptions(null);
-    resolve?.(result.current);
-  };
-
-  return (
-    <ActionSheetContext.Provider value={show}>
-      {children}
-      {options ? (
-        <Sheet
-          visible={visible}
-          onClose={() => close(null)}
-          onDismissed={onDismissed}
-          title={options.title}
-          subtitle={options.message}
-          footer={
-            <Button
-              label={options.cancelLabel ?? i18n.t('ui.common.cancel')}
-              variant="plain"
-              size="lg"
-              fullWidth
-              haptic="none"
-              onPress={() => close(null)}
-            />
-          }>
-          <ActionRows options={options.options} onSelect={close} />
-        </Sheet>
-      ) : null}
-    </ActionSheetContext.Provider>
+  useOverlayLayer(
+    current ? (
+      <Sheet
+        visible={visible}
+        onClose={() => close(null)}
+        onDismissed={() => finish(current.gen)}
+        registerOverlayHost={false}
+        title={current.options.title}
+        subtitle={current.options.message}
+        footer={
+          <Button
+            label={current.options.cancelLabel ?? i18n.t('ui.common.cancel')}
+            variant="plain"
+            size="lg"
+            fullWidth
+            haptic="none"
+            onPress={() => close(null)}
+          />
+        }>
+        <ActionRows options={current.options.options} onSelect={close} />
+      </Sheet>
+    ) : null
   );
+
+  return <ActionSheetContext.Provider value={show}>{children}</ActionSheetContext.Provider>;
 }
 
 function ActionRows({

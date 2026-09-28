@@ -25,6 +25,7 @@ import {
   ActionSheetProvider,
   ConfirmProvider,
   GradientBackground,
+  OverlayHost,
   ToastProvider,
 } from '@/components/ds';
 
@@ -100,6 +101,11 @@ export default function RootLayout() {
                    * current route stack instead of resetting it.
                    */}
                   <RootStack key={`locale-${localeVersion}`} />
+                  {/*
+                   * Base overlay host: confirm / action sheet / toast render here unless a sheet or
+                   * modal screen with its own host is on top (see components/ds/OverlayHost.tsx).
+                   */}
+                  <OverlayHost />
                 </View>
               </ActionSheetProvider>
             </ConfirmProvider>

@@ -451,20 +451,28 @@ function optional<T>(value: T | null, initial: T | null | undefined): T | undefi
 /**
  * Input for `updateMedication` — same shape as the old edit screen (refill 'none' → null), plus
  * values the user removed (photo, notes, package size, limits) are cleared instead of silently
- * kept. `initial` is the form as loaded.
+ * kept. `initial` is the form as loaded. The schedule (type + config) and the supply count are
+ * only sent when they changed from `initial`.
  */
 export function toUpdateInput(form: MedicineForm, initial?: MedicineForm): UpdateMedicationInput {
   const refill = form.refillReminderType;
   const notes = form.notes.trim();
+  // Any scheduleType/scheduleConfig in an update resets the schedule start and clears a moved
+  // dose in the backend, so only send them when the schedule really changed.
+  const scheduleChanged = !initial || !schedulesEqual(form, initial);
+  // Supply changes while the form is open (doses logged meanwhile); don't overwrite them.
+  const inventoryChanged = !initial || form.inventoryCount !== initial.inventoryCount;
   return {
     name: form.name.trim(),
     imageUri: optional(form.imageUri, initial?.imageUri),
     notes: notes || (initial?.notes.trim() ? CLEARED : undefined),
     dosageAmount: form.dosageAmount,
     dosageUnit: form.dosageUnit,
-    scheduleType: form.scheduleType,
-    scheduleConfig: cleanConfig(form.scheduleType, form.scheduleConfig),
-    inventoryCount: form.inventoryCount || 0,
+    scheduleType: scheduleChanged ? form.scheduleType : undefined,
+    scheduleConfig: scheduleChanged
+      ? cleanConfig(form.scheduleType, form.scheduleConfig)
+      : undefined,
+    inventoryCount: inventoryChanged ? form.inventoryCount || 0 : undefined,
     packageSize: optional(form.packageSize, initial?.packageSize),
     // null clears a previously stored expiration date.
     expirationDate: form.expirationDate ?? (initial?.expirationDate ? null : undefined),
@@ -674,6 +682,31 @@ export function validateAll(
     if (!result.ok) return { result, step };
   }
   return { result: OK };
+}
+
+/** JSON with object keys sorted, so equal configs compare equal whatever their key order. */
+function stableJson(value: unknown): string {
+  const sort = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(sort);
+    if (v && typeof v === 'object' && !(v instanceof Date)) {
+      return Object.fromEntries(
+        Object.keys(v as Record<string, unknown>)
+          .sort()
+          .map((k) => [k, sort((v as Record<string, unknown>)[k])])
+      );
+    }
+    return v;
+  };
+  return JSON.stringify(sort(value));
+}
+
+/** Same schedule type and the same config as stored (`cleanConfig`, key order ignored). */
+export function schedulesEqual(a: MedicineForm, b: MedicineForm): boolean {
+  return (
+    a.scheduleType === b.scheduleType &&
+    stableJson(cleanConfig(a.scheduleType, a.scheduleConfig)) ===
+      stableJson(cleanConfig(b.scheduleType, b.scheduleConfig))
+  );
 }
 
 /** Structural equality used for "unsaved changes" detection. */

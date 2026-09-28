@@ -6,7 +6,7 @@
 import * as React from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import i18n from '@/lib/i18n';
-import { useToast } from '@/components/ds';
+import { OverlayScope, useToast } from '@/components/ds';
 import { getMedicationsByProfile } from '@/lib/db/operations';
 import { useStore } from '@/store';
 import { useTimeFormat } from '@/lib/ui/format';
@@ -76,18 +76,21 @@ export default function LogPastScreen() {
     }
   };
 
+  // A modal route: overlays opened while it is up are presented from it (see OverlayHost).
   return (
-    <PastDoseSheet
-      visible={visible}
-      onClose={() => setVisible(false)}
-      onDismissed={onDismissed}
-      medications={medications}
-      initialMedicationId={medicationId}
-      onSubmit={onSubmit}
-      onAddMedicine={() => {
-        after.current = { kind: 'add' };
-        setVisible(false);
-      }}
-    />
+    <OverlayScope>
+      <PastDoseSheet
+        visible={visible}
+        onClose={() => setVisible(false)}
+        onDismissed={onDismissed}
+        medications={medications}
+        initialMedicationId={medicationId}
+        onSubmit={onSubmit}
+        onAddMedicine={() => {
+          after.current = { kind: 'add' };
+          setVisible(false);
+        }}
+      />
+    </OverlayScope>
   );
 }

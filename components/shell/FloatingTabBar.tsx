@@ -18,7 +18,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BookOpen, CalendarCheck2, Pill, Plus, type LucideIcon } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
-import { SPRING, useTheme } from '@/lib/theme';
+import { SPRING, useTheme, withAlpha } from '@/lib/theme';
 import { haptics } from '@/lib/ui/haptics';
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_HEIGHT } from '@/lib/ui/layout';
 import { Icon, PressableScale, Text } from '@/components/ds';
@@ -75,12 +75,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
 
   if (keyboardOpen) return null;
 
-  const glassFill =
-    Platform.OS === 'ios'
-      ? colors.surface
-      : isDark
-        ? 'rgba(21,34,53,0.96)'
-        : 'rgba(255,255,255,0.96)';
+  const glassFill = Platform.OS === 'ios' ? colors.surface : withAlpha(colors.surfaceSolid, 0.96);
 
   return (
     <View
@@ -103,6 +98,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
           {
             borderColor: colors.stroke,
             backgroundColor: Platform.OS === 'ios' ? 'transparent' : glassFill,
+            shadowColor: colors.shadow,
             shadowOpacity: isDark ? 0.35 : 0.12,
           },
         ]}>
@@ -199,7 +195,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth * 2,
     flexDirection: 'row',
     padding: PAD,
-    shadowColor: '#0F1B2D',
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
     elevation: 8,

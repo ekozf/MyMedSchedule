@@ -117,6 +117,7 @@ export default defineFragment({
         other: 'Too many tries. Try again in {{count}} seconds.',
       },
       biometricFailed: "Couldn't confirm it's you. Try again.",
+      passcodeFailed: "Couldn't unlock with your phone passcode. Try again.",
       biometricLockedOut: '{{method}} is paused. Unlock your phone once, then try again.',
       biometricUnavailable: '{{method}} is not available right now. Use your PIN.',
     },
@@ -126,6 +127,7 @@ export default defineFragment({
       fingerprint: 'Fingerprint',
       iris: 'Iris',
       generic: 'Biometrics',
+      passcode: 'your phone passcode',
     },
     loading: {
       a11y: 'Opening {{appName}}',
@@ -242,6 +244,8 @@ export default defineFragment({
         other: 'Te vaak geprobeerd. Probeer het over {{count}} seconden opnieuw.',
       },
       biometricFailed: 'We konden niet bevestigen dat jij het bent. Probeer het opnieuw.',
+      passcodeFailed:
+        'Ontgrendelen met de code van je telefoon is niet gelukt. Probeer het opnieuw.',
       biometricLockedOut:
         '{{method}} is even gepauzeerd. Ontgrendel eerst je telefoon en probeer het dan opnieuw.',
       biometricUnavailable: '{{method}} is nu niet beschikbaar. Gebruik je pincode.',
@@ -252,6 +256,7 @@ export default defineFragment({
       fingerprint: 'Vingerafdruk',
       iris: 'Iris',
       generic: 'Biometrie',
+      passcode: 'de code van je telefoon',
     },
     loading: {
       a11y: '{{appName}} wordt geopend',
@@ -366,6 +371,7 @@ export default defineFragment({
         other: 'Çok fazla deneme. {{count}} saniye sonra tekrar deneyin.',
       },
       biometricFailed: 'Siz olduğunuz doğrulanamadı. Tekrar deneyin.',
+      passcodeFailed: 'Telefon şifrenizle açılamadı. Tekrar deneyin.',
       biometricLockedOut:
         '{{method}} şu an duraklatıldı. Önce telefonunuzun kilidini açın, sonra tekrar deneyin.',
       biometricUnavailable: '{{method}} şu anda kullanılamıyor. PIN kodunuzu kullanın.',
@@ -376,6 +382,7 @@ export default defineFragment({
       fingerprint: 'Parmak izi',
       iris: 'İris',
       generic: 'Biyometri',
+      passcode: 'Telefon şifreniz',
     },
     loading: {
       a11y: '{{appName}} açılıyor',

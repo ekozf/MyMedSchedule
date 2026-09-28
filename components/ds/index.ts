@@ -26,6 +26,7 @@ export {
   type IconButtonSize,
 } from './IconButton';
 export { Sheet, type SheetProps } from './Sheet';
+export { OverlayHost, OverlayScope, useOverlayLayer, useExitFallback } from './OverlayHost';
 export { ConfirmProvider, useConfirm, type ConfirmOptions, type ConfirmFn } from './Confirm';
 export {
   ActionSheetProvider,

@@ -16,7 +16,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { useTheme } from '@/lib/theme';
+import { useTheme, withAlpha } from '@/lib/theme';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -62,7 +62,7 @@ export function ProgressRing({
   }));
 
   const color = colors[tone];
-  const track = trackColor ?? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,27,45,0.07)');
+  const track = trackColor ?? withAlpha(colors.ink, isDark ? 0.08 : 0.07);
 
   return (
     <View

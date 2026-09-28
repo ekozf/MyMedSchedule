@@ -74,6 +74,7 @@ export function MedicineCard({ medication: med, onPress, now }: MedicineCardProp
     med.isPrn ? i18n.t('ui.medicines.status.asNeeded') : null,
     ...chips.map((c) => c.label),
     supply.show ? supply.leftLabel : null,
+    supply.show ? supply.amountLabel : null,
     supply.daysLabel,
     med.isActive ? null : i18n.t('ui.medicines.status.stopped'),
   ]
@@ -142,6 +143,11 @@ export function MedicineCard({ medication: med, onPress, now }: MedicineCardProp
                   tone={supply.tone === 'accent' ? 'primary' : supply.tone}>
                   {supply.leftLabel}
                 </Text>
+                {supply.amountLabel ? (
+                  <Text variant="footnote" tone="secondary">
+                    · {supply.amountLabel}
+                  </Text>
+                ) : null}
               </View>
               {supply.daysLabel ? (
                 <Text variant="footnote" tone="secondary">

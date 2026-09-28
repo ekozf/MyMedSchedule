@@ -6,6 +6,10 @@
  * The sheet stays mounted while its exit animation runs; `onDismissed` fires once it's gone
  * (use it to chain another sheet / navigation / toast safely).
  *
+ * The sheet's modal hosts the app overlays (`OverlayHost`): a confirm, action sheet or toast shown
+ * while it is open is presented from this sheet's modal, so it appears above it (iOS can't present
+ * a second modal from the root while this one is up).
+ *
  * @example
  * const [open, setOpen] = useState(false);
  * <Sheet
@@ -52,6 +56,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import i18n from '@/lib/i18n';
 import { SPRING, radii, useTheme, withAlpha } from '@/lib/theme';
 import { Text } from './Text';
+import { OverlayScope } from './OverlayHost';
 
 export interface SheetProps {
   visible: boolean;
@@ -76,6 +81,11 @@ export interface SheetProps {
   hideGrabber?: boolean;
   accessibilityLabel?: string;
   testID?: string;
+  /**
+   * Host app overlays (confirm, action sheet, toast) inside this sheet while it is open.
+   * Default true. Only the sheets rendered by those overlays themselves pass false.
+   */
+  registerOverlayHost?: boolean;
 }
 
 const DISMISS_DISTANCE = 0.25; // of sheet height
@@ -97,6 +107,7 @@ export function Sheet({
   hideGrabber = false,
   accessibilityLabel,
   testID,
+  registerOverlayHost = true,
 }: SheetProps) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -119,8 +130,17 @@ export function Sheet({
   const onCloseRef = React.useRef(onClose);
   onCloseRef.current = onClose;
 
+  // An exit callback can land after unmount (e.g. the sheet's overlay host moved); ignore it then.
+  const alive = React.useRef(true);
+  React.useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
   const finishExit = React.useCallback(() => {
-    if (visibleRef.current) return; // re-opened during the exit animation
+    if (!alive.current || visibleRef.current) return; // unmounted, or re-opened during the exit
     setMounted(false);
     onDismissedRef.current?.();
   }, []);
@@ -298,7 +318,7 @@ export function Sheet({
               width: 36,
               height: 5,
               borderRadius: 3,
-              backgroundColor: withAlpha(isDark ? '#FFFFFF' : '#0F1B2D', isDark ? 0.25 : 0.18),
+              backgroundColor: withAlpha(colors.ink, isDark ? 0.25 : 0.18),
             }}
           />
         </View>
@@ -370,56 +390,58 @@ export function Sheet({
       onRequestClose={requestClose}
       testID={testID}>
       <GestureHandlerRootView style={{ flex: 1 }} onLayout={onContainerLayout}>
-        <Animated.View
-          style={[StyleSheet.absoluteFill, { backgroundColor: colors.backdrop }, backdropStyle]}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={requestClose}
-            accessibilityRole="button"
-            accessibilityLabel={i18n.t('ui.common.a11y.close')}
-            importantForAccessibility={dismissible ? 'yes' : 'no-hide-descendants'}
-            accessibilityElementsHidden={!dismissible}
-          />
-        </Animated.View>
-        <View style={{ flex: 1, justifyContent: 'flex-end' }} pointerEvents="box-none">
+        <OverlayScope host={registerOverlayHost}>
           <Animated.View
-            accessibilityViewIsModal
-            accessibilityLabel={accessibilityLabel ?? title}
-            onAccessibilityEscape={requestClose}
-            onLayout={(e) => {
-              sheetHeight.value = e.nativeEvent.layout.height;
-            }}
-            style={[
-              {
-                backgroundColor: colors.surfaceSolid,
-                borderTopLeftRadius: radii.sheet,
-                borderTopRightRadius: radii.sheet,
-                overflow: 'hidden',
-                shadowColor: '#000',
-                shadowOpacity: isDark ? 0 : 0.12,
-                shadowRadius: 24,
-                shadowOffset: { width: 0, height: -4 },
-              },
-              maxHeightStyle,
-              sheetStyle,
-            ]}>
-            <GestureDetector gesture={headerPan}>{header}</GestureDetector>
-            {content}
-            {footer ? (
-              <View
-                style={{
-                  paddingHorizontal: 20,
-                  paddingTop: 12,
-                  paddingBottom: Math.max(insets.bottom, 12) + 8,
-                  gap: 8,
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: colors.separator,
-                }}>
-                {footer}
-              </View>
-            ) : null}
+            style={[StyleSheet.absoluteFill, { backgroundColor: colors.backdrop }, backdropStyle]}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={requestClose}
+              accessibilityRole="button"
+              accessibilityLabel={i18n.t('ui.common.a11y.close')}
+              importantForAccessibility={dismissible ? 'yes' : 'no-hide-descendants'}
+              accessibilityElementsHidden={!dismissible}
+            />
           </Animated.View>
-        </View>
+          <View style={{ flex: 1, justifyContent: 'flex-end' }} pointerEvents="box-none">
+            <Animated.View
+              accessibilityViewIsModal
+              accessibilityLabel={accessibilityLabel ?? title}
+              onAccessibilityEscape={requestClose}
+              onLayout={(e) => {
+                sheetHeight.value = e.nativeEvent.layout.height;
+              }}
+              style={[
+                {
+                  backgroundColor: colors.surfaceSolid,
+                  borderTopLeftRadius: radii.sheet,
+                  borderTopRightRadius: radii.sheet,
+                  overflow: 'hidden',
+                  shadowColor: colors.shadow,
+                  shadowOpacity: isDark ? 0 : 0.12,
+                  shadowRadius: 24,
+                  shadowOffset: { width: 0, height: -4 },
+                },
+                maxHeightStyle,
+                sheetStyle,
+              ]}>
+              <GestureDetector gesture={headerPan}>{header}</GestureDetector>
+              {content}
+              {footer ? (
+                <View
+                  style={{
+                    paddingHorizontal: 20,
+                    paddingTop: 12,
+                    paddingBottom: Math.max(insets.bottom, 12) + 8,
+                    gap: 8,
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: colors.separator,
+                  }}>
+                  {footer}
+                </View>
+              ) : null}
+            </Animated.View>
+          </View>
+        </OverlayScope>
       </GestureHandlerRootView>
     </Modal>
   );

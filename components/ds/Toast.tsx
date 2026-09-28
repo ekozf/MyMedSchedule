@@ -3,8 +3,9 @@
  * action), swipe up to dismiss. One at a time: a new toast replaces the current one.
  * Mount `<ToastProvider>` once (root layout does this).
  *
- * Note: toasts render in the app window, i.e. *under* an open Sheet/Modal. Show them after the
- * sheet closed (e.g. from `onDismissed`, or after `await confirm()`).
+ * The toast renders in the topmost `OverlayHost`: inside an open Sheet or modal screen, else on the
+ * current screen. When that sheet/modal closes, the toast moves to the host underneath, so a toast
+ * shown right before `router.back()` / closing a sheet stays visible on the screen below.
  *
  * @example
  * const toast = useToast();
@@ -34,10 +35,11 @@ import {
   TriangleAlert,
   type LucideIcon,
 } from 'lucide-react-native';
-import { SPRING, statusColors, useTheme } from '@/lib/theme';
+import { SPRING, statusColors, useTheme, withAlpha } from '@/lib/theme';
 import { Text } from './Text';
 import { Icon } from './Icon';
 import { PressableScale } from './PressableScale';
+import { useOverlayLayer } from './OverlayHost';
 
 export type ToastTone = 'default' | 'success' | 'warning' | 'danger';
 
@@ -152,28 +154,27 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     transform: [{ translateY: translateY.value + drag.value }],
   }));
 
-  return (
-    <ToastContext.Provider value={api}>
-      {children}
-      {toast ? (
-        <View
-          pointerEvents="box-none"
-          style={[StyleSheet.absoluteFill, { paddingTop: insets.top + 8, paddingHorizontal: 16 }]}>
-          <GestureDetector gesture={pan}>
-            <Animated.View style={animatedStyle}>
-              <ToastView
-                toast={toast}
-                onAction={() => {
-                  toast.action?.onPress();
-                  hide();
-                }}
-              />
-            </Animated.View>
-          </GestureDetector>
-        </View>
-      ) : null}
-    </ToastContext.Provider>
+  useOverlayLayer(
+    toast ? (
+      <View
+        pointerEvents="box-none"
+        style={[StyleSheet.absoluteFill, { paddingTop: insets.top + 8, paddingHorizontal: 16 }]}>
+        <GestureDetector gesture={pan}>
+          <Animated.View style={animatedStyle}>
+            <ToastView
+              toast={toast}
+              onAction={() => {
+                toast.action?.onPress();
+                hide();
+              }}
+            />
+          </Animated.View>
+        </GestureDetector>
+      </View>
+    ) : null
   );
+
+  return <ToastContext.Provider value={api}>{children}</ToastContext.Provider>;
 }
 
 function ToastView({ toast, onAction }: { toast: ToastOptions; onAction: () => void }) {
@@ -197,7 +198,7 @@ function ToastView({ toast, onAction }: { toast: ToastOptions; onAction: () => v
         borderWidth: StyleSheet.hairlineWidth * 2,
         borderColor: colors.stroke,
         backgroundColor: ios ? 'transparent' : colors.surfaceSolid,
-        shadowColor: '#000',
+        shadowColor: colors.shadow,
         shadowOpacity: isDark ? 0.4 : 0.12,
         shadowRadius: 20,
         shadowOffset: { width: 0, height: 8 },
@@ -213,7 +214,7 @@ function ToastView({ toast, onAction }: { toast: ToastOptions; onAction: () => v
           <View
             style={[
               StyleSheet.absoluteFill,
-              { backgroundColor: isDark ? 'rgba(21,34,53,0.7)' : 'rgba(255,255,255,0.8)' },
+              { backgroundColor: withAlpha(colors.surfaceSolid, isDark ? 0.7 : 0.8) },
             ]}
           />
         </>

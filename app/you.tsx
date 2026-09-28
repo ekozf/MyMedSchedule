@@ -10,7 +10,6 @@ import { useStore } from '@/store';
 import { updateProfile } from '@/lib/db/operations';
 import { formatTime } from '@/lib/ui/format';
 import { EmptyState, NavHeader, Screen, haptics, useActionSheet, useToast } from '@/components/ds';
-import { ModalScope } from '@/components/you/ModalScope';
 import { YouView } from '@/components/you/YouView';
 import {
   LanguageSheet,
@@ -26,21 +25,11 @@ import {
   useConfirmDeleteProfile,
   type ProfileLite,
 } from '@/components/you/profile-actions';
-import { useToastRelayHost } from '@/components/you/toast-relay';
 
 const EXAMPLE_TIME = new Date(2000, 0, 1, 20, 0);
 
 export default function YouRoute() {
-  return (
-    <ModalScope>
-      <YouScreen />
-    </ModalScope>
-  );
-}
-
-function YouScreen() {
   const toast = useToast();
-  useToastRelayHost(toast);
   const showActionSheet = useActionSheet();
   const confirmDelete = useConfirmDeleteProfile();
 

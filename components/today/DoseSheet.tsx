@@ -2,9 +2,11 @@
  * Dose sheet (Today): everything you can do with one scheduled dose, in one sheet with in-sheet
  * steps instead of stacked dialogs.
  *
- * - Unlogged: Take now · I took it at 08:00 · Skip · Partial dose (stepper) · Add a note.
- *   Late + taken/partial + "now" with the next dose 0–120 min away → "Your next dose is soon" step
- *   (Keep my schedule / Move next dose → pick a new time).
+ * - Unlogged: Take now · I took it at 08:00 (only once that time has passed) · Skip · Partial dose
+ *   (stepper) · Add a note. Late + taken/partial + "now" with the next dose 0–120 min away →
+ *   "Your next dose is soon" step (Keep my schedule / Move next dose → pick a new time).
+ *   Not enough supply for the dose → notice with "Update supply" (`onUpdateSupply`).
+ *   A dose on a future day is view-only ("You can log this on …").
  * - Logged: result + notes · Change (action / amount / notes) · Undo.
  *
  * Presentational: all persistence goes through the async handlers (see `useDoseActions` for the
@@ -35,6 +37,7 @@ import {
   Hourglass,
   NotebookPen,
   PackageOpen,
+  PackageX,
   Pencil,
   StickyNote,
   Undo2,
@@ -59,7 +62,14 @@ import {
   useTheme,
   type StatusTone,
 } from '@/components/ds';
-import { formatDose, formatShortDate, formatUnit, useTimeFormat } from '@/lib/ui/format';
+import {
+  formatDose,
+  formatLongDate,
+  formatShortDate,
+  formatUnit,
+  useTimeFormat,
+} from '@/lib/ui/format';
+import { isSupplyShort } from '@/lib/ui/supply';
 import { getRunningLowStatus } from '@/lib/medications/refill';
 import type { ScheduledDose } from '@/lib/schedule/calculator';
 import type { IntakeAction, IntakeLog, Medication } from '@/types';
@@ -87,7 +97,8 @@ export interface DoseLogRequest {
 export interface DoseUpdateRequest {
   action: IntakeAction;
   amount: number;
-  notes?: string;
+  /** '' clears the note. */
+  notes: string;
 }
 
 export interface DoseSheetHandlers {
@@ -110,6 +121,11 @@ export interface DoseSheetProps extends DoseSheetHandlers {
   log: IntakeLog | null;
   /** Open straight at the late-overlap step (used by swipe-to-take). */
   initialStep?: 'main' | 'overlap';
+  /**
+   * Shown with the "not enough supply" notice. Close the sheet and open the medicine once it's
+   * gone (`onDismissed`). Without it the notice has no button.
+   */
+  onUpdateSupply?: () => void;
   /** Fixed clock (previews). Default: live clock. */
   now?: Date;
 }
@@ -135,6 +151,7 @@ export function DoseSheet({
   medication,
   log,
   initialStep = 'main',
+  onUpdateSupply,
   now: fixedNow,
   onLog,
   onRescheduleAndLog,
@@ -268,28 +285,49 @@ export function DoseSheet({
   const startChange = () => {
     if (!log) return;
     setChangeAction(log.action);
-    setChangeAmount(
-      log.action === 'partial' ? log.dosageAmount : defaultPartialAmount(fullAmount, step05)
-    );
+    // Start from what was logged (not today's schedule amount); a skipped log may hold 0.
+    setChangeAmount(log.dosageAmount > 0 ? log.dosageAmount : fullAmount);
     setChangeNotes(log.notes ?? '');
     goTo('change');
   };
-  const saveChange = () =>
+  const changeConsumes = changeAction !== 'skipped';
+  const changeAmountValid = !changeConsumes || changeAmount > 0;
+  const saveChange = () => {
+    if (!log || !changeAmountValid) return;
     run('save', () =>
       onUpdate({
         action: changeAction,
-        amount: changeAction === 'partial' ? changeAmount : dose.dosageAmount,
-        notes: changeNotes.trim() || undefined,
+        // Skipped keeps the log's amount (no supply effect either way).
+        amount: changeConsumes ? changeAmount : log.dosageAmount,
+        // '' (not undefined) so clearing the note actually clears it.
+        notes: changeNotes.trim(),
       })
     );
+  };
   const undo = () => run('undo', onUndo);
 
   const moveValid = moveTo.getTime() > now.getTime();
   const disabled = busy !== null;
+  // Doses on a later day are view-only; "I took it at …" only once that time has passed.
+  const futureDay = startOfDay(dose.time).getTime() > startOfDay(now).getTime();
+  const scheduledPassed = dose.time.getTime() <= now.getTime();
+  const logAmount = partialOn ? partialAmount : dose.dosageAmount;
+  const supplyShort = !!medication && isSupplyShort(medication.inventoryCount, logAmount);
 
   // --- footer per step ----------------------------------------------------------------------
   let footer: React.ReactNode;
-  if (step === 'main' && !log) {
+  if (step === 'main' && !log && futureDay) {
+    footer = (
+      <Button
+        label={i18n.t('ui.today.sheet.close')}
+        variant="secondary"
+        size="lg"
+        fullWidth
+        haptic="none"
+        onPress={onClose}
+      />
+    );
+  } else if (step === 'main' && !log) {
     footer = (
       <>
         <Button
@@ -302,18 +340,20 @@ export function DoseSheet({
           disabled={disabled && busy !== 'now'}
           onPress={takeNow}
         />
-        <Button
-          label={i18n.t(
-            partialOn ? 'ui.today.sheet.logPartialAtScheduled' : 'ui.today.sheet.tookAtScheduled',
-            { time }
-          )}
-          variant="secondary"
-          size="lg"
-          fullWidth
-          loading={busy === 'scheduled'}
-          disabled={disabled && busy !== 'scheduled'}
-          onPress={takeAtScheduled}
-        />
+        {scheduledPassed ? (
+          <Button
+            label={i18n.t(
+              partialOn ? 'ui.today.sheet.logPartialAtScheduled' : 'ui.today.sheet.tookAtScheduled',
+              { time }
+            )}
+            variant="secondary"
+            size="lg"
+            fullWidth
+            loading={busy === 'scheduled'}
+            disabled={disabled && busy !== 'scheduled'}
+            onPress={takeAtScheduled}
+          />
+        ) : null}
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Button
             label={i18n.t('ui.today.sheet.skip')}
@@ -368,7 +408,7 @@ export function DoseSheet({
           size="lg"
           fullWidth
           loading={busy === 'save'}
-          disabled={disabled && busy !== 'save'}
+          disabled={!changeAmountValid || (disabled && busy !== 'save')}
           onPress={saveChange}
         />
         <Button
@@ -455,7 +495,22 @@ export function DoseSheet({
         closeDisabled={disabled}
       />
       <Animated.View key={step} entering={entering} style={{ gap: 12 }}>
-        {step === 'main' && !log ? (
+        {step === 'main' && !log && futureDay ? (
+          <>
+            <Notice
+              tone="accent"
+              icon={CalendarClock}
+              text={i18n.t('ui.today.sheet.futureDay', { date: formatLongDate(dose.time, now) })}
+            />
+            {(medication?.notes ?? dose.notes) ? (
+              <NotesBlock
+                label={i18n.t('ui.today.sheet.notes')}
+                text={(medication?.notes ?? dose.notes) as string}
+              />
+            ) : null}
+          </>
+        ) : null}
+        {step === 'main' && !log && !futureDay ? (
           <UnloggedBody
             timing={timing}
             medication={medication}
@@ -470,6 +525,9 @@ export function DoseSheet({
             noteValue={notes}
             onNoteChange={setNotes}
             reduceMotion={reduceMotion}
+            supplyShort={supplyShort}
+            supplyLeft={medication?.inventoryCount ?? 0}
+            onUpdateSupply={onUpdateSupply}
           />
         ) : null}
         {step === 'main' && log ? (
@@ -490,7 +548,7 @@ export function DoseSheet({
                 { value: 'partial', label: i18n.t('ui.today.sheet.actionPartial') },
               ]}
             />
-            {changeAction === 'partial' ? (
+            {changeConsumes ? (
               <Animated.View entering={reduceMotion ? undefined : FadeInDown.duration(200)}>
                 <AmountStepper
                   value={changeAmount}
@@ -498,6 +556,16 @@ export function DoseSheet({
                   step={step05}
                   unit={unit}
                 />
+                {!changeAmountValid ? (
+                  <Text
+                    variant="footnote"
+                    tone="danger"
+                    align="center"
+                    accessibilityLiveRegion="polite"
+                    style={{ marginTop: 6 }}>
+                    {i18n.t('ui.today.sheet.invalidAmount')}
+                  </Text>
+                ) : null}
               </Animated.View>
             ) : null}
             <TextField
@@ -699,6 +767,9 @@ function UnloggedBody({
   noteValue,
   onNoteChange,
   reduceMotion,
+  supplyShort,
+  supplyLeft,
+  onUpdateSupply,
 }: {
   timing: ReturnType<typeof getTiming>;
   medication: Medication | null;
@@ -713,6 +784,9 @@ function UnloggedBody({
   noteValue: string;
   onNoteChange: (s: string) => void;
   reduceMotion: boolean;
+  supplyShort: boolean;
+  supplyLeft: number;
+  onUpdateSupply?: () => void;
 }) {
   const runningLow = medication ? getRunningLowStatus(medication) : null;
   const reveal = reduceMotion ? undefined : FadeInDown.duration(200);
@@ -731,7 +805,26 @@ function UnloggedBody({
           text={i18n.t('ui.today.sheet.dueIn', { duration: formatDuration(timing.minutesEarly) })}
         />
       ) : null}
-      {runningLow?.isRunningLow ? (
+      {supplyShort ? (
+        <View style={{ gap: 8 }}>
+          <Notice
+            tone="danger"
+            icon={PackageX}
+            title={i18n.t('ui.today.sheet.supplyShortTitle')}
+            text={i18n.t('ui.today.sheet.supplyShort', { left: formatDose(supplyLeft, unit) })}
+            live
+          />
+          {onUpdateSupply ? (
+            <Button
+              label={i18n.t('ui.today.sheet.updateSupply')}
+              variant="secondary"
+              icon={PackageOpen}
+              fullWidth
+              onPress={onUpdateSupply}
+            />
+          ) : null}
+        </View>
+      ) : runningLow?.isRunningLow ? (
         <Notice
           tone="warning"
           icon={PackageOpen}

@@ -30,7 +30,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import type { LucideIcon } from 'lucide-react-native';
-import { SPRING, useTheme } from '@/lib/theme';
+import { SPRING, useTheme, withAlpha } from '@/lib/theme';
 import { haptics } from '@/lib/ui/haptics';
 import { Text } from './Text';
 import { Icon } from './Icon';
@@ -106,8 +106,8 @@ export function SegmentedControl<T extends string | number>({
               width: segW,
               height: height - PAD * 2,
               borderRadius: (height - PAD * 2) / 2,
-              backgroundColor: isDark ? 'rgba(255,255,255,0.14)' : colors.surfaceSolid,
-              shadowColor: '#0F1B2D',
+              backgroundColor: isDark ? withAlpha(colors.ink, 0.14) : colors.surfaceSolid,
+              shadowColor: colors.shadow,
               shadowOpacity: isDark ? 0 : 0.1,
               shadowRadius: 6,
               shadowOffset: { width: 0, height: 2 },

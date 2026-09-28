@@ -6,7 +6,7 @@ import * as React from 'react';
 import { View } from 'react-native';
 import { Check, HandHelping } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
-import { formatNumber, formatUnit } from '@/lib/ui/format';
+import { formatNumber, formatUnit, useTimeFormat } from '@/lib/ui/format';
 import type { DosageUnit } from '@/types';
 import { Card, Icon, Text, useTheme } from '@/components/ds';
 import { cyclePattern, doseStep, taperingSteps, type ScheduleConfigMap } from '../form-model';
@@ -18,6 +18,7 @@ const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`ui.editor.whe
 /** 4×7 grid of the first 28 days: filled check = take, hollow = break. */
 export function CyclePreview({ config }: { config: ScheduleConfigMap['cycle'] }) {
   const { colors } = useTheme();
+  const { formatTimeString } = useTimeFormat();
   const pattern = cyclePattern(config, 28);
   if (!pattern.length) return null;
   const weeks = [0, 1, 2, 3].map((w) => pattern.slice(w * 7, w * 7 + 7));
@@ -43,7 +44,7 @@ export function CyclePreview({ config }: { config: ScheduleConfigMap['cycle'] })
     <View
       style={{ gap: 6 }}
       accessible
-      accessibilityLabel={`${t('cyclePreview')}: ${describeSchedule('cycle', config, (x) => x)}`}>
+      accessibilityLabel={`${t('cyclePreview')}: ${describeSchedule('cycle', config, formatTimeString)}`}>
       {weeks.map((week, w) => (
         <View key={w} style={{ flexDirection: 'row', gap: 6 }}>
           {week.map((take, d) => cell(take, d))}

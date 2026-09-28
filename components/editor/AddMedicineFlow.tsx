@@ -32,14 +32,7 @@ import {
   useToast,
 } from '@/components/ds';
 import type { ScheduleType } from '@/types';
-import {
-  createEmptyForm,
-  stepsFor,
-  validateAll,
-  validateStep,
-  type MedicineForm,
-  type StepId,
-} from './form-model';
+import { stepsFor, validateAll, validateStep, type MedicineForm, type StepId } from './form-model';
 import { useMedicineForm } from './useMedicineForm';
 import { IssueHint } from './parts';
 import { DoseStep, NameStep, ScheduleDetailsStep, ScheduleTypeStep } from './steps';
@@ -47,20 +40,16 @@ import { SupplyStep } from './SupplyStep';
 import { ExtrasStep } from './ExtrasStep';
 import { ReviewStep } from './ReviewStep';
 import { saveNewMedicine } from './save';
+import { ModalScope } from '@/components/you/ModalScope';
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`ui.editor.${key}`, opts);
 const AUTO_ADVANCE_MS = 350;
 
-/** Optional steps untouched → the footer offers "Skip for now" instead of "Next". */
+/**
+ * Optional steps untouched → the footer offers "Skip for now" instead of "Next". Not the supply
+ * step: with 0 left no dose can be logged, so it always says Next (the step warns about 0).
+ */
 function isUntouched(step: StepId, form: MedicineForm): boolean {
-  const empty = createEmptyForm();
-  if (step === 'supply') {
-    return (
-      form.inventoryCount === empty.inventoryCount &&
-      form.packageSize === null &&
-      form.refillReminderType === 'none'
-    );
-  }
   if (step === 'extras') {
     return (
       !form.notes.trim() &&
@@ -97,7 +86,16 @@ function FlowProgress({ progress }: { progress: number }) {
   );
 }
 
+/** Native modal route: hosts the app overlays so confirms/toasts appear above the modal. */
 export function AddMedicineFlow() {
+  return (
+    <ModalScope>
+      <AddMedicineFlowScreen />
+    </ModalScope>
+  );
+}
+
+function AddMedicineFlowScreen() {
   const { form, update, isDirty } = useMedicineForm();
   const confirm = useConfirm();
   const toast = useToast();

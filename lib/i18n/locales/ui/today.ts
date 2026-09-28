@@ -101,6 +101,12 @@ export default defineFragment({
       actionPartial: 'Partial',
       saveChanges: 'Save changes',
       back: 'Back',
+      invalidAmount: 'Choose an amount above 0.',
+      futureDay: 'You can log this on {{date}}.',
+      supplyShortTitle: 'Not enough left',
+      supplyShort:
+        'You have {{left}} left, not enough for this dose. Update your supply to log it.',
+      updateSupply: 'Update supply',
     },
     overlap: {
       title: 'Your next dose is soon',
@@ -128,6 +134,7 @@ export default defineFragment({
       updated: 'Changes saved',
       removed: '{{name}}: log removed',
       restored: 'Log restored',
+      alreadyLogged: '{{name}} was already logged',
     },
   },
   nl: {
@@ -225,6 +232,12 @@ export default defineFragment({
       actionPartial: 'Deels',
       saveChanges: 'Wijzigingen opslaan',
       back: 'Terug',
+      invalidAmount: 'Kies een hoeveelheid boven 0.',
+      futureDay: 'Je kunt dit registreren op {{date}}.',
+      supplyShortTitle: 'Niet genoeg over',
+      supplyShort:
+        'Je hebt nog {{left}}, niet genoeg voor deze dosis. Werk je voorraad bij om hem te registreren.',
+      updateSupply: 'Voorraad bijwerken',
     },
     overlap: {
       title: 'Je volgende dosis komt eraan',
@@ -252,6 +265,7 @@ export default defineFragment({
       updated: 'Wijzigingen opgeslagen',
       removed: '{{name}}: registratie verwijderd',
       restored: 'Registratie hersteld',
+      alreadyLogged: '{{name}} was al geregistreerd',
     },
   },
   tr: {
@@ -349,6 +363,12 @@ export default defineFragment({
       actionPartial: 'Kısmi',
       saveChanges: 'Değişiklikleri kaydet',
       back: 'Geri',
+      invalidAmount: "0'dan büyük bir miktar seçin.",
+      futureDay: 'Bunu {{date}} günü kaydedebilirsiniz.',
+      supplyShortTitle: 'Yeterli ilaç kalmadı',
+      supplyShort:
+        'Elinizde {{left}} kaldı, bu doz için yeterli değil. Kaydetmek için stoğunuzu güncelleyin.',
+      updateSupply: 'Stoğu güncelle',
     },
     overlap: {
       title: 'Sonraki dozunuz yakın',
@@ -376,6 +396,7 @@ export default defineFragment({
       updated: 'Değişiklikler kaydedildi',
       removed: '{{name}}: kayıt kaldırıldı',
       restored: 'Kayıt geri yüklendi',
+      alreadyLogged: '{{name}} zaten kaydedilmiş',
     },
   },
 });

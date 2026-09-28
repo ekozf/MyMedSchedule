@@ -1,12 +1,22 @@
 /**
  * Lock screen. PIN: PinPad (auto-submit at 6 digits, Unlock key from 4), 30 s cool-down after 5
  * wrong tries. Biometric: auto-prompt on mount with a "Use PIN instead" fallback when a PIN is
- * stored. No lock: straight to Today (as before).
+ * stored. Biometric lock but the phone no longer has biometrics and there is no PIN: unlock with
+ * the phone's own passcode instead (retry button stays). No lock: straight to Today (as before).
  */
 import * as React from 'react';
 import { router } from 'expo-router';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { KeyRound } from 'lucide-react-native';
 import { useStore } from '@/store';
-import { authenticate, getAuthMethod, getBiometricType, hasPIN, verifyPIN } from '@/lib/auth';
+import {
+  authenticate,
+  getAuthMethod,
+  getBiometricType,
+  hasPIN,
+  isDeviceSupportsBiometric,
+  verifyPIN,
+} from '@/lib/auth';
 import i18n from '@/lib/i18n';
 import {
   LockView,
@@ -23,6 +33,12 @@ const t = (key: string, opts?: Record<string, unknown>) =>
   i18n.t(`ui.onboarding.lock.${key}`, opts);
 
 type Mode = 'loading' | 'pin' | 'biometric';
+
+/** The "biometric" button, relabelled for the phone passcode. */
+const passcodeInfo = (): BiometricInfo => ({
+  label: i18n.t('ui.onboarding.biometric.passcode'),
+  icon: KeyRound,
+});
 
 export default function LockScreen() {
   const setAuthenticated = useStore((s) => s.setAuthenticated);
@@ -43,6 +59,8 @@ export default function LockScreen() {
   const clearTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const promptingRef = React.useRef(false);
   const unlockedRef = React.useRef(false);
+  /** Biometrics are gone and no PIN exists: the button asks for the phone's passcode. */
+  const passcodeRef = React.useRef(false);
 
   React.useEffect(
     () => () => {
@@ -58,6 +76,41 @@ export default function LockScreen() {
     setAuthenticated(true);
     router.replace(ONBOARDING_ROUTES.dashboard);
   }, [setAuthenticated]);
+
+  const promptPasscode = React.useCallback(async () => {
+    if (promptingRef.current) return;
+    promptingRef.current = true;
+    setBiometricBusy(true);
+    setMessage(null);
+    let success = false;
+    let error: string | undefined;
+    try {
+      // disableDeviceFallback: false → the OS offers the phone's passcode / pattern.
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: t('biometricPrompt', { appName: i18n.t('ui.onboarding.appName') }),
+        cancelLabel: i18n.t('ui.common.cancel'),
+        disableDeviceFallback: false,
+      });
+      success = result.success;
+      if (!result.success) error = result.error;
+    } catch (e) {
+      console.warn('Passcode unlock failed:', e);
+    }
+    promptingRef.current = false;
+    setBiometricBusy(false);
+    if (success) {
+      unlock();
+      return;
+    }
+    if (isBiometricCancel(error)) return;
+    setMessage(t('passcodeFailed'));
+  }, [unlock]);
+
+  const switchToPasscode = React.useCallback(() => {
+    passcodeRef.current = true;
+    setBiometric(passcodeInfo());
+    promptPasscode();
+  }, [promptPasscode]);
 
   const promptBiometric = React.useCallback(
     async (info: BiometricInfo | null, pinStored: boolean) => {
@@ -85,6 +138,19 @@ export default function LockScreen() {
           return;
         }
       }
+      if (!pinStored && result.method === undefined) {
+        // No usable method (biometrics removed from the phone, no PIN): the phone's passcode.
+        let supported = true;
+        try {
+          supported = await isDeviceSupportsBiometric();
+        } catch {
+          supported = false;
+        }
+        if (!supported) {
+          switchToPasscode();
+          return;
+        }
+      }
       if (isBiometricCancel(result.error) || result.error === 'user_fallback') return;
       if (result.error === 'lockout') {
         setMessage(t('biometricLockedOut', { method: label }));
@@ -92,7 +158,7 @@ export default function LockScreen() {
       }
       setMessage(t('biometricFailed'));
     },
-    [unlock]
+    [unlock, switchToPasscode]
   );
 
   React.useEffect(() => {
@@ -113,10 +179,16 @@ export default function LockScreen() {
       }
       let info: BiometricInfo = biometricInfo([]);
       let pinStored = false;
+      let supported = true;
       try {
-        const [types, has] = await Promise.all([getBiometricType(), hasPIN()]);
+        const [types, has, ok] = await Promise.all([
+          getBiometricType(),
+          hasPIN(),
+          isDeviceSupportsBiometric(),
+        ]);
         info = biometricInfo(types);
         pinStored = has;
+        supported = ok;
       } catch (error) {
         console.error('Failed to read biometric state:', error);
       }
@@ -125,12 +197,13 @@ export default function LockScreen() {
       setBiometric(info);
       setPinAvailable(pinStored);
       setMode('biometric');
-      promptBiometric(info, pinStored);
+      if (!supported && !pinStored) switchToPasscode();
+      else promptBiometric(info, pinStored);
     })();
     return () => {
       alive = false;
     };
-  }, [promptBiometric, unlock]);
+  }, [promptBiometric, switchToPasscode, unlock]);
 
   // ---------------------------------------------------------------------------
   // PIN
@@ -177,7 +250,8 @@ export default function LockScreen() {
         method === 'biometric'
           ? () => {
               setMode('biometric');
-              promptBiometric(biometric, pinAvailable);
+              if (passcodeRef.current) promptPasscode();
+              else promptBiometric(biometric, pinAvailable);
             }
           : undefined
       }
