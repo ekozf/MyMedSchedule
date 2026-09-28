@@ -1,190 +1,133 @@
-import { View, ScrollView, Alert } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Avatar } from '@/components/ui/avatar';
-import { useState } from 'react';
+/**
+ * Onboarding step 4 — "What should we call you?": creates the first profile, marks onboarding
+ * complete and opens Today.
+ */
+import * as React from 'react';
 import { router } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { Camera, ImageIcon, Trash2 } from 'lucide-react-native';
 import { useStore } from '@/store';
 import { createProfile, setActiveProfile } from '@/lib/db/operations';
-import * as ImagePicker from 'expo-image-picker';
-import { Camera, Image as ImageIcon } from 'lucide-react-native';
-import i18n from '@/lib/i18n';
+import i18n, { getCurrentLocale } from '@/lib/i18n';
+import { useActionSheet, useToast } from '@/components/ds';
+import { AboutYouView, ONBOARDING_ROUTES, toAppLocale } from '@/components/onboarding';
+
+const t = (key: string) => i18n.t(`ui.onboarding.profile.${key}`);
 
 export default function CreateProfileScreen() {
-  const [name, setName] = useState('');
-  const [avatarUri, setAvatarUri] = useState<string | undefined>();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const { setActiveProfile: setStoreActiveProfile, setAuthenticated, setOnboardingCompleted } = useStore();
+  const [name, setName] = React.useState('');
+  const [avatarUri, setAvatarUri] = React.useState<string | undefined>();
+  const [creating, setCreating] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const setStoreActiveProfile = useStore((s) => s.setActiveProfile);
+  const setAuthenticated = useStore((s) => s.setAuthenticated);
+  const setOnboardingCompleted = useStore((s) => s.setOnboardingCompleted);
+  const showActionSheet = useActionSheet();
+  const toast = useToast();
+
+  const permissionDenied = (message: string) =>
+    toast.show({ title: t('permissionTitle'), message, tone: 'warning' });
+
+  const handleTakePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        permissionDenied(t('cameraPermission'));
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) setAvatarUri(result.assets[0].uri);
+    } catch (e) {
+      console.error('Error taking photo:', e);
+      toast.show({ title: t('photoError'), tone: 'danger' });
+    }
+  };
 
   const handlePickImage = async () => {
     try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (!permissionResult.granted) {
-        Alert.alert(i18n.t('onboarding.permissionRequired'), i18n.t('onboarding.photoLibraryPermission'));
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        permissionDenied(t('libraryPermission'));
         return;
       }
-      
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
       });
-      
-      if (!result.canceled && result.assets[0]) {
-        setAvatarUri(result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('onboarding.photoPickError'));
+      if (!result.canceled && result.assets[0]) setAvatarUri(result.assets[0].uri);
+    } catch (e) {
+      console.error('Error picking image:', e);
+      toast.show({ title: t('photoError'), tone: 'danger' });
     }
   };
 
-  const handleTakePhoto = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-      
-      if (!permissionResult.granted) {
-        Alert.alert(i18n.t('onboarding.permissionRequired'), i18n.t('onboarding.cameraPermission'));
-        return;
-      }
-      
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-      
-      if (!result.canceled && result.assets[0]) {
-        setAvatarUri(result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error('Error taking photo:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('onboarding.photoTakeError'));
-    }
-  };
-
-  const handleImageAction = () => {
-    Alert.alert(
-      i18n.t('onboarding.profilePicture'),
-      i18n.t('onboarding.chooseOption'),
-      [
-        { text: i18n.t('onboarding.takePhoto'), onPress: handleTakePhoto },
-        { text: i18n.t('onboarding.chooseFromLibrary'), onPress: handlePickImage },
-        { text: i18n.t('common.cancel'), style: 'cancel' },
-      ]
-    );
+  const handleAvatarPress = async () => {
+    const choice = await showActionSheet({
+      title: t('photo.title'),
+      options: [
+        { key: 'camera', label: t('photo.take'), icon: Camera },
+        { key: 'library', label: t('photo.choose'), icon: ImageIcon },
+        ...(avatarUri
+          ? [{ key: 'remove' as const, label: t('photo.remove'), icon: Trash2, destructive: true }]
+          : []),
+      ],
+    });
+    if (choice === 'camera') await handleTakePhoto();
+    else if (choice === 'library') await handlePickImage();
+    else if (choice === 'remove') setAvatarUri(undefined);
   };
 
   const handleCreate = async () => {
-    setError('');
-    
+    if (creating) return;
+    setError(null);
     if (!name.trim()) {
       setError(i18n.t('onboarding.enterNameError'));
       return;
     }
-    
-    setIsLoading(true);
-    
+    setCreating(true);
     try {
-      // Create profile
       const profile = await createProfile({
         name: name.trim(),
         avatarUri,
         settings: {
-          language: 'en',
+          // The language chosen during onboarding (the old screen hard-coded 'en').
+          language: toAppLocale(getCurrentLocale()),
           use24HourTime: true,
           authRequired: false,
         },
       });
-      
-      // Set as active profile
       await setActiveProfile(profile.id);
-      
-      // Update store
       setStoreActiveProfile(profile);
       setAuthenticated(true);
-      
-      // Mark onboarding as completed - this ensures it only runs once
+      // Mark onboarding as completed — this ensures it only runs once.
       await setOnboardingCompleted(true);
-      
-      // Navigate to main app
-      router.replace('/(tabs)/dashboard');
-    } catch (error) {
-      console.error('Failed to create profile:', error);
-      setError(i18n.t('onboarding.createProfileError'));
+      router.replace(ONBOARDING_ROUTES.dashboard);
+    } catch (e) {
+      console.error('Failed to create profile:', e);
+      setError(t('createError'));
     } finally {
-      setIsLoading(false);
+      setCreating(false);
     }
   };
 
   return (
-    <View className="flex-1 bg-background pt-12">
-      <ScrollView className="flex-1 px-6 pt-4">
-        <Text className="text-3xl font-bold mb-2 text-foreground">
-          {i18n.t('onboarding.createProfileTitle')}
-        </Text>
-        
-        <Text className="text-base text-muted-foreground mb-8">
-          {i18n.t('onboarding.createProfileDescription')}
-        </Text>
-        
-        {/* Avatar Selection */}
-        <View className="items-center mb-8">
-          <Avatar
-            uri={avatarUri}
-            fallback={name}
-            size="xl"
-            className="mb-4"
-          />
-          <View className="flex-row gap-2">
-            <Button
-              variant="outline"
-              onPress={handleTakePhoto}
-              className="flex-row items-center gap-2"
-            >
-              <Camera size={18} className="text-foreground" />
-              <Text>{i18n.t('onboarding.camera')}</Text>
-            </Button>
-            <Button
-              variant="outline"
-              onPress={handlePickImage}
-              className="flex-row items-center gap-2"
-            >
-              <ImageIcon size={18} className="text-foreground" />
-              <Text>{i18n.t('onboarding.gallery')}</Text>
-            </Button>
-          </View>
-        </View>
-        
-        {/* Name Input */}
-        <Input
-          label={i18n.t('onboarding.profileNameLabel')}
-          value={name}
-          onChangeText={setName}
-          placeholder={i18n.t('onboarding.profileNamePlaceholder')}
-          error={error}
-          autoFocus
-        />
-        
-        <Text className="text-sm text-muted-foreground mt-4 mb-8">
-          {i18n.t('onboarding.additionalProfilesNote')}
-        </Text>
-      </ScrollView>
-      
-      <View className="px-6 pb-8 pt-4 border-t border-border bg-background">
-        <Button
-          onPress={handleCreate}
-          disabled={isLoading || !name.trim()}
-        >
-          <Text className="text-primary-foreground font-semibold">
-            {isLoading ? i18n.t('onboarding.creatingProfile') : i18n.t('onboarding.createProfile')}
-          </Text>
-        </Button>
-      </View>
-    </View>
+    <AboutYouView
+      name={name}
+      onNameChange={(v) => {
+        setName(v);
+        if (error) setError(null);
+      }}
+      avatarUri={avatarUri}
+      onAvatarPress={handleAvatarPress}
+      onStart={handleCreate}
+      creating={creating}
+      error={error}
+    />
   );
 }
