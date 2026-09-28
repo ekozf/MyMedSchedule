@@ -10,11 +10,12 @@ import editor from './editor';
 import journal from './journal';
 import medicines from './medicines';
 import onboarding from './onboarding';
+import safety from './safety';
 import shell from './shell';
 import today from './today';
 import you from './you';
 
-const fragments = { common, shell, today, medicines, editor, journal, you, onboarding };
+const fragments = { common, shell, safety, today, medicines, editor, journal, you, onboarding };
 
 type Fragments = typeof fragments;
 type Lang = 'en' | 'nl' | 'tr';
