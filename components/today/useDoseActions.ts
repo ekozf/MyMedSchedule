@@ -1,6 +1,6 @@
 /**
  * Persistence for Today's dose actions (the data side of `DoseSheet`, swipes and toasts).
- * Ported from components/dashboard/DoseActionDialog.tsx: same backend calls in the same order
+ * Ported from the former DoseActionDialog: same backend calls in the same order
  * (except "Move next dose", which now runs the safety check before touching the schedule).
  * Every function resolves to the result (or `null`/`false` when cancelled or failed; errors are
  * already explained to the person via the shared confirm sheets).

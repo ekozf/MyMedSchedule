@@ -237,7 +237,7 @@ export function dayProgress(
 }
 
 // ---------------------------------------------------------------------------------------------
-// Dose sheet rules (ported 1:1 from components/dashboard/DoseActionDialog.tsx)
+// Dose sheet rules (ported 1:1 from the former DoseActionDialog)
 
 export function getTiming(dose: ScheduledDose, now: Date) {
   const minutesEarly = differenceInMinutes(dose.time, now);
