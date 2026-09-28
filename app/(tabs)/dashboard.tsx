@@ -5,6 +5,7 @@
 import * as React from 'react';
 import { RefreshControl, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
+import { useLogsVersion } from '@/lib/ui/data-refresh';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -121,6 +122,12 @@ export default function TodayScreen() {
       return () => clearInterval(id);
     }, [profileId, loadMedications, loadLogs])
   );
+
+  // Logs changed elsewhere (e.g. the /log/* sheets, which may not re-focus this tab when closed).
+  const logsVersion = useLogsVersion();
+  React.useEffect(() => {
+    if (logsVersion > 0) loadLogs();
+  }, [logsVersion, loadLogs]);
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);

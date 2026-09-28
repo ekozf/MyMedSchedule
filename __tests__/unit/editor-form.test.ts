@@ -304,6 +304,16 @@ describe('editor form model', () => {
       expect(input.scheduleConfig).toEqual({ time: '08:00' });
     });
 
+    it('toUpdateInput clears a removed expiry date and leaves an unset one alone', () => {
+      const withExpiry = formFromMedication(med({ expirationDate: addDays(new Date(), 30) }));
+      expect(
+        toUpdateInput({ ...withExpiry, expirationDate: null }, withExpiry).expirationDate
+      ).toBeNull();
+
+      const withoutExpiry = formFromMedication(med({}));
+      expect(toUpdateInput(withoutExpiry, withoutExpiry).expirationDate).toBeUndefined();
+    });
+
     it('formFromMedication round-trips and is not dirty', () => {
       const m = med({
         scheduleType: 'every_x_hours',

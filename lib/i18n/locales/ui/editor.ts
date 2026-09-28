@@ -229,7 +229,6 @@ export default defineFragment({
       notFoundTitle: 'Medicine not found',
       notFoundMessage: 'It may have been deleted.',
       loadErrorTitle: 'Couldn’t open this medicine',
-      expiryKeepNote: 'To change the expiry date, pick a new one.',
     },
     issues: {
       nameRequired: 'Type a name to continue',
@@ -484,7 +483,6 @@ export default defineFragment({
       notFoundTitle: 'Medicijn niet gevonden',
       notFoundMessage: 'Misschien is het verwijderd.',
       loadErrorTitle: 'Dit medicijn kon niet worden geopend',
-      expiryKeepNote: 'Kies een nieuwe datum om de houdbaarheidsdatum te wijzigen.',
     },
     issues: {
       nameRequired: 'Typ een naam om verder te gaan',
@@ -730,7 +728,6 @@ export default defineFragment({
       notFoundTitle: 'İlaç bulunamadı',
       notFoundMessage: 'Silinmiş olabilir.',
       loadErrorTitle: 'Bu ilaç açılamadı',
-      expiryKeepNote: 'Son kullanma tarihini değiştirmek için yeni bir tarih seçin.',
     },
     issues: {
       nameRequired: 'Devam etmek için bir ad yazın',

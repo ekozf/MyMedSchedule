@@ -99,13 +99,15 @@ export function AppMark({ size = 120, breathing = false, style }: AppMarkProps) 
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-          <Icon
-            as={Pill}
-            size={Math.round(size * 0.44)}
-            color={colors.onAccent}
-            strokeWidth={1.75}
-            style={{ transform: [{ rotate: '-35deg' }] }}
-          />
+          {/* Rotate a wrapper, not the SVG itself: a transformed SVG gets clipped to its viewBox. */}
+          <View style={{ transform: [{ rotate: '-35deg' }] }}>
+            <Icon
+              as={Pill}
+              size={Math.round(size * 0.44)}
+              color={colors.onAccent}
+              strokeWidth={1.75}
+            />
+          </View>
         </LinearGradient>
       </Animated.View>
     </View>

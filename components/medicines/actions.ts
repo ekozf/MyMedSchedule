@@ -9,6 +9,7 @@
  * const log = await logAsNeeded(med, 1.5, 'headache'); // null when cancelled / failed
  */
 import { useCallback } from 'react';
+import { bumpLogs } from '@/lib/ui/data-refresh';
 import {
   createIntakeLogAndUpdateInventory,
   deleteMedication,
@@ -108,6 +109,7 @@ export function useLogAsNeeded() {
           notes: notes?.trim() ? notes.trim() : undefined,
         });
         await reloadMedications(profileId);
+        bumpLogs();
         haptics.success();
         return log;
       } catch (error) {

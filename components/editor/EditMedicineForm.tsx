@@ -337,13 +337,8 @@ export function EditMedicineForm({ id, initial }: { id: string; initial: Medicin
         update={update}
         variant="inline"
         issue={issueFor('extras')}
-        canClearExpiry={initial.expirationDate === null}
+        canClearExpiry
       />
-      {initial.expirationDate !== null ? (
-        <Text variant="footnote" tone="secondary" style={{ paddingHorizontal: 16, marginTop: 8 }}>
-          {t('edit.expiryKeepNote')}
-        </Text>
-      ) : null}
 
       <Sheet
         visible={typeSheet}

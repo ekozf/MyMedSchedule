@@ -27,6 +27,7 @@ import { ensureNext3DoseNotificationsForMedication } from '@/lib/notifications/s
 import { useConfirm } from '@/components/ds/Confirm';
 import { useTimeFormat, formatDose, formatNumber } from '@/lib/ui/format';
 import type { IntakeLog, Medication } from '@/types';
+import { bumpLogs } from '@/lib/ui/data-refresh';
 
 /**
  * Returns `check(medication, amount, at)`. Resolves `true` when it is fine to log (no warnings,
@@ -132,6 +133,7 @@ export async function undoIntakeLog(log: IntakeLog): Promise<void> {
     }
   }
   await deleteIntakeLog(log.id);
+  bumpLogs();
   try {
     await ensureNext3DoseNotificationsForMedication(log.medicationId);
   } catch (error) {

@@ -466,8 +466,8 @@ export function toUpdateInput(form: MedicineForm, initial?: MedicineForm): Updat
     scheduleConfig: cleanConfig(form.scheduleType, form.scheduleConfig),
     inventoryCount: form.inventoryCount || 0,
     packageSize: optional(form.packageSize, initial?.packageSize),
-    // Note: the DB layer cannot clear an expiration date (null is dropped), see EditMedicine.
-    expirationDate: form.expirationDate ?? undefined,
+    // null clears a previously stored expiration date.
+    expirationDate: form.expirationDate ?? (initial?.expirationDate ? null : undefined),
     refillReminderType: refill === 'none' ? null : refill,
     refillReminderValue: refill === 'none' ? null : form.refillReminderValue || undefined,
     maxDailyDose: optional(form.maxDailyDose, initial?.maxDailyDose),

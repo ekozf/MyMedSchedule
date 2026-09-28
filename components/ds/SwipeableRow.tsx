@@ -82,6 +82,8 @@ export function SwipeableRow({
       <ReanimatedSwipeable
         ref={ref}
         enabled={enabled && width > 0}
+        // The default `overflow: hidden` clips the card's soft shadow into a hard pale rectangle.
+        containerStyle={{ overflow: 'visible' }}
         friction={1.4}
         leftThreshold={threshold || undefined}
         rightThreshold={40}
