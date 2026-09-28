@@ -1,348 +1,223 @@
-import { View, ScrollView, Pressable, Alert } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select } from '@/components/ui/select';
-import { ProfileCard } from '@/components/profile/ProfileCard';
-import { router } from 'expo-router';
-import { useStore } from '@/store';
-import { useState, useEffect } from 'react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { User, Globe, Lock, Info, ChevronRight, Plus, LogOut, FileText } from 'lucide-react-native';
-import i18n, { setLocale } from '@/lib/i18n';
-import { getAuthMethod } from '@/lib/auth';
-import {
-  updateProfile,
-  deleteProfile,
-  setActiveProfile as setActiveProfileDB,
-  getAllProfiles,
-} from '@/lib/db/operations';
-import { generatePDFReport, sharePDFReport, savePDFReportLocally } from '@/lib/export/pdf';
+/**
+ * You (pushed from the avatar on every tab): active profile, switching profiles, preferences, app lock, export and about.
+ */
+import * as React from 'react';
+import { router, useFocusEffect, type Href } from 'expo-router';
+import { Pencil, Repeat, Trash2, UserRound } from 'lucide-react-native';
 import Constants from 'expo-constants';
-import { ExportDestinationDialog } from './export/ExportDestinationDialog';
-import { ExportWarningDialog } from './export/ExportWarningDialog';
+import i18n, { getCurrentLocale, setLocale } from '@/lib/i18n';
+import { useStore } from '@/store';
+import { updateProfile } from '@/lib/db/operations';
+import { formatTime } from '@/lib/ui/format';
+import { EmptyState, NavHeader, Screen, haptics, useActionSheet, useToast } from '@/components/ds';
+import { ModalScope } from '@/components/you/ModalScope';
+import { YouView } from '@/components/you/YouView';
+import {
+  LanguageSheet,
+  isAppLanguage,
+  languageName,
+  type AppLanguage,
+} from '@/components/you/LanguageSheet';
+import { getAppLockKind, type AppLockKind } from '@/components/you/app-lock';
+import {
+  firstName,
+  removeProfile,
+  switchToProfile,
+  useConfirmDeleteProfile,
+  type ProfileLite,
+} from '@/components/you/profile-actions';
+import { useToastRelayHost } from '@/components/you/toast-relay';
 
-const getLanguageOptions = () => [
-  { label: i18n.t('settings.languages.en'), value: 'en' },
-  { label: i18n.t('settings.languages.tr'), value: 'tr' },
-  { label: i18n.t('settings.languages.nl'), value: 'nl' },
-];
+const EXAMPLE_TIME = new Date(2000, 0, 1, 20, 0);
 
-export default function SettingsScreen() {
-  const insets = useSafeAreaInsets();
-  const { activeProfile, profiles, setActiveProfile, loadProfiles } = useStore();
-  const [authMethod, setAuthMethodState] = useState<string>('none');
-  const [language, setLanguage] = useState('en');
-  const [, forceUpdate] = useState({});
-  const [showExportDialog, setShowExportDialog] = useState(false);
-  const [showDestinationDialog, setShowDestinationDialog] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [generatedPdfUri, setGeneratedPdfUri] = useState<string | null>(null);
+export default function YouRoute() {
+  return (
+    <ModalScope>
+      <YouScreen />
+    </ModalScope>
+  );
+}
 
-  useEffect(() => {
-    loadAuthMethod();
-    loadAllProfiles();
+function YouScreen() {
+  const toast = useToast();
+  useToastRelayHost(toast);
+  const showActionSheet = useActionSheet();
+  const confirmDelete = useConfirmDeleteProfile();
 
-    if (activeProfile) {
-      setLanguage(activeProfile.settings.language);
+  const activeProfile = useStore((s) => s.activeProfile);
+  const profiles = useStore((s) => s.profiles);
+  const loadProfiles = useStore((s) => s.loadProfiles);
+
+  const [languageOpen, setLanguageOpen] = React.useState(false);
+  const pendingLanguage = React.useRef<AppLanguage | null>(null);
+  const [pending24h, setPending24h] = React.useState<boolean | null>(null);
+  const [lock, setLock] = React.useState<AppLockKind | null>(null);
+  const switching = React.useRef(false);
+
+  // App lock can change on the auth-setup screen; refresh whenever we come back.
+  useFocusEffect(
+    React.useCallback(() => {
+      let alive = true;
+      getAppLockKind()
+        .then((kind) => alive && setLock(kind))
+        .catch(() => alive && setLock('off'));
+      return () => {
+        alive = false;
+      };
+    }, [])
+  );
+
+  if (!activeProfile) {
+    return (
+      <Screen header={<NavHeader />}>
+        <EmptyState icon={UserRound} title={i18n.t('ui.you.export.noProfile')} />
+      </Screen>
+    );
+  }
+
+  const is24h = pending24h ?? activeProfile.settings?.use24HourTime ?? true;
+  const locale = getCurrentLocale();
+
+  const openProfile = (id: string) => router.push({ pathname: '/profile/[id]', params: { id } });
+
+  const switchTo = async (lite: ProfileLite) => {
+    const profile = profiles.find((p) => p.id === lite.id);
+    if (!profile || profile.id === activeProfile.id || switching.current) return;
+    switching.current = true;
+    try {
+      await switchToProfile(profile);
+      haptics.success();
+      toast.show({
+        title: i18n.t('ui.you.profiles.switched', { name: firstName(profile.name) }),
+        message: i18n.t('ui.you.profiles.switchedMessage', { name: firstName(profile.name) }),
+        tone: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to switch profile:', error);
+      haptics.error();
+      toast.show({ title: i18n.t('ui.you.profiles.switchFailed'), tone: 'danger' });
+    } finally {
+      switching.current = false;
     }
-  }, [activeProfile]);
-
-  const loadAuthMethod = async () => {
-    const method = await getAuthMethod();
-    setAuthMethodState(method);
   };
 
-  const loadAllProfiles = async () => {
-    const allProfiles = await getAllProfiles();
-    // Update store if needed
+  const handleSelect = (lite: ProfileLite) => {
+    if (lite.id === activeProfile.id) openProfile(lite.id);
+    else switchTo(lite);
   };
 
-  const handleLanguageChange = async (newLanguage: string) => {
-    if (!activeProfile) return;
+  const handleOptions = async (lite: ProfileLite) => {
+    const isActive = lite.id === activeProfile.id;
+    const choice = await showActionSheet({
+      title: lite.name,
+      message: isActive ? i18n.t('ui.you.profiles.activeSheetMessage') : undefined,
+      options: [
+        ...(isActive
+          ? []
+          : [{ key: 'switch', label: i18n.t('ui.you.profiles.switch'), icon: Repeat }]),
+        { key: 'edit', label: i18n.t('ui.you.profiles.edit'), icon: Pencil },
+        ...(isActive
+          ? []
+          : [
+              {
+                key: 'delete',
+                label: i18n.t('ui.you.profiles.delete'),
+                icon: Trash2,
+                destructive: true,
+              },
+            ]),
+      ],
+    });
+    if (choice === 'switch') await switchTo(lite);
+    else if (choice === 'edit') openProfile(lite.id);
+    else if (choice === 'delete') {
+      // The active profile can't be deleted (the option isn't offered for it).
+      if (!(await confirmDelete(lite))) return;
+      try {
+        await removeProfile(lite.id);
+        haptics.success();
+        toast.show({
+          title: i18n.t('ui.you.form.deleted', { name: firstName(lite.name) }),
+          tone: 'success',
+        });
+      } catch (error) {
+        console.error('Failed to delete profile:', error);
+        toast.show({
+          title: i18n.t('ui.you.form.deleteFailed'),
+          message: i18n.t('ui.you.form.tryAgain'),
+          tone: 'danger',
+        });
+      }
+    }
+  };
 
+  const applyLanguage = async (language: AppLanguage) => {
     try {
       await updateProfile(activeProfile.id, {
-        settings: {
-          ...activeProfile.settings,
-          language: newLanguage as 'en' | 'tr' | 'nl',
-        },
+        settings: { ...activeProfile.settings, language },
       });
-
-      setLanguage(newLanguage);
-      // setLocale is now async and saves to storage
-      await setLocale(newLanguage as 'en' | 'tr' | 'nl');
-
-      // Force re-render of this component
-      forceUpdate({});
-
-      // Reload profile
+      // Remounts the screens so every string re-renders in the new language.
+      await setLocale(language);
       await loadProfiles();
     } catch (error) {
       console.error('Failed to update language:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('errors.failedToSave'));
+      toast.show({ title: i18n.t('ui.you.preferences.saveFailed'), tone: 'danger' });
     }
   };
 
-  const handleManageProfiles = () => {
-    router.push('/profile/create');
-  };
-
-  const handleEditProfile = (profileId: string) => {
-    router.push(`/profile/${profileId}`);
-  };
-
-  const handleDeleteProfile = async (profileId: string) => {
-    if (activeProfile?.id === profileId) {
-      Alert.alert(i18n.t('common.error'), i18n.t('profile.cannotDeleteActive'));
-      return;
-    }
-
-    Alert.alert(i18n.t('profile.deleteProfile'), i18n.t('profile.deleteConfirmMessage'), [
-      { text: i18n.t('common.cancel'), style: 'cancel' },
-      {
-        text: i18n.t('common.delete'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteProfile(profileId);
-            await loadProfiles();
-          } catch (error) {
-            console.error('Failed to delete profile:', error);
-            Alert.alert(i18n.t('common.error'), i18n.t('profile.failedToDelete'));
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleSwitchProfile = async (profileId: string) => {
+  const toggle24h = async (value: boolean) => {
+    setPending24h(value);
     try {
-      await setActiveProfileDB(profileId);
+      await updateProfile(activeProfile.id, {
+        settings: { ...activeProfile.settings, use24HourTime: value },
+      });
       await loadProfiles();
     } catch (error) {
-      console.error('Failed to switch profile:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('profile.failedToUpdate'));
-    }
-  };
-
-  const handleConfigureAuth = () => {
-    router.push('/(onboarding)/auth-setup?reconfigure=true');
-  };
-
-  const handleViewDisclaimer = () => {
-    router.push('/(onboarding)/disclaimer?viewOnly=true');
-  };
-
-  const handleExportReport = () => {
-    router.push('/export/warning');
-  };
-
-  const handleConfirmExport = async () => {
-    if (!activeProfile) return;
-
-    setIsExporting(true);
-    try {
-      // Generate the PDF
-      const uri = await generatePDFReport(activeProfile.id, 60);
-      setGeneratedPdfUri(uri);
-
-      // Close warning dialog and show destination dialog
-      setShowExportDialog(false);
-      setShowDestinationDialog(true);
-    } catch (error) {
-      console.error('Failed to generate PDF:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('export.exportError'));
+      console.error('Failed to update time format:', error);
+      toast.show({ title: i18n.t('ui.you.preferences.saveFailed'), tone: 'danger' });
     } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleSaveLocally = async () => {
-    if (!generatedPdfUri || !activeProfile) return;
-
-    try {
-      const message = await savePDFReportLocally(generatedPdfUri, activeProfile.name);
-      setShowDestinationDialog(false);
-      setGeneratedPdfUri(null);
-      Alert.alert(i18n.t('export.saveLocally'), message);
-    } catch (error) {
-      console.error('Failed to save PDF locally:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('export.saveError'));
-    }
-  };
-
-  const handleShare = async () => {
-    if (!generatedPdfUri) return;
-
-    try {
-      await sharePDFReport(generatedPdfUri);
-      setShowDestinationDialog(false);
-      setGeneratedPdfUri(null);
-    } catch (error) {
-      console.error('Failed to share PDF:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('export.shareError'));
-    }
-  };
-
-  const getAuthMethodLabel = () => {
-    switch (authMethod) {
-      case 'biometric':
-        return i18n.t('settings.authMethods.biometric');
-      case 'pin':
-        return i18n.t('settings.authMethods.pin');
-      case 'none':
-        return i18n.t('settings.authMethods.none');
-      default:
-        return i18n.t('settings.authMethods.none');
+      setPending24h(null);
     }
   };
 
   return (
-    <ScrollView className="flex-1 bg-background">
-      <View className="p-4" style={{ paddingTop: insets.top + 16 }}>
-        <Text className="mb-6 text-2xl font-bold text-foreground">{i18n.t('settings.title')}</Text>
-
-        {/* Profile Management */}
-        <Card className="mb-4">
-          <CardHeader>
-            <View className="flex-row items-center gap-2">
-              <User size={20} className="text-primary" />
-              <CardTitle>{i18n.t('settings.profiles')}</CardTitle>
-            </View>
-          </CardHeader>
-          <CardContent className="gap-3">
-            {profiles.map((profile) => (
-              <ProfileCard
-                key={profile.id}
-                profile={profile}
-                isActive={profile.id === activeProfile?.id}
-                onPress={() => profile.id !== activeProfile?.id && handleSwitchProfile(profile.id)}
-                onEdit={() => handleEditProfile(profile.id)}
-                onDelete={() => handleDeleteProfile(profile.id)}
-              />
-            ))}
-
-            <Button
-              variant="outline"
-              onPress={handleManageProfiles}
-              className="mt-2 flex-row items-center justify-center gap-2">
-              <Plus size={20} className="text-foreground" />
-              <Text>{i18n.t('settings.addNewProfile')}</Text>
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Language */}
-        <Card className="mb-4">
-          <CardHeader>
-            <View className="flex-row items-center gap-2">
-              <Globe size={20} className="text-primary" />
-              <CardTitle>{i18n.t('settings.language')}</CardTitle>
-            </View>
-          </CardHeader>
-          <CardContent>
-            <Select
-              options={getLanguageOptions()}
-              value={language}
-              onValueChange={handleLanguageChange}
-              placeholder={i18n.t('settings.selectLanguage')}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Authentication */}
-        <Card className="mb-4">
-          <CardHeader>
-            <View className="flex-row items-center gap-2">
-              <Lock size={20} className="text-primary" />
-              <CardTitle>{i18n.t('settings.authentication')}</CardTitle>
-            </View>
-          </CardHeader>
-          <CardContent className="gap-4">
-            <View className="flex-row items-center justify-between">
-              <View>
-                <Text className="text-sm font-medium text-foreground">
-                  {i18n.t('settings.currentMethod')}
-                </Text>
-                <Text className="text-sm text-muted-foreground">{getAuthMethodLabel()}</Text>
-              </View>
-            </View>
-
-            <Button
-              variant="outline"
-              onPress={handleConfigureAuth}
-              className="flex-row items-center justify-center gap-2">
-              <Text>{i18n.t('settings.configureAuth')}</Text>
-              <ChevronRight size={16} className="text-foreground" />
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Export */}
-        <Card className="mb-4">
-          <CardHeader>
-            <View className="flex-row items-center gap-2">
-              <FileText size={20} className="text-primary" />
-              <CardTitle>{i18n.t('export.exportReport')}</CardTitle>
-            </View>
-          </CardHeader>
-          <CardContent className="gap-3">
-            <Text className="text-sm text-muted-foreground">
-              {i18n.t('export.warningDescription')}
-            </Text>
-            <Button
-              variant="default"
-              onPress={handleExportReport}
-              className="flex-row items-center justify-center gap-2"
-              disabled={!activeProfile}>
-              <FileText size={16} className="text-primary-foreground" />
-              <Text className="text-primary-foreground">{i18n.t('export.exportReport')}</Text>
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* About */}
-        <Card className="mb-4">
-          <CardHeader>
-            <View className="flex-row items-center gap-2">
-              <Info size={20} className="text-primary" />
-              <CardTitle>{i18n.t('settings.about')}</CardTitle>
-            </View>
-          </CardHeader>
-          <CardContent className="gap-3">
-            <Pressable
-              onPress={handleViewDisclaimer}
-              className="flex-row items-center justify-between py-2">
-              <Text className="text-base text-foreground">{i18n.t('settings.viewDisclaimer')}</Text>
-              <ChevronRight size={16} className="text-muted-foreground" />
-            </Pressable>
-
-            <View className="border-t border-border pt-2">
-              <Text className="text-sm text-muted-foreground">
-                {i18n.t('settings.version', { version: Constants.expoConfig?.version || '1.0.0' })}
-              </Text>
-              <Text className="mt-1 text-xs text-muted-foreground">
-                {i18n.t('settings.appDescription')}
-              </Text>
-            </View>
-          </CardContent>
-        </Card>
-      </View>
-
-      <ExportWarningDialog
-        open={showExportDialog}
-        onOpenChange={setShowExportDialog}
-        onConfirm={handleConfirmExport}
-        isExporting={isExporting}
+    <Screen header={<NavHeader />}>
+      <YouView
+        profile={activeProfile}
+        profiles={profiles}
+        languageLabel={languageName(locale)}
+        is24h={is24h}
+        timeExample={formatTime(EXAMPLE_TIME, is24h)}
+        lock={lock}
+        version={Constants.expoConfig?.version ?? '1.0.0'}
+        onEditProfile={() => openProfile(activeProfile.id)}
+        onSelectProfile={handleSelect}
+        onProfileOptions={handleOptions}
+        onAddProfile={() => router.push('/profile/create')}
+        onLanguage={() => setLanguageOpen(true)}
+        onToggle24h={toggle24h}
+        onAppLock={() => router.push('/(onboarding)/auth-setup?reconfigure=true')}
+        // Cast: the generated typed routes (.expo/types) predate app/export/index.tsx.
+        onExport={() => router.push('/export' as Href)}
+        onDisclaimer={() => router.push('/(onboarding)/disclaimer?viewOnly=true')}
       />
-
-      <ExportDestinationDialog
-        open={showDestinationDialog}
-        onOpenChange={setShowDestinationDialog}
-        onSaveLocally={handleSaveLocally}
-        onShare={handleShare}
+      <LanguageSheet
+        visible={languageOpen}
+        value={locale}
+        onSelect={(lang) => {
+          pendingLanguage.current = lang === locale ? null : lang;
+          setLanguageOpen(false);
+        }}
+        onClose={() => {
+          pendingLanguage.current = null;
+          setLanguageOpen(false);
+        }}
+        onDismissed={() => {
+          const lang = pendingLanguage.current;
+          pendingLanguage.current = null;
+          if (lang && isAppLanguage(lang)) applyLanguage(lang);
+        }}
       />
-    </ScrollView>
+    </Screen>
   );
 }

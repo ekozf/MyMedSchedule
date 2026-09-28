@@ -120,9 +120,10 @@ function RootStack() {
         contentStyle: { backgroundColor: 'transparent' },
       }}>
       <Stack.Screen name="medication" />
-      <Stack.Screen name="profile/create" />
-      <Stack.Screen name="profile/[id]" />
-      <Stack.Screen name="you" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="profile/create" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="profile/[id]" options={{ presentation: 'modal' }} />
+      {/* A pushed page (not a modal) so routes it opens, like app lock and the disclaimer, stack on top. */}
+      <Stack.Screen name="you" />
       <Stack.Screen name="export" options={{ presentation: 'modal' }} />
       <Stack.Screen
         name="log"
