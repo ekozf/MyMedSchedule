@@ -85,7 +85,14 @@ function CardImpl({
     );
   }
   return (
-    <View style={[surfaceStyle, style]} accessibilityRole={pressableProps.accessibilityRole}>
+    <View
+      style={[surfaceStyle, style]}
+      accessible={pressableProps.accessible}
+      accessibilityRole={pressableProps.accessibilityRole}
+      accessibilityLabel={pressableProps.accessibilityLabel}
+      accessibilityHint={pressableProps.accessibilityHint}
+      accessibilityState={pressableProps.accessibilityState ?? undefined}
+      testID={pressableProps.testID}>
       {content}
     </View>
   );

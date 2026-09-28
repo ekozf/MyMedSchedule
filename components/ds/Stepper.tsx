@@ -102,7 +102,10 @@ export function Stepper({
     const parsed = parseFloat(draft.replace(',', '.'));
     if (Number.isFinite(parsed)) {
       const next = clamp(decimals ? parsed : Math.round(parsed));
-      if (next !== value) onChange(next);
+      if (next !== valueRef.current) {
+        valueRef.current = next;
+        onChange(next);
+      }
     }
   };
 
@@ -137,7 +140,19 @@ export function Stepper({
           <TextInput
             autoFocus
             value={draft}
-            onChangeText={(t) => setDraft(t.replace(decimals ? /[^0-9.,]/g : /[^0-9]/g, ''))}
+            onChangeText={(t) => {
+              const cleaned = t.replace(decimals ? /[^0-9.,]/g : /[^0-9]/g, '');
+              setDraft(cleaned);
+              // Commit valid values live so a Save/Log tap right after typing never misses them.
+              const parsed = parseFloat(cleaned.replace(',', '.'));
+              if (Number.isFinite(parsed)) {
+                const next = clamp(decimals ? parsed : Math.round(parsed));
+                if (next !== valueRef.current) {
+                  valueRef.current = next;
+                  onChange(next);
+                }
+              }
+            }}
             onBlur={commitDraft}
             onSubmitEditing={commitDraft}
             keyboardType={decimals ? 'decimal-pad' : 'number-pad'}
