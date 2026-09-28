@@ -6,8 +6,8 @@ export default function MedicationLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-      }}
-    >
+        contentStyle: { backgroundColor: 'transparent' },
+      }}>
       <Stack.Screen
         name="add"
         options={{
