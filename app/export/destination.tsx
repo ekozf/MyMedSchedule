@@ -32,7 +32,7 @@ export default function ExportDestinationPage() {
       Alert.alert(i18n.t('common.success'), message, [
         {
           text: i18n.t('common.ok'),
-          onPress: () => router.replace('/(tabs)/settings'),
+          onPress: () => router.replace('/you'),
         },
       ]);
     } catch (error) {
@@ -58,7 +58,7 @@ export default function ExportDestinationPage() {
       await sharePDFReport(pdfUri);
 
       // Navigate back after sharing dialog closes
-      router.replace('/(tabs)/settings');
+      router.replace('/you');
     } catch (error) {
       console.error('Failed to share PDF:', error);
       Alert.alert(i18n.t('common.error'), i18n.t('export.shareError'));
@@ -68,7 +68,7 @@ export default function ExportDestinationPage() {
   };
 
   const handleCancel = () => {
-    router.replace('/(tabs)/settings');
+    router.replace('/you');
   };
 
   return (

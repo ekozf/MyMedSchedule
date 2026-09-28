@@ -1,46 +1,18 @@
 import { Tabs } from 'expo-router';
-import { HomeIcon, PillIcon, ClockIcon, SettingsIcon } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 import i18n from '@/lib/i18n';
+import { FloatingTabBar } from '@/components/shell/FloatingTabBar';
 
 export default function TabLayout() {
-  const { colorScheme } = useColorScheme();
-  const iconColor = colorScheme === 'dark' ? '#fff' : '#000';
-
   return (
     <Tabs
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: '#3b82f6',
         headerShown: false,
+        sceneStyle: { backgroundColor: 'transparent' },
       }}>
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: i18n.t('tabs.dashboard'),
-          tabBarIcon: ({ color }) => <HomeIcon size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="medications"
-        options={{
-          title: i18n.t('tabs.medications'),
-          tabBarIcon: ({ color }) => <PillIcon size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: i18n.t('tabs.history'),
-          tabBarIcon: ({ color }) => <ClockIcon size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: i18n.t('tabs.settings'),
-          tabBarIcon: ({ color }) => <SettingsIcon size={24} color={color} />,
-        }}
-      />
+      <Tabs.Screen name="dashboard" options={{ title: i18n.t('ui.shell.tabs.today') }} />
+      <Tabs.Screen name="medications" options={{ title: i18n.t('ui.shell.tabs.medicines') }} />
+      <Tabs.Screen name="history" options={{ title: i18n.t('ui.shell.tabs.journal') }} />
     </Tabs>
   );
 }

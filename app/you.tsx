@@ -19,8 +19,8 @@ import {
 } from '@/lib/db/operations';
 import { generatePDFReport, sharePDFReport, savePDFReportLocally } from '@/lib/export/pdf';
 import Constants from 'expo-constants';
-import { ExportDestinationDialog } from '../export/ExportDestinationDialog';
-import { ExportWarningDialog } from '../export/ExportWarningDialog';
+import { ExportDestinationDialog } from './export/ExportDestinationDialog';
+import { ExportWarningDialog } from './export/ExportWarningDialog';
 
 const getLanguageOptions = () => [
   { label: i18n.t('settings.languages.en'), value: 'en' },
