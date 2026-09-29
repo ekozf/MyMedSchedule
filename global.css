@@ -2,57 +2,97 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * "Calm" design tokens — keep in sync with lib/theme.ts (docs/DESIGN.md §2.1).
+ * Opaque tokens are RGB channels (used as `rgb(var(--x) / <alpha-value>)`, so opacity
+ * modifiers like `bg-accent/20` work). Translucent tokens hold full colour values.
+ * The legacy shadcn names at the bottom of each block keep not-yet-rewritten screens working.
+ */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 63%;
+    --bg-top: 217 233 251;
+    --bg-mid: 234 243 251;
+    --bg-bottom: 225 243 234;
+    --surface: rgba(255, 255, 255, 0.78);
+    --surface-solid: 255 255 255;
+    --surface-sunken: rgba(15, 27, 45, 0.05);
+    --stroke: rgba(255, 255, 255, 0.9);
+    --separator: rgba(15, 27, 45, 0.08);
+    --ink: 15 27 45;
+    --ink-secondary: 91 107 127;
+    --ink-tertiary: 148 163 181;
+    --accent: 47 127 234;
+    --accent-soft: #e2edfd;
+    --success: 18 165 148;
+    --success-soft: #daf3ef;
+    --warning: 224 138 0;
+    --warning-soft: #fdf0d9;
+    --danger: 229 72 77;
+    --danger-soft: #fde6e6;
+    --on-accent: 255 255 255;
+
+    /* legacy */
+    --background: 234 243 251;
+    --foreground: 15 27 45;
+    --card: 255 255 255;
+    --card-foreground: 15 27 45;
+    --popover: 255 255 255;
+    --popover-foreground: 15 27 45;
+    --primary: 47 127 234;
+    --primary-foreground: 255 255 255;
+    --secondary: 226 237 253;
+    --secondary-foreground: 15 27 45;
+    --muted: 236 241 247;
+    --muted-foreground: 91 107 127;
+    --accent-foreground: 255 255 255;
+    --destructive: 229 72 77;
+    --destructive-foreground: 255 255 255;
+    --border: 220 228 238;
+    --input: 220 228 238;
+    --ring: 47 127 234;
     --radius: 0.625rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
   }
 
   .dark:root {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 70.9% 59.4%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 300 0% 45%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    --bg-top: 10 19 34;
+    --bg-mid: 13 26 44;
+    --bg-bottom: 11 32 35;
+    --surface: rgba(255, 255, 255, 0.07);
+    --surface-solid: 21 34 53;
+    --surface-sunken: rgba(255, 255, 255, 0.05);
+    --stroke: rgba(255, 255, 255, 0.08);
+    --separator: rgba(255, 255, 255, 0.08);
+    --ink: 242 246 251;
+    --ink-secondary: 165 179 197;
+    --ink-tertiary: 107 122 143;
+    --accent: 90 162 255;
+    --accent-soft: rgba(90, 162, 255, 0.16);
+    --success: 45 212 191;
+    --success-soft: rgba(45, 212, 191, 0.16);
+    --warning: 251 191 36;
+    --warning-soft: rgba(251, 191, 36, 0.16);
+    --danger: 255 122 115;
+    --danger-soft: rgba(255, 122, 115, 0.16);
+    --on-accent: 6 18 31;
+
+    /* legacy */
+    --background: 13 26 44;
+    --foreground: 242 246 251;
+    --card: 21 34 53;
+    --card-foreground: 242 246 251;
+    --popover: 21 34 53;
+    --popover-foreground: 242 246 251;
+    --primary: 90 162 255;
+    --primary-foreground: 6 18 31;
+    --secondary: 30 44 66;
+    --secondary-foreground: 242 246 251;
+    --muted: 27 40 58;
+    --muted-foreground: 165 179 197;
+    --accent-foreground: 6 18 31;
+    --destructive: 255 122 115;
+    --destructive-foreground: 6 18 31;
+    --border: 34 50 74;
+    --input: 34 50 74;
+    --ring: 90 162 255;
   }
 }

@@ -2,12 +2,12 @@ import '@/global.css';
 
 import { NAV_THEME } from '@/lib/theme';
 import { ThemeProvider } from '@react-navigation/native';
-import { PortalHost } from '@rn-primitives/portal';
-import { Slot } from 'expo-router';
+import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { AppState, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initDatabase } from '@/lib/db';
 import { useStore } from '@/store';
@@ -20,6 +20,14 @@ import {
 import { ensureNext3DoseNotificationsForAllActiveMedications } from '@/lib/notifications/scheduler';
 import { registerNext3UpkeepTask } from '@/lib/notifications/upkeep';
 import { initializeLocale } from '@/lib/i18n';
+import { useLocaleVersion } from '@/lib/ui/use-locale';
+import {
+  ActionSheetProvider,
+  ConfirmProvider,
+  GradientBackground,
+  OverlayHost,
+  ToastProvider,
+} from '@/components/ds';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -29,6 +37,8 @@ export {
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
   const { loadAppState } = useStore();
+  // Bumps on setLocale(); used as a key below so every screen re-renders its i18n strings.
+  const localeVersion = useLocaleVersion();
 
   useEffect(() => {
     // Initialize database and load app state
@@ -72,13 +82,61 @@ export default function RootLayout() {
     };
   }, []);
 
+  const scheme = colorScheme === 'dark' ? 'dark' : 'light';
+
   return (
-    <SafeAreaProvider>
-      <ThemeProvider value={NAV_THEME[colorScheme ?? 'light']}>
-        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        <Slot />
-        <PortalHost />
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider value={NAV_THEME[scheme]}>
+          <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+          <ToastProvider>
+            <ConfirmProvider>
+              <ActionSheetProvider>
+                <View style={{ flex: 1 }}>
+                  <GradientBackground />
+                  {/*
+                   * Remounted on locale change so all i18n.t() calls re-run. The init effect above
+                   * lives outside this subtree and does not re-run. React Navigation keeps the
+                   * navigation state in the container, so a remounted navigator rehydrates the
+                   * current route stack instead of resetting it.
+                   */}
+                  <RootStack key={`locale-${localeVersion}`} />
+                  {/*
+                   * Base overlay host: confirm / action sheet / toast render here unless a sheet or
+                   * modal screen with its own host is on top (see components/ds/OverlayHost.tsx).
+                   */}
+                  <OverlayHost />
+                </View>
+              </ActionSheetProvider>
+            </ConfirmProvider>
+          </ToastProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}
+
+function RootStack() {
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: 'transparent' },
+      }}>
+      <Stack.Screen name="medication" />
+      <Stack.Screen name="profile/create" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="profile/[id]" options={{ presentation: 'modal' }} />
+      {/* A pushed page (not a modal) so routes it opens, like app lock and the disclaimer, stack on top. */}
+      <Stack.Screen name="you" />
+      <Stack.Screen name="export" options={{ presentation: 'modal' }} />
+      <Stack.Screen
+        name="log"
+        options={{
+          presentation: 'transparentModal',
+          animation: 'fade',
+          contentStyle: { backgroundColor: 'transparent' },
+        }}
+      />
+    </Stack>
   );
 }

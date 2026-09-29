@@ -1,227 +1,221 @@
-import { View, ScrollView, Alert } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Avatar } from '@/components/ui/avatar';
-import { useState, useEffect } from 'react';
+/**
+ * Edit profile (modal): photo + name, and "Delete profile" for profiles that aren't in use.
+ */
+import * as React from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useStore } from '@/store';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getProfileById, updateProfile, deleteProfile } from '@/lib/db/operations';
-import * as ImagePicker from 'expo-image-picker';
-import { Camera, Image as ImageIcon, X, Trash2 } from 'lucide-react-native';
-import type { Profile } from '@/types';
+import { Trash2, UserRoundX } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
+import { useStore } from '@/store';
+import { getProfileById, updateProfile } from '@/lib/db/operations';
+import {
+  Button,
+  EmptyState,
+  ListGroup,
+  ListRow,
+  NavHeader,
+  Screen,
+  Text,
+  haptics,
+  useTheme,
+  useToast,
+} from '@/components/ds';
+import type { Profile } from '@/types';
+import { ModalScope, MODAL_SAFE_TOP } from '@/components/you/ModalScope';
+import { ProfileForm } from '@/components/you/ProfileForm';
+import {
+  firstName,
+  removeProfile,
+  useConfirmDeleteProfile,
+} from '@/components/you/profile-actions';
+import { useDiscardGuard } from '@/components/you/use-discard-guard';
 
-export default function EditProfileScreen() {
-  const insets = useSafeAreaInsets();
+export default function EditProfileRoute() {
+  return (
+    <ModalScope>
+      <EditProfileScreen />
+    </ModalScope>
+  );
+}
+
+function EditProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [name, setName] = useState('');
-  const [avatarUri, setAvatarUri] = useState<string | undefined>();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const { loadProfiles, activeProfile } = useStore();
+  const { colors } = useTheme();
+  const toast = useToast();
+  const confirmDelete = useConfirmDeleteProfile();
+  const activeProfileId = useStore((s) => s.activeProfile?.id);
+  const loadProfiles = useStore((s) => s.loadProfiles);
 
-  useEffect(() => {
-    loadProfile();
+  const [profile, setProfile] = React.useState<Profile | null>(null);
+  const [status, setStatus] = React.useState<'loading' | 'ready' | 'missing'>('loading');
+  const [name, setName] = React.useState('');
+  const [avatarUri, setAvatarUri] = React.useState<string | undefined>();
+  const [error, setError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    let alive = true;
+    if (!id) {
+      setStatus('missing');
+      return;
+    }
+    getProfileById(id)
+      .then((loaded) => {
+        if (!alive) return;
+        if (!loaded) {
+          setStatus('missing');
+          return;
+        }
+        setProfile(loaded);
+        setName(loaded.name);
+        setAvatarUri(loaded.avatarUri);
+        setStatus('ready');
+      })
+      .catch((e) => {
+        console.error('Failed to load profile:', e);
+        if (alive) setStatus('missing');
+      });
+    return () => {
+      alive = false;
+    };
   }, [id]);
 
-  const loadProfile = async () => {
-    if (!id) return;
-
-    try {
-      const loadedProfile = await getProfileById(id);
-      if (loadedProfile) {
-        setProfile(loadedProfile);
-        setName(loadedProfile.name);
-        setAvatarUri(loadedProfile.avatarUri);
-      }
-    } catch (error) {
-      console.error('Failed to load profile:', error);
-    }
-  };
-
-  const handlePickImage = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permissionResult.granted) {
-        Alert.alert(i18n.t('profile.permissionRequired'), i18n.t('profile.photoLibraryPermission'));
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setAvatarUri(result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-    }
-  };
-
-  const handleTakePhoto = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (!permissionResult.granted) {
-        Alert.alert(i18n.t('profile.permissionRequired'), i18n.t('profile.cameraPermission'));
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setAvatarUri(result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error('Error taking photo:', error);
-    }
-  };
+  const dirty =
+    !!profile && (name.trim() !== profile.name || (avatarUri ?? '') !== (profile.avatarUri ?? ''));
+  const { allowLeave } = useDiscardGuard(dirty && !busy);
+  const isActive = !!profile && profile.id === activeProfileId;
 
   const handleSave = async () => {
-    if (!id) return;
-
-    setError('');
-
-    if (!name.trim()) {
-      setError(i18n.t('profile.pleaseEnterName'));
+    if (!id || !profile) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      haptics.warning();
+      setError(i18n.t('ui.you.form.nameRequired'));
       return;
     }
-
-    setIsLoading(true);
-
+    if (!dirty) {
+      router.back();
+      return;
+    }
+    setError(null);
+    setBusy(true);
     try {
       await updateProfile(id, {
-        name: name.trim(),
-        avatarUri,
+        name: trimmed,
+        // '' clears a removed photo (undefined would leave the stored one untouched).
+        avatarUri: avatarUri ?? '',
       });
-
       await loadProfiles();
+      haptics.success();
+      allowLeave();
+      // Moves to the screen underneath once this modal closes.
+      toast.show({ title: i18n.t('ui.you.form.saved'), tone: 'success' });
       router.back();
-    } catch (error) {
-      console.error('Failed to update profile:', error);
-      setError(i18n.t('profile.failedToUpdate'));
-    } finally {
-      setIsLoading(false);
+    } catch (e) {
+      console.error('Failed to update profile:', e);
+      setBusy(false);
+      toast.show({
+        title: i18n.t('ui.you.form.saveFailed'),
+        message: i18n.t('ui.you.form.tryAgain'),
+        tone: 'danger',
+      });
     }
   };
 
-  const handleDelete = () => {
-    if (!id) return;
-
-    // Prevent deleting active profile
-    if (activeProfile?.id === id) {
-      Alert.alert(i18n.t('profile.cannotDelete'), i18n.t('profile.cannotDeleteActiveMessage'));
-      return;
+  const handleDelete = async () => {
+    if (!profile || isActive) return;
+    if (!(await confirmDelete(profile))) return;
+    setBusy(true);
+    try {
+      await removeProfile(profile.id);
+      haptics.success();
+      allowLeave();
+      toast.show({
+        title: i18n.t('ui.you.form.deleted', { name: firstName(profile.name) }),
+        tone: 'success',
+      });
+      router.back();
+    } catch (e) {
+      console.error('Failed to delete profile:', e);
+      setBusy(false);
+      toast.show({
+        title: i18n.t('ui.you.form.deleteFailed'),
+        message: i18n.t('ui.you.form.tryAgain'),
+        tone: 'danger',
+      });
     }
-
-    Alert.alert(i18n.t('profile.deleteProfile'), i18n.t('profile.deleteConfirmMessageFull'), [
-      { text: i18n.t('common.cancel'), style: 'cancel' },
-      {
-        text: i18n.t('common.delete'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            setIsLoading(true);
-            await deleteProfile(id);
-            await loadProfiles();
-            router.back();
-          } catch (error) {
-            console.error('Failed to delete profile:', error);
-            Alert.alert(i18n.t('common.error'), i18n.t('profile.failedToDelete'));
-          } finally {
-            setIsLoading(false);
-          }
-        },
-      },
-    ]);
   };
 
-  if (!profile) {
+  const header = <NavHeader backIcon="close" title={i18n.t('ui.you.form.editTitle')} />;
+
+  if (status === 'loading') {
     return (
-      <View
-        className="flex-1 items-center justify-center bg-background"
-        style={{ paddingTop: insets.top + 16 }}>
-        <Text className="text-muted-foreground">{i18n.t('profile.loading')}</Text>
-      </View>
+      <Screen safeTop={MODAL_SAFE_TOP} scroll={false} header={header}>
+        <View
+          style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}
+          accessible
+          accessibilityLabel={i18n.t('ui.common.loading')}>
+          <ActivityIndicator color={colors.accent} />
+          <Text tone="secondary">{i18n.t('ui.common.loading')}</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  if (status === 'missing' || !profile) {
+    return (
+      <Screen safeTop={MODAL_SAFE_TOP} header={header}>
+        <EmptyState
+          icon={UserRoundX}
+          title={i18n.t('ui.you.form.notFound')}
+          action={{ label: i18n.t('ui.common.close'), onPress: () => router.back() }}
+        />
+      </Screen>
     );
   }
 
   return (
-    <View className="flex-1 bg-background">
-      <ScrollView className="flex-1 px-6" style={{ paddingTop: insets.top + 24 }}>
-        <View className="mb-8 items-center">
-          <Avatar uri={avatarUri} fallback={name} size="xl" className="mb-4" />
-          <View className="flex-row gap-2">
-            <Button
-              variant="outline"
-              onPress={handleTakePhoto}
-              className="flex-row items-center gap-2">
-              <Camera size={18} className="text-foreground" />
-              <Text>{i18n.t('profile.camera')}</Text>
-            </Button>
-            <Button
-              variant="outline"
-              onPress={handlePickImage}
-              className="flex-row items-center gap-2">
-              <ImageIcon size={18} className="text-foreground" />
-              <Text>{i18n.t('profile.gallery')}</Text>
-            </Button>
-            {avatarUri && (
-              <Button variant="ghost" onPress={() => setAvatarUri(undefined)}>
-                <X size={18} className="text-muted-foreground" />
-              </Button>
-            )}
-          </View>
-        </View>
-
-        <Input
-          label={i18n.t('profile.name')}
-          value={name}
-          onChangeText={setName}
-          placeholder={i18n.t('profile.enterName')}
-          error={error}
+    <Screen
+      safeTop={MODAL_SAFE_TOP}
+      keyboardAware
+      header={header}
+      footer={
+        <Button
+          label={i18n.t('ui.you.form.save')}
+          size="lg"
+          fullWidth
+          loading={busy}
+          onPress={handleSave}
         />
-
-        {activeProfile?.id !== id && (
-          <Button
-            variant="ghost"
-            onPress={handleDelete}
-            disabled={isLoading}
-            className="mt-8 flex-row items-center justify-center gap-2">
-            <Trash2 size={18} className="text-destructive" />
-            <Text className="font-medium text-destructive">{i18n.t('profile.deleteProfile')}</Text>
-          </Button>
+      }>
+      <ProfileForm
+        name={name}
+        onChangeName={(v) => {
+          setName(v);
+          if (error) setError(null);
+        }}
+        nameError={error}
+        avatarUri={avatarUri}
+        onChangeAvatar={setAvatarUri}
+        onSubmit={handleSave}
+        disabled={busy}>
+        {isActive ? (
+          <Text variant="footnote" tone="secondary" style={{ paddingHorizontal: 16 }}>
+            {i18n.t('ui.you.form.activeCaption')}
+          </Text>
+        ) : (
+          <ListGroup>
+            <ListRow
+              icon={Trash2}
+              title={i18n.t('ui.you.profiles.delete')}
+              destructive
+              accessory="none"
+              disabled={busy}
+              onPress={handleDelete}
+            />
+          </ListGroup>
         )}
-      </ScrollView>
-
-      <View className="border-t border-border bg-background px-6 pb-6 pt-4">
-        <View className="flex-row gap-2">
-          <Button
-            variant="outline"
-            onPress={() => router.back()}
-            disabled={isLoading}
-            className="flex-1">
-            <Text>{i18n.t('common.cancel')}</Text>
-          </Button>
-          <Button onPress={handleSave} disabled={isLoading || !name.trim()} className="flex-1">
-            <Text className="font-semibold text-primary-foreground">
-              {isLoading ? i18n.t('profile.saving') : i18n.t('profile.saveChanges')}
-            </Text>
-          </Button>
-        </View>
-      </View>
-    </View>
+      </ProfileForm>
+    </Screen>
   );
 }

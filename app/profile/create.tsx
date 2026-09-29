@@ -1,162 +1,131 @@
-import { View, ScrollView, Alert } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Avatar } from '@/components/ui/avatar';
-import { useState } from 'react';
+/**
+ * New profile (modal): photo + name. After creating, asks whether to switch to it now.
+ */
+import * as React from 'react';
 import { router } from 'expo-router';
+import { Repeat } from 'lucide-react-native';
+import i18n, { getCurrentLocale } from '@/lib/i18n';
 import { useStore } from '@/store';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { createProfile } from '@/lib/db/operations';
-import * as ImagePicker from 'expo-image-picker';
-import { Camera, Image as ImageIcon, X } from 'lucide-react-native';
-import i18n from '@/lib/i18n';
+import { createProfile, setActiveProfile as setActiveProfileDB } from '@/lib/db/operations';
+import { Button, NavHeader, Screen, haptics, useConfirm, useToast } from '@/components/ds';
+import { ModalScope, MODAL_SAFE_TOP } from '@/components/you/ModalScope';
+import { ProfileForm } from '@/components/you/ProfileForm';
+import { isAppLanguage } from '@/components/you/LanguageSheet';
+import { firstName, switchToProfile } from '@/components/you/profile-actions';
+import { useDiscardGuard } from '@/components/you/use-discard-guard';
 
-export default function CreateProfileScreen() {
-  const insets = useSafeAreaInsets();
-  const [name, setName] = useState('');
-  const [avatarUri, setAvatarUri] = useState<string | undefined>();
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const { loadProfiles } = useStore();
+export default function CreateProfileRoute() {
+  return (
+    <ModalScope>
+      <CreateProfileScreen />
+    </ModalScope>
+  );
+}
 
-  const handlePickImage = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+function CreateProfileScreen() {
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [name, setName] = React.useState('');
+  const [avatarUri, setAvatarUri] = React.useState<string | undefined>();
+  const [error, setError] = React.useState<string | null>(null);
+  const [saving, setSaving] = React.useState(false);
 
-      if (!permissionResult.granted) {
-        Alert.alert(i18n.t('profile.permissionRequired'), i18n.t('profile.photoLibraryPermission'));
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setAvatarUri(result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error('Error picking image:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('profile.failedToPickImage'));
-    }
-  };
-
-  const handleTakePhoto = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (!permissionResult.granted) {
-        Alert.alert(i18n.t('profile.permissionRequired'), i18n.t('profile.cameraPermission'));
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setAvatarUri(result.assets[0].uri);
-      }
-    } catch (error) {
-      console.error('Error taking photo:', error);
-      Alert.alert(i18n.t('common.error'), i18n.t('profile.failedToTakePhoto'));
-    }
-  };
+  const dirty = name.trim().length > 0 || !!avatarUri;
+  const { allowLeave } = useDiscardGuard(dirty && !saving);
 
   const handleCreate = async () => {
-    setError('');
-
-    if (!name.trim()) {
-      setError(i18n.t('profile.pleaseEnterName'));
+    const trimmed = name.trim();
+    if (!trimmed) {
+      haptics.warning();
+      setError(i18n.t('ui.you.form.nameRequired'));
       return;
     }
+    setError(null);
+    setSaving(true);
+    const previous = useStore.getState().activeProfile;
+    const locale = getCurrentLocale();
 
-    setIsLoading(true);
-
+    let created;
     try {
-      await createProfile({
-        name: name.trim(),
+      created = await createProfile({
+        name: trimmed,
         avatarUri,
         settings: {
-          language: 'en',
+          language: isAppLanguage(locale) ? locale : 'en',
           use24HourTime: true,
           authRequired: false,
         },
       });
-
-      // Reload profiles
-      await loadProfiles();
-
-      // Navigate back
-      router.back();
-    } catch (error) {
-      console.error('Failed to create profile:', error);
-      setError(i18n.t('profile.failedToCreate'));
-    } finally {
-      setIsLoading(false);
+      // createProfile stores the new row as active; keep the current profile active until the
+      // person chooses to switch, so exactly one profile is active.
+      if (previous) await setActiveProfileDB(previous.id);
+      await useStore.getState().loadProfiles();
+    } catch (e) {
+      console.error('Failed to create profile:', e);
+      setSaving(false);
+      toast.show({
+        title: i18n.t('ui.you.form.createFailed'),
+        message: i18n.t('ui.you.form.tryAgain'),
+        tone: 'danger',
+      });
+      return;
     }
+
+    haptics.success();
+    const short = firstName(created.name);
+    const switchNow =
+      !previous ||
+      (await confirm({
+        title: i18n.t('ui.you.form.switchTitle', { name: short }),
+        message: i18n.t('ui.you.form.switchMessage', { name: short }),
+        confirmLabel: i18n.t('ui.you.form.switchConfirm'),
+        cancelLabel: i18n.t('ui.common.notNow'),
+        icon: Repeat,
+      }));
+
+    let toastTitle = i18n.t('ui.you.form.created', { name: short });
+    if (switchNow) {
+      try {
+        await switchToProfile(created);
+        toastTitle = i18n.t('ui.you.profiles.switched', { name: short });
+      } catch (e) {
+        console.error('Failed to switch to new profile:', e);
+      }
+    }
+
+    allowLeave();
+    // Moves to the screen underneath once this modal closes.
+    toast.show({ title: toastTitle, tone: 'success' });
+    router.back();
   };
 
   return (
-    <View className="flex-1 bg-background">
-      <ScrollView className="flex-1 px-6" style={{ paddingTop: insets.top + 24 }}>
-        <View className="mb-8 items-center">
-          <Avatar uri={avatarUri} fallback={name} size="xl" className="mb-4" />
-          <View className="flex-row gap-2">
-            <Button
-              variant="outline"
-              onPress={handleTakePhoto}
-              className="flex-row items-center gap-2">
-              <Camera size={18} className="text-foreground" />
-              <Text>{i18n.t('profile.camera')}</Text>
-            </Button>
-            <Button
-              variant="outline"
-              onPress={handlePickImage}
-              className="flex-row items-center gap-2">
-              <ImageIcon size={18} className="text-foreground" />
-              <Text>{i18n.t('profile.gallery')}</Text>
-            </Button>
-            {avatarUri && (
-              <Button variant="ghost" onPress={() => setAvatarUri(undefined)}>
-                <X size={18} className="text-muted-foreground" />
-              </Button>
-            )}
-          </View>
-        </View>
-
-        <Input
-          label={i18n.t('profile.name')}
-          value={name}
-          onChangeText={setName}
-          placeholder={i18n.t('profile.enterName')}
-          error={error}
-          autoFocus
+    <Screen
+      safeTop={MODAL_SAFE_TOP}
+      keyboardAware
+      header={<NavHeader backIcon="close" title={i18n.t('ui.you.form.createTitle')} />}
+      footer={
+        <Button
+          label={i18n.t('ui.you.form.create')}
+          size="lg"
+          fullWidth
+          loading={saving}
+          onPress={handleCreate}
         />
-      </ScrollView>
-
-      <View className="border-t border-border bg-background px-6 pb-6 pt-4">
-        <View className="flex-row gap-2">
-          <Button
-            variant="outline"
-            onPress={() => router.back()}
-            disabled={isLoading}
-            className="flex-1">
-            <Text>{i18n.t('common.cancel')}</Text>
-          </Button>
-          <Button onPress={handleCreate} disabled={isLoading || !name.trim()} className="flex-1">
-            <Text className="font-semibold text-primary-foreground">
-              {isLoading ? i18n.t('profile.creating') : i18n.t('profile.createProfile')}
-            </Text>
-          </Button>
-        </View>
-      </View>
-    </View>
+      }>
+      <ProfileForm
+        name={name}
+        onChangeName={(v) => {
+          setName(v);
+          if (error) setError(null);
+        }}
+        nameError={error}
+        avatarUri={avatarUri}
+        onChangeAvatar={setAvatarUri}
+        onSubmit={handleCreate}
+        disabled={saving}
+        autoFocus
+      />
+    </Screen>
   );
 }

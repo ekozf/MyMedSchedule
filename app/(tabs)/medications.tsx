@@ -1,107 +1,132 @@
-import { View, ScrollView, RefreshControl } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
-import { MedicationCard } from '@/components/medication/MedicationCard';
-import { ProfileSwitcher } from '@/components/profile/ProfileSwitcher';
-import { Link, router } from 'expo-router';
-import { PlusIcon, Pill } from 'lucide-react-native';
-import { Icon } from '@/components/ui/icon';
-import { useStore } from '@/store';
-import { useState, useEffect } from 'react';
+/**
+ * Medicines tab (docs/DESIGN.md §4.3): every medicine as a glass card with its schedule, next dose
+ * and supply; stopped medicines tucked into a collapsible section at the bottom.
+ */
+import * as React from 'react';
+import { RefreshControl, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { Pill, Plus, Search, X } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useStore } from '@/store';
+import {
+  Card,
+  EmptyState,
+  Icon,
+  IconButton,
+  Screen,
+  TabHeader,
+  TextField,
+  useTheme,
+} from '@/components/ds';
+import { MedicineList } from '@/components/medicines/MedicineList';
 
-export default function MedicationsScreen() {
-  const insets = useSafeAreaInsets();
-  const { medications, activeProfile, loadMedications } = useStore();
-  const [refreshing, setRefreshing] = useState(false);
+/** Show the search field once the list gets long. */
+const SEARCH_THRESHOLD = 6;
 
-  const sortedMedications = [...medications].sort((a, b) => {
-    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
+export default function MedicinesScreen() {
+  const { colors } = useTheme();
+  const medications = useStore((s) => s.medications);
+  const profileId = useStore((s) => s.activeProfile?.id);
+  const loadMedications = useStore((s) => s.loadMedications);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [query, setQuery] = React.useState('');
 
-  useEffect(() => {
-    if (activeProfile) {
-      loadMedications(activeProfile.id);
-    }
-  }, [activeProfile]);
+  // Reload on focus (e.g. back from add/edit) and whenever the active profile changes.
+  useFocusEffect(
+    React.useCallback(() => {
+      if (profileId) loadMedications(profileId);
+    }, [profileId, loadMedications])
+  );
 
-  const onRefresh = async () => {
-    if (!activeProfile) return;
-
+  const onRefresh = React.useCallback(async () => {
+    if (!profileId) return;
     setRefreshing(true);
     try {
-      await loadMedications(activeProfile.id);
+      await loadMedications(profileId);
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [profileId, loadMedications]);
 
-  const handleMedicationPress = (medicationId: string) => {
-    router.push(`/medication/${medicationId}`);
-  };
+  const activeCount = medications.filter((m) => m.isActive).length;
+  const showSearch = medications.length > SEARCH_THRESHOLD;
+  const addMedicine = () => router.push('/medication/add');
 
   return (
-    <View className="flex-1 bg-background">
-      {/* Header with Profile Switcher */}
-      <View className="border-b border-border px-4 pb-2" style={{ paddingTop: insets.top + 16 }}>
-        <ProfileSwitcher />
-      </View>
+    <Screen
+      bottomInset="tabBar"
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.accent}
+          colors={[colors.accent]}
+        />
+      }>
+      <TabHeader
+        title={i18n.t('ui.medicines.title')}
+        overline={
+          medications.length > 0
+            ? i18n.t('ui.medicines.activeCount', { count: activeCount })
+            : undefined
+        }
+        right={
+          medications.length > 0 ? (
+            <IconButton
+              icon={Plus}
+              variant="tinted"
+              accessibilityLabel={i18n.t('ui.medicines.a11y.addMedicine')}
+              onPress={addMedicine}
+            />
+          ) : null
+        }
+      />
 
-      <ScrollView
-        className="flex-1 p-4"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        {medications.length === 0 ? (
-          <View className="mt-20 items-center justify-center">
-            <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-muted">
-              <Pill size={40} className="text-muted-foreground" />
-            </View>
-            <Text className="mb-2 text-lg font-semibold text-foreground">
-              {i18n.t('medications.noMedications')}
-            </Text>
-            <Text className="mb-6 text-center text-sm text-muted-foreground">
-              {i18n.t('medications.startAddingPrompt')}
-            </Text>
-            <Link href="/medication/add" asChild>
-              <Button>
-                <PlusIcon size={20} className="mr-2 text-primary-foreground" />
-                <Text className="font-semibold text-primary-foreground">
-                  {i18n.t('medications.addNew')}
-                </Text>
-              </Button>
-            </Link>
-          </View>
-        ) : (
-          <>
-            <Text className="mb-4 text-sm text-muted-foreground">
-              {medications.length}{' '}
-              {medications.length === 1
-                ? i18n.t('medications.medicationSingular')
-                : i18n.t('medications.medicationPlural')}
-            </Text>
-            {sortedMedications.map((medication) => (
-              <MedicationCard
-                key={medication.id}
-                medication={medication}
-                onPress={() => handleMedicationPress(medication.id)}
-              />
-            ))}
-          </>
-        )}
-      </ScrollView>
-
-      {/* Floating action button */}
-      {medications.length > 0 && (
-        <View className="absolute bottom-6 right-6">
-          <Link href="/medication/add" asChild>
-            <Button size="lg" className="h-14 w-14 rounded-full shadow-lg">
-              <Icon as={PlusIcon} className="text-primary-foreground" size={24} />
-            </Button>
-          </Link>
+      {medications.length === 0 ? (
+        <Card style={{ marginTop: 8 }}>
+          <EmptyState
+            icon={Pill}
+            title={i18n.t('ui.medicines.empty.title')}
+            message={i18n.t('ui.medicines.empty.message')}
+            action={{
+              label: i18n.t('ui.medicines.empty.action'),
+              icon: Plus,
+              onPress: addMedicine,
+            }}
+          />
+        </Card>
+      ) : (
+        <View style={{ gap: 12 }}>
+          {showSearch ? (
+            <TextField
+              value={query}
+              onChangeText={setQuery}
+              placeholder={i18n.t('ui.medicines.search.placeholder')}
+              accessibilityLabel={i18n.t('ui.medicines.search.placeholder')}
+              returnKeyType="search"
+              autoCorrect={false}
+              leading={<Icon as={Search} size={20} tone="tertiary" />}
+              trailing={
+                query ? (
+                  <IconButton
+                    icon={X}
+                    size="sm"
+                    variant="plain"
+                    tone="default"
+                    accessibilityLabel={i18n.t('ui.medicines.search.clear')}
+                    onPress={() => setQuery('')}
+                  />
+                ) : null
+              }
+            />
+          ) : null}
+          <MedicineList
+            medications={medications}
+            query={showSearch ? query : ''}
+            onOpen={(m) => router.push(`/medication/${m.id}`)}
+          />
         </View>
       )}
-    </View>
+    </Screen>
   );
 }

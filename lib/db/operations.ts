@@ -237,7 +237,8 @@ export interface UpdateMedicationInput {
   packageSize?: number;
   maxDailyDose?: number;
   minHoursBetweenDoses?: number;
-  expirationDate?: Date;
+  /** `null` removes a stored expiration date. */
+  expirationDate?: Date | null;
   refillReminderType?: 'days' | 'doses' | null;
   refillReminderValue?: number | null;
   bypassDnd?: boolean;
@@ -445,7 +446,7 @@ export async function updateMedication(
   if (input.minHoursBetweenDoses !== undefined)
     updateData.minHoursBetweenDoses = input.minHoursBetweenDoses;
   if (input.expirationDate !== undefined)
-    updateData.expirationDate = input.expirationDate?.toISOString();
+    updateData.expirationDate = input.expirationDate ? input.expirationDate.toISOString() : null;
   if (input.refillReminderType !== undefined)
     updateData.refillReminderType = input.refillReminderType;
   if (input.refillReminderValue !== undefined)
