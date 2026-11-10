@@ -1,176 +1,137 @@
 /**
- * One journal entry on the timeline: time column · status node on a vertical rail · glass card
- * with the medicine name, "Taken · 1 pill · scheduled 08:00" and the note.
- * Tap opens the entry sheet; swipe left reveals Delete (also in the sheet).
+ * One Journal entry on the timeline: a 3 px rail with a 22 px status dot on the left, then the
+ * time (18/700, with a small "early" / "late" tag when a scheduled dose was taken more than 2
+ * hours off its planned time) with the status pill on the right, the medicine name (19/700, wraps, never cut)
+ * and a detail line (15): amount, "planned 20:00" or "when needed", and the note in quotes.
+ * A chevron on the right says the row opens; tapping it opens the entry sheet.
  *
  * @example
- * <JournalEntryRow item={item} medication={med} onPress={open} onDelete={remove} />
+ * <JournalEntryRow item={item} medication={med} onPress={open} />
  */
 import * as React from 'react';
-import { View, useWindowDimensions } from 'react-native';
-import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
-import { Trash2 } from 'lucide-react-native';
+import { View } from 'react-native';
 import i18n from '@/lib/i18n';
-import { Card, SwipeableRow, Text, radii, useTheme } from '@/components/ds';
-import { formatDose, useTimeFormat } from '@/lib/ui/format';
+import { medicineDisplayName } from '@/components/medicines/medicine-info';
+import { ChevronRight } from 'lucide-react-native';
+import { Icon, PressableScale, StatusPill, Text, radii, useTheme } from '@/components/ds';
+import { useTimeFormat } from '@/lib/ui/format';
 import type { Medication } from '@/types';
-import { StatusDot, statusMeta } from './StatusDot';
-import { unscheduledLabel, type JournalItem } from './utils';
+import { DOT_SIZE, StatusDot, statusPillTone } from './StatusDot';
+import { doseTiming, type JournalItem } from './filtering';
+import { entryDetail, quoted, skipReason, statusLabel } from './utils';
 
 export interface JournalEntryRowProps {
   item: JournalItem;
   /** Undefined when the medicine was deleted. */
   medication?: Medication;
   onPress: () => void;
-  onDelete: () => void;
-  /** Stagger the entering animation (first few rows only). */
-  animate?: boolean;
 }
 
-const DOT = 24;
-const DOT_TOP = 16;
-const MAX_STAGGERED = 8;
+const RAIL_W = 28;
+const RAIL_LINE = 3;
+const PAD_V = 12;
+/** Centres the dot on the first line (time + 28 tall pill). */
+const DOT_TOP = PAD_V + 14 - DOT_SIZE / 2;
 
-/** "1 pill · scheduled 08:00" (amount only for taken / partial). */
-export function entryDetail(
-  item: Pick<JournalItem, 'log'>,
-  medication: Medication | undefined,
-  formatTime: (d: Date) => string
-): string {
-  const { log } = item;
-  const parts: string[] = [];
-  if (log.action !== 'skipped' && log.dosageAmount > 0) {
-    parts.push(formatDose(log.dosageAmount, medication?.dosageUnit ?? 'units'));
-  }
-  parts.push(
-    log.scheduledTime
-      ? i18n.t('ui.journal.row.scheduled', { time: formatTime(new Date(log.scheduledTime)) })
-      : unscheduledLabel(medication)
-  );
-  return parts.join(' · ');
-}
-
-export function JournalEntryRow({
-  item,
-  medication,
-  onPress,
-  onDelete,
-  animate = true,
-}: JournalEntryRowProps) {
+export function JournalEntryRow({ item, medication, onPress }: JournalEntryRowProps) {
   const { colors } = useTheme();
-  const { formatTime, is24h } = useTimeFormat();
-  const { fontScale } = useWindowDimensions();
-  const reduceMotion = useReducedMotion();
+  const { formatTime } = useTimeFormat();
   const { log } = item;
-  const status = statusMeta(log.action);
-  const name = medication?.name ?? i18n.t('ui.journal.row.deletedMedicine');
+  const name = medication
+    ? medicineDisplayName(medication)
+    : i18n.t('ui.journal.row.deletedMedicine');
   const time = formatTime(new Date(log.actualTime));
-  const detail = entryDetail(item, medication, formatTime);
-  // Time column grows with the system font size so the rail stays aligned without clipping.
-  const timeWidth = Math.round((is24h ? 48 : 70) * Math.min(Math.max(fontScale, 1), 1.8));
+  const status = statusLabel(log.action);
+  const timing = doseTiming(log);
+  const timingLabel = timing ? i18n.t(`ui.journal.row.${timing}`) : null;
+  const detail = entryDetail(log, medication, formatTime);
+  // Skipped: the note is the reason and already sits in the detail line.
+  const note = log.notes?.trim() && !skipReason(log) ? quoted(log.notes.trim()) : null;
 
-  const entering =
-    !animate || item.index >= MAX_STAGGERED
-      ? undefined
-      : reduceMotion
-        ? FadeIn.duration(200)
-        : FadeInDown.delay(item.index * 20)
-            .springify()
-            .damping(18)
-            .stiffness(180);
+  const line = (style: object) => (
+    <View
+      style={[
+        {
+          position: 'absolute',
+          left: (RAIL_W - RAIL_LINE) / 2,
+          width: RAIL_LINE,
+          backgroundColor: colors.line2,
+        },
+        style,
+      ]}
+    />
+  );
 
   return (
-    <Animated.View entering={entering} style={{ flexDirection: 'row' }}>
-      <View style={{ width: timeWidth, paddingTop: DOT_TOP }}>
-        <Text
-          variant="subhead"
-          weight="600"
-          tabular
-          align="right"
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          importantForAccessibility="no"
-          accessibilityElementsHidden>
-          {time}
-        </Text>
-      </View>
-
-      {/* Rail + status node */}
-      <View style={{ width: DOT + 16, alignItems: 'center' }}>
-        {!item.first ? (
-          <View
-            style={{
-              position: 'absolute',
-              top: 0,
-              height: DOT_TOP,
-              width: 2,
-              backgroundColor: colors.separator,
-            }}
-          />
-        ) : null}
-        {!item.last ? (
-          <View
-            style={{
-              position: 'absolute',
-              top: DOT_TOP + DOT,
-              bottom: 0,
-              width: 2,
-              backgroundColor: colors.separator,
-            }}
-          />
-        ) : null}
-        <View style={{ marginTop: DOT_TOP }}>
-          <StatusDot action={log.action} size={DOT} />
+    <View style={{ flexDirection: 'row' }}>
+      <View style={{ width: RAIL_W }}>
+        {!item.first ? line({ top: 0, height: DOT_TOP }) : null}
+        {!item.last ? line({ top: DOT_TOP + DOT_SIZE, bottom: 0 }) : null}
+        <View style={{ marginTop: DOT_TOP, alignItems: 'center' }}>
+          <StatusDot action={log.action} />
         </View>
       </View>
 
-      <View style={{ flex: 1, paddingBottom: 10 }}>
-        <SwipeableRow
-          radius={radii.row}
-          rightActions={[
-            {
-              label: i18n.t('ui.common.delete'),
-              icon: Trash2,
-              tone: 'danger',
-              onPress: onDelete,
-            },
-          ]}>
-          <Card
-            blur={false}
-            radius={radii.row}
-            onPress={onPress}
-            accessibilityRole="button"
-            accessibilityLabel={[time, name, status.label, detail, log.notes]
-              .filter(Boolean)
-              .join(', ')}
-            accessibilityHint={i18n.t('ui.journal.row.hint')}
-            accessibilityActions={[{ name: 'delete', label: i18n.t('ui.common.delete') }]}
-            onAccessibilityAction={(e) => {
-              if (e.nativeEvent.actionName === 'delete') onDelete();
-            }}
-            style={{ paddingVertical: 12, paddingHorizontal: 14, minHeight: 56 }}
-            padded={false}>
-            <Text variant="headline" numberOfLines={2} tone={medication ? 'primary' : 'secondary'}>
-              {name}
-            </Text>
-            <Text variant="subhead" tone="secondary" style={{ marginTop: 2 }}>
-              <Text variant="subhead" weight="600" tone={status.tone}>
-                {status.label}
+      <PressableScale
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={[time, timingLabel, name, status, detail, note]
+          .filter(Boolean)
+          .join(', ')}
+        accessibilityHint={i18n.t('ui.journal.row.hint')}
+        style={{
+          flex: 1,
+          minHeight: 48,
+          paddingVertical: PAD_V,
+          paddingLeft: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+        }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              minHeight: 28,
+            }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
+              <Text variant="body" weight="700" tabular>
+                {time}
               </Text>
-              {` · ${detail}`}
+              {timingLabel ? (
+                <View
+                  style={{
+                    paddingHorizontal: 8,
+                    paddingVertical: 1,
+                    borderRadius: radii.pill,
+                    borderWidth: 1,
+                    borderColor: colors.line2,
+                  }}>
+                  <Text variant="caption" weight="600" tone="secondary">
+                    {timingLabel}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+            <StatusPill label={status} tone={statusPillTone(log.action)} />
+          </View>
+          <Text variant="headline" tone={medication ? 'primary' : 'secondary'}>
+            {name}
+          </Text>
+          <Text variant="footnote" tone="secondary">
+            {detail}
+          </Text>
+          {note ? (
+            <Text variant="footnote" tone="secondary" numberOfLines={3}>
+              {note}
             </Text>
-            {log.notes ? (
-              <Text
-                variant="subhead"
-                tone="secondary"
-                numberOfLines={3}
-                style={{ marginTop: 4, fontStyle: 'italic' }}>
-                {log.notes}
-              </Text>
-            ) : null}
-          </Card>
-        </SwipeableRow>
-      </View>
-    </Animated.View>
+          ) : null}
+        </View>
+        <Icon as={ChevronRight} size={22} tone="secondary" />
+      </PressableScale>
+    </View>
   );
 }

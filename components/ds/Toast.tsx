@@ -1,25 +1,23 @@
 /**
- * Glass toast that slides in from the top (below the safe area), auto-hides (4s, 6s with an
- * action), swipe up to dismiss. One at a time: a new toast replaces the current one.
+ * Toast (docs/DESIGN.md §4): `inverse` fill, `onInverse` text, radius 18, 2 px `bg` border, 16 from
+ * the sides and 32 above the tab bar (or 24 above the bottom safe area). Title and message share
+ * one line when they fit (two lines at most). Optional action such as Undo (underlined, 700).
+ * Slides up 20 px and fades in (260 ms). Hides after 3.2 s, or 8 s when it has an action so there
+ * is time to undo. Swipe down to dismiss. One at a time: a new toast replaces the current one.
  * Mount `<ToastProvider>` once (root layout does this).
  *
  * The toast renders in the topmost `OverlayHost`: inside an open Sheet or modal screen, else on the
- * current screen. When that sheet/modal closes, the toast moves to the host underneath, so a toast
- * shown right before `router.back()` / closing a sheet stays visible on the screen below.
+ * current screen. When that sheet/modal closes, the toast moves to the host underneath.
  *
  * @example
  * const toast = useToast();
- * toast.show({
- *   title: 'Metformin taken',
- *   tone: 'success',
- *   action: { label: 'Undo', onPress: undo },
- * });
+ * toast.show({ title: 'Metformin taken', action: { label: 'Undo', onPress: undo } });
  */
 import * as React from 'react';
-import { AccessibilityInfo, Platform, StyleSheet, View } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { AccessibilityInfo, StyleSheet, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -28,29 +26,21 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  CircleAlert,
-  CircleCheck,
-  Info,
-  TriangleAlert,
-  type LucideIcon,
-} from 'lucide-react-native';
-import { SPRING, statusColors, useTheme, withAlpha } from '@/lib/theme';
+import { DURATION, SPRING, TOAST_SHADOW, radii, useTheme } from '@/lib/theme';
+import { useTabBarHeight } from '@/lib/ui/layout';
 import { Text } from './Text';
-import { Icon } from './Icon';
 import { PressableScale } from './PressableScale';
-import { useOverlayLayer } from './OverlayHost';
+import { useOverlayDepth, useOverlayLayer } from './OverlayHost';
 
 export type ToastTone = 'default' | 'success' | 'warning' | 'danger';
 
 export interface ToastOptions {
   title: string;
   message?: string;
+  /** @deprecated remove after screen rewrite — toasts look the same for every tone (still passed by components/today/useDoseActions.ts) */
   tone?: ToastTone;
-  /** Default icon per tone; pass `null` for none. */
-  icon?: LucideIcon | null;
   action?: { label: string; onPress: () => void };
-  /** ms. Default 4000, or 6000 when there is an action. */
+  /** ms. Default 3200, or 8000 when there is an action. */
   duration?: number;
 }
 
@@ -67,21 +57,16 @@ export function useToast(): ToastApi {
   return ctx;
 }
 
-const DEFAULT_ICON: Record<ToastTone, LucideIcon> = {
-  default: Info,
-  success: CircleCheck,
-  warning: TriangleAlert,
-  danger: CircleAlert,
-};
+const RISE = 20;
+const EASE = Easing.out(Easing.cubic);
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
   const [toast, setToast] = React.useState<(ToastOptions & { id: number }) | null>(null);
   const idRef = React.useRef(0);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const translateY = useSharedValue(-160);
+  const translateY = useSharedValue(RISE);
   const opacity = useSharedValue(0);
   const drag = useSharedValue(0);
 
@@ -101,12 +86,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       'worklet';
       if (finished) scheduleOnRN(unmount, id);
     };
-    if (reduceMotion) {
-      opacity.value = withTiming(0, { duration: 180 }, done);
-    } else {
-      opacity.value = withTiming(0, { duration: 220 });
-      translateY.value = withTiming(-160, { duration: 220 }, done);
-    }
+    const duration = reduceMotion ? 1 : 200;
+    translateY.value = withTiming(reduceMotion ? 0 : RISE, { duration });
+    opacity.value = withTiming(0, { duration }, done);
   }, [opacity, reduceMotion, translateY, unmount]);
 
   const show = React.useCallback(
@@ -116,18 +98,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       const id = idRef.current;
       setToast({ ...options, id });
       drag.value = 0;
-      if (reduceMotion) {
-        translateY.value = 0;
-        opacity.value = withTiming(1, { duration: 200 });
-      } else {
-        translateY.value = -160;
-        opacity.value = withTiming(1, { duration: 150 });
-        translateY.value = withSpring(0, SPRING);
-      }
+      const duration = reduceMotion ? 1 : DURATION.toast;
+      translateY.value = reduceMotion ? 0 : RISE;
+      opacity.value = 0;
+      translateY.value = withTiming(0, { duration, easing: EASE });
+      opacity.value = withTiming(1, { duration, easing: EASE });
       const a11y = [options.title, options.message].filter(Boolean).join('. ');
       AccessibilityInfo.announceForAccessibility?.(a11y);
-      const duration = options.duration ?? (options.action ? 6000 : 4000);
-      timer.current = setTimeout(hide, duration);
+      const hold = options.duration ?? (options.action ? 8000 : DURATION.toastHold);
+      timer.current = setTimeout(hide, hold);
     },
     [drag, hide, opacity, reduceMotion, translateY]
   );
@@ -139,10 +118,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const pan = Gesture.Pan()
     .activeOffsetY([-6, 6])
     .onUpdate((e) => {
-      drag.value = e.translationY < 0 ? e.translationY : e.translationY / 8;
+      drag.value = e.translationY > 0 ? e.translationY : e.translationY / 8;
     })
     .onEnd((e) => {
-      if (e.translationY < -24 || e.velocityY < -500) {
+      if (e.translationY > 24 || e.velocityY > 500) {
         scheduleOnRN(hide);
       } else {
         drag.value = withSpring(0, SPRING);
@@ -156,9 +135,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   useOverlayLayer(
     toast ? (
-      <View
-        pointerEvents="box-none"
-        style={[StyleSheet.absoluteFill, { paddingTop: insets.top + 8, paddingHorizontal: 16 }]}>
+      <ToastFrame>
         <GestureDetector gesture={pan}>
           <Animated.View style={animatedStyle}>
             <ToastView
@@ -170,20 +147,35 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             />
           </Animated.View>
         </GestureDetector>
-      </View>
+      </ToastFrame>
     ) : null
   );
 
   return <ToastContext.Provider value={api}>{children}</ToastContext.Provider>;
 }
 
-function ToastView({ toast, onAction }: { toast: ToastOptions; onAction: () => void }) {
-  const { colors, isDark } = useTheme();
-  const tone = toast.tone ?? 'default';
-  const sc = statusColors(colors, tone === 'default' ? 'accent' : tone);
-  const icon = toast.icon === null ? null : (toast.icon ?? DEFAULT_ICON[tone]);
-  const ios = Platform.OS === 'ios';
+/** Positions the toast above the tab bar (root host) or the bottom safe area (sheets, modals). */
+function ToastFrame({ children }: { children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  const depth = useOverlayDepth();
+  const tabBar = useTabBarHeight((s) => s.height);
+  // 32 above the tab bar (24 above the safe area in sheets/modals) so it never sits on content
+  // that ends right above the bar.
+  const bottom = depth === 0 && tabBar > 0 ? tabBar + 32 : insets.bottom + 24;
+  return (
+    <View
+      pointerEvents="box-none"
+      style={[
+        StyleSheet.absoluteFill,
+        { justifyContent: 'flex-end', paddingHorizontal: 16, paddingBottom: bottom },
+      ]}>
+      {children}
+    </View>
+  );
+}
 
+function ToastView({ toast, onAction }: { toast: ToastOptions; onAction: () => void }) {
+  const { colors } = useTheme();
   return (
     <View
       accessibilityRole="alert"
@@ -192,85 +184,52 @@ function ToastView({ toast, onAction }: { toast: ToastOptions; onAction: () => v
         alignSelf: 'center',
         width: '100%',
         maxWidth: 520,
-        minHeight: 56,
-        borderRadius: 28,
-        overflow: 'hidden',
-        borderWidth: StyleSheet.hairlineWidth * 2,
-        borderColor: colors.stroke,
-        backgroundColor: ios ? 'transparent' : colors.surfaceSolid,
-        shadowColor: colors.shadow,
-        shadowOpacity: isDark ? 0.4 : 0.12,
-        shadowRadius: 20,
-        shadowOffset: { width: 0, height: 8 },
-        elevation: 6,
+        minHeight: 60,
+        borderRadius: radii.field,
+        backgroundColor: colors.inverse,
+        borderWidth: 2,
+        borderColor: colors.bg,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingLeft: 20,
+        paddingRight: toast.action ? 8 : 20,
+        paddingVertical: 10,
+        gap: 12,
+        ...TOAST_SHADOW,
       }}>
-      {ios ? (
-        <>
-          <BlurView
-            intensity={40}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-          <View
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: withAlpha(colors.surfaceSolid, isDark ? 0.7 : 0.8) },
-            ]}
-          />
-        </>
-      ) : null}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingLeft: icon ? 12 : 20,
-          paddingRight: toast.action ? 6 : 20,
-          paddingVertical: 8,
-          gap: 12,
-          minHeight: 56,
-        }}>
-        {icon ? (
-          <View
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: sc.bg,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-            <Icon as={icon} size={20} color={sc.fg} />
-          </View>
-        ) : null}
-        <View style={{ flex: 1 }}>
-          <Text variant="headline" numberOfLines={2}>
-            {toast.title}
-          </Text>
+      <View style={{ flex: 1 }}>
+        {/* One line when it fits ("Ibuprofen logged · 1 pill at 13:05"), at most two. */}
+        <Text variant="subhead" color={colors.onInverse} numberOfLines={2}>
+          {toast.title}
           {toast.message ? (
-            <Text variant="footnote" tone="secondary" numberOfLines={2}>
-              {toast.message}
+            <Text variant="footnote" color={colors.onInverse}>
+              {` · ${toast.message}`}
             </Text>
           ) : null}
-        </View>
-        {toast.action ? (
-          <PressableScale
-            onPress={onAction}
-            accessibilityLabel={toast.action.label}
-            style={{
-              minHeight: 44,
-              minWidth: 64,
-              paddingHorizontal: 16,
-              borderRadius: 22,
-              backgroundColor: colors.accentSoft,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-            <Text variant="subhead" weight="600" tone="accent">
-              {toast.action.label}
-            </Text>
-          </PressableScale>
-        ) : null}
+        </Text>
       </View>
+      {toast.action ? (
+        <PressableScale
+          onPress={onAction}
+          haptic="light"
+          accessibilityRole="button"
+          accessibilityLabel={toast.action.label}
+          style={{
+            minHeight: 48,
+            minWidth: 48,
+            paddingHorizontal: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <Text
+            variant="subhead"
+            weight="700"
+            color={colors.onInverse}
+            style={{ textDecorationLine: 'underline' }}>
+            {toast.action.label}
+          </Text>
+        </PressableScale>
+      ) : null}
     </View>
   );
 }

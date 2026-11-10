@@ -1,5 +1,5 @@
 /**
- * Journal business logic (kept out of the presentational components so they can be previewed):
+ * Journal business logic (kept out of the presentational components):
  * change an entry, delete an entry, log a past dose. Same backend calls and order as the old
  * History screen / EditLogDialog / RetroactiveLogDialog; dialogs go through the shared
  * `lib/ui/dose-actions` helpers.
@@ -9,7 +9,7 @@
  * const ok = await saveChange(log, draft);
  */
 import { useCallback } from 'react';
-import { Trash2 } from 'lucide-react-native';
+import { router } from 'expo-router';
 import i18n from '@/lib/i18n';
 import { useConfirm, useToast, haptics } from '@/components/ds';
 import {
@@ -18,13 +18,21 @@ import {
   updateIntakeLog,
   updateIntakeLogAndReconcileInventory,
 } from '@/lib/db/operations';
-import { undoIntakeLog, useDoseSafetyCheck, useLogErrorHandler } from '@/lib/ui/dose-actions';
+import {
+  undoIntakeLog,
+  useDoseSafetyCheck,
+  useLogErrorHandler,
+  useSupplyCheck,
+  type SupplyCheckResult,
+} from '@/lib/ui/dose-actions';
 import { useStore } from '@/store';
 import type { DosageUnit, IntakeLog } from '@/types';
-import type { EntryDraft } from './EntrySheet';
-import type { PastDoseDraft } from './PastDoseSheet';
+import type { PastDoseDraft } from './PastDoseForm';
 import { bumpJournal } from './journal-refresh';
-import { isInFuture } from './utils';
+import { isInFuture } from './filtering';
+
+/** What can change on an existing entry (the medicine can't). */
+export type EntryChange = Pick<PastDoseDraft, 'action' | 'dosageAmount' | 'notes' | 'actualTime'>;
 
 async function reloadMedications() {
   const { activeProfile, loadMedications } = useStore.getState();
@@ -36,13 +44,29 @@ export function useJournalActions() {
   const toast = useToast();
   const checkSafety = useDoseSafetyCheck();
   const showLogError = useLogErrorHandler();
+  const checkSupply = useSupplyCheck();
+
+  /** Supply count too low: "Log anyway" / "Update supply first" (opens the medicine). */
+  const askSupply = useCallback(
+    async (
+      medication: Parameters<typeof checkSupply>[0] & { id: string },
+      amount: number
+    ): Promise<SupplyCheckResult> => {
+      const result = await checkSupply(medication, amount);
+      if (result === 'update') {
+        router.push({ pathname: '/medication/[id]', params: { id: medication.id } });
+      }
+      return result;
+    },
+    [checkSupply]
+  );
 
   /**
    * Reconciles status / amount / note (supply delta applied by the backend), then moves the time
    * when it changed (no supply effect). Resolves true when saved.
    */
   const saveChange = useCallback(
-    async (log: IntakeLog, draft: EntryDraft): Promise<boolean> => {
+    async (log: IntakeLog, draft: EntryChange): Promise<boolean> => {
       if (draft.action !== 'skipped' && !(draft.dosageAmount > 0)) return false;
       if (isInFuture(draft.actualTime)) return false;
       let unit: DosageUnit | undefined;
@@ -51,6 +75,15 @@ export function useJournalActions() {
         if (!medication) throw new Error('Medication not found');
         unit = medication.dosageUnit;
 
+        const consumed = (a: IntakeLog['action'], n: number) => (a === 'skipped' ? 0 : n);
+        const nextAmount = draft.dosageAmount > 0 ? draft.dosageAmount : log.dosageAmount;
+        const extra = consumed(draft.action, nextAmount) - consumed(log.action, log.dosageAmount);
+        let supply: SupplyCheckResult = 'ok';
+        if (extra > 0) {
+          supply = await askSupply(medication, extra);
+          if (supply === 'update' || supply === 'cancel') return false;
+        }
+
         await updateIntakeLogAndReconcileInventory({
           existingLog: log,
           medication,
@@ -58,6 +91,7 @@ export function useJournalActions() {
           nextDosageAmount: draft.dosageAmount > 0 ? draft.dosageAmount : log.dosageAmount,
           // '' (not undefined) so clearing a note actually clears it; read back as undefined.
           nextNotes: draft.notes.trim(),
+          allowShortSupply: supply === 'anyway',
         });
 
         const nextTime = draft.actualTime;
@@ -74,7 +108,7 @@ export function useJournalActions() {
         return false;
       }
     },
-    [showLogError]
+    [showLogError, askSupply]
   );
 
   /**
@@ -91,18 +125,17 @@ export function useJournalActions() {
         ),
         confirmLabel: i18n.t('ui.journal.delete.confirm'),
         tone: 'danger',
-        icon: Trash2,
       });
       if (!ok) return false;
       try {
         await undoIntakeLog(log);
         await reloadMedications();
         bumpJournal();
-        toast.show({ title: i18n.t('ui.journal.delete.done'), icon: Trash2 });
+        toast.show({ title: i18n.t('ui.journal.delete.done') });
         return true;
       } catch (error) {
         console.error('Failed to delete log:', error);
-        toast.show({ title: i18n.t('ui.journal.delete.failed'), tone: 'danger' });
+        toast.show({ title: i18n.t('ui.journal.delete.failed') });
         return false;
       }
     },
@@ -125,21 +158,28 @@ export function useJournalActions() {
       if (isInFuture(draft.actualTime, now)) return null;
       const actualTime = draft.actualTime > now ? now : draft.actualTime;
 
+      let supply: SupplyCheckResult = 'ok';
       if (draft.action === 'taken' || draft.action === 'partial') {
         const fine = await checkSafety(draft.medication, draft.dosageAmount, actualTime);
         if (!fine) return null;
+        supply = await askSupply(draft.medication, draft.dosageAmount);
+        if (supply === 'update' || supply === 'cancel') return null;
       }
 
       try {
-        const { log } = await createIntakeLogAndUpdateInventory({
-          medicationId: draft.medication.id,
-          profileId: profile.id,
-          scheduledTime: undefined, // no scheduled time for a dose logged afterwards
-          actualTime,
-          action: draft.action,
-          dosageAmount: draft.dosageAmount,
-          notes: draft.notes,
-        });
+        const { log } = await createIntakeLogAndUpdateInventory(
+          {
+            medicationId: draft.medication.id,
+            profileId: profile.id,
+            // The planned dose it was for ("Which dose?"), so Today counts it; else none.
+            scheduledTime: draft.scheduledTime,
+            actualTime,
+            action: draft.action,
+            dosageAmount: draft.dosageAmount,
+            notes: draft.notes || undefined,
+          },
+          { allowShortSupply: supply === 'anyway' }
+        );
         await reloadMedications();
         bumpJournal();
         haptics.success();
@@ -149,7 +189,7 @@ export function useJournalActions() {
         return null;
       }
     },
-    [checkSafety, showLogError]
+    [checkSafety, showLogError, askSupply]
   );
 
   /** Undo for the "Logged" toast. */
@@ -162,7 +202,7 @@ export function useJournalActions() {
         toast.show({ title: i18n.t('ui.journal.delete.done') });
       } catch (error) {
         console.error('Failed to undo log:', error);
-        toast.show({ title: i18n.t('ui.journal.delete.failed'), tone: 'danger' });
+        toast.show({ title: i18n.t('ui.journal.delete.failed') });
       }
     },
     [toast]

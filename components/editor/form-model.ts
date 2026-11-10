@@ -46,6 +46,8 @@ export type AnyScheduleConfig = ScheduleConfigMap[ScheduleType];
 
 export interface MedicineForm {
   name: string;
+  /** As printed on the box ("500 mg"). Optional; '' when not set. */
+  strength: string;
   imageUri: string | null;
   notes: string;
   dosageAmount: number;
@@ -53,6 +55,11 @@ export interface MedicineForm {
   scheduleType: ScheduleType;
   scheduleConfig: AnyScheduleConfig;
   inventoryCount: number;
+  /**
+   * Stored "track supply" flag. The effective value is `tracksSupply(form)`: entering any count
+   * turns tracking on; a new medicine left at 0 (or skipped) is not tracked.
+   */
+  trackSupply: boolean;
   packageSize: number | null;
   refillReminderType: RefillType;
   refillReminderValue: number | null;
@@ -74,6 +81,34 @@ export const SCHEDULE_TYPES: ScheduleType[] = [
   'prn',
 ];
 
+/**
+ * What the schedule step offers. "Every day" covers both stored daily types: one time is stored
+ * as `once_daily`, two or more as `multiple_daily` (see `storedSchedule`).
+ */
+export type ScheduleChoice = 'daily' | Exclude<ScheduleType, 'once_daily' | 'multiple_daily'>;
+
+/** Step 3 shows these first ("How often?"). */
+export const COMMON_CHOICES: ScheduleChoice[] = ['daily', 'specific_weekdays', 'prn'];
+/** The rest, behind "Other schedules", in the spec's order. */
+export const OTHER_CHOICES: ScheduleChoice[] = [
+  'every_x_days',
+  'xth_weekday',
+  'cycle',
+  'every_x_hours',
+  'tapering',
+];
+
+/** The choice a stored schedule type belongs to (both daily types → "Every day"). */
+export function choiceFor(type: ScheduleType): ScheduleChoice {
+  return type === 'once_daily' || type === 'multiple_daily' ? 'daily' : type;
+}
+
+/** The schedule type to switch to for a choice (keeps the current daily type for "Every day"). */
+export function typeForChoice(choice: ScheduleChoice, current: ScheduleType): ScheduleType {
+  if (choice !== 'daily') return choice;
+  return choiceFor(current) === 'daily' ? current : 'once_daily';
+}
+
 export const DOSAGE_UNITS: DosageUnit[] = [
   'pills',
   'milligrams',
@@ -85,7 +120,12 @@ export const DOSAGE_UNITS: DosageUnit[] = [
   'units',
 ];
 
+/** "Measured in" shows these first; the rest sit behind "More…". */
+export const COMMON_UNITS: DosageUnit[] = ['pills', 'milliliters', 'puffs', 'drops'];
+export const OTHER_UNITS: DosageUnit[] = DOSAGE_UNITS.filter((u) => !COMMON_UNITS.includes(u));
+
 export const NAME_MAX = 100;
+export const STRENGTH_MAX = 40;
 export const NOTES_MAX = 500;
 export const MAX_DAILY_TIMES = 12;
 export const DEFAULT_TIME = '08:00';
@@ -346,6 +386,7 @@ export function isStartDateUnchanged(
 export function createEmptyForm(now: Date = new Date()): MedicineForm {
   return {
     name: '',
+    strength: '',
     imageUri: null,
     notes: '',
     dosageAmount: 1,
@@ -353,6 +394,7 @@ export function createEmptyForm(now: Date = new Date()): MedicineForm {
     scheduleType: 'once_daily',
     scheduleConfig: defaultConfigFor('once_daily', { now }),
     inventoryCount: 0,
+    trackSupply: false,
     packageSize: null,
     refillReminderType: 'none',
     refillReminderValue: null,
@@ -360,6 +402,30 @@ export function createEmptyForm(now: Date = new Date()): MedicineForm {
     maxDailyDose: null,
     minHoursBetweenDoses: null,
     bypassDnd: false,
+  };
+}
+
+/**
+ * The supply or extras fields back at their defaults (supply not tracked, no pack size, no refill
+ * reminder / no note, no limits, no expiry): what a new medicine has until someone sets them.
+ */
+export function skipDefaults(step: 'supply' | 'extras'): Partial<MedicineForm> {
+  const e = createEmptyForm();
+  if (step === 'supply') {
+    return {
+      inventoryCount: e.inventoryCount,
+      trackSupply: false,
+      packageSize: e.packageSize,
+      refillReminderType: e.refillReminderType,
+      refillReminderValue: e.refillReminderValue,
+    };
+  }
+  return {
+    notes: e.notes,
+    maxDailyDose: e.maxDailyDose,
+    minHoursBetweenDoses: e.minHoursBetweenDoses,
+    expirationDate: e.expirationDate,
+    bypassDnd: e.bypassDnd,
   };
 }
 
@@ -374,6 +440,7 @@ export function formFromMedication(med: Medication): MedicineForm {
   const refillType: RefillType = med.refillReminderType ?? 'none';
   return {
     name: med.name,
+    strength: med.strength ?? '',
     imageUri: med.imageUri ?? null,
     notes: med.notes ?? '',
     dosageAmount: med.dosageAmount,
@@ -381,6 +448,7 @@ export function formFromMedication(med: Medication): MedicineForm {
     scheduleType: type,
     scheduleConfig: normalizeConfig(type, raw, { dosageAmount: med.dosageAmount }),
     inventoryCount: med.inventoryCount ?? 0,
+    trackSupply: med.trackSupply !== false,
     packageSize: med.packageSize ?? null,
     refillReminderType: refillType,
     refillReminderValue: refillType === 'none' ? null : (med.refillReminderValue ?? null),
@@ -395,14 +463,30 @@ export function formFromMedication(med: Medication): MedicineForm {
 // Mappers
 // ---------------------------------------------------------------------------------------------
 
-/** The config exactly as it is stored (PRN stores `{}`; per-time amounts only when set). */
-export function cleanConfig(type: ScheduleType, config: AnyScheduleConfig): AnyScheduleConfig {
+/** A per-time amount that is set and differs from the usual amount (otherwise it means nothing). */
+export function hasAmountOverride(dosageAmount: number | undefined, usualAmount?: number): boolean {
+  return (
+    dosageAmount !== undefined &&
+    dosageAmount > 0 &&
+    (usualAmount === undefined || dosageAmount !== usualAmount)
+  );
+}
+
+/**
+ * The config exactly as it is stored (PRN stores `{}`; per-time amounts only when set). With
+ * `usualAmount`, per-time amounts equal to it are dropped too (see `hasAmountOverride`).
+ */
+export function cleanConfig(
+  type: ScheduleType,
+  config: AnyScheduleConfig,
+  usualAmount?: number
+): AnyScheduleConfig {
   if (type === 'prn') return {};
   if (type === 'multiple_daily') {
     const c = config as MultipleDailyConfig;
     return {
       times: sortTimes(c.times).map((t) =>
-        t.dosageAmount !== undefined && t.dosageAmount > 0
+        hasAmountOverride(t.dosageAmount, usualAmount)
           ? { time: t.time, dosageAmount: t.dosageAmount }
           : { time: t.time }
       ),
@@ -411,19 +495,74 @@ export function cleanConfig(type: ScheduleType, config: AnyScheduleConfig): AnyS
   return config;
 }
 
+/**
+ * The schedule exactly as it is stored: "Every day" with one time is `once_daily`, with more it is
+ * `multiple_daily` (per-time amounts mean nothing with a single time, so they are dropped).
+ */
+export function storedSchedule(
+  type: ScheduleType,
+  config: AnyScheduleConfig,
+  usualAmount?: number
+): { scheduleType: ScheduleType; scheduleConfig: AnyScheduleConfig } {
+  if (type === 'multiple_daily') {
+    const times = (config as MultipleDailyConfig).times ?? [];
+    if (times.length === 1 && isValidTime(times[0].time)) {
+      return { scheduleType: 'once_daily', scheduleConfig: { time: times[0].time } };
+    }
+  }
+  return { scheduleType: type, scheduleConfig: cleanConfig(type, config, usualAmount) };
+}
+
+/** The form with per-time amounts equal to the usual amount removed (Next from "When", save). */
+export function dropRedundantAmounts(form: MedicineForm): MedicineForm {
+  if (form.scheduleType !== 'multiple_daily') return form;
+  const c = form.scheduleConfig as MultipleDailyConfig;
+  if (
+    !c.times.some(
+      (t) => t.dosageAmount !== undefined && !hasAmountOverride(t.dosageAmount, form.dosageAmount)
+    )
+  ) {
+    return form;
+  }
+  return {
+    ...form,
+    scheduleConfig: {
+      times: c.times.map((t) =>
+        t.dosageAmount !== undefined && !hasAmountOverride(t.dosageAmount, form.dosageAmount)
+          ? { time: t.time }
+          : t
+      ),
+    },
+  };
+}
+
+/**
+ * Whether the supply is counted: any count turns it on; a medicine that was never given a count
+ * (skipped, or left at 0 when adding) is not tracked. A tracked medicine that ran out (0) stays
+ * tracked.
+ */
+export function tracksSupply(form: Pick<MedicineForm, 'trackSupply' | 'inventoryCount'>): boolean {
+  return form.trackSupply || form.inventoryCount > 0;
+}
+
 /** Input for `createMedication` — same shape and rules as the old add screen. */
 export function toCreateInput(form: MedicineForm, profileId: string): CreateMedicationInput {
-  const refill = form.refillReminderType;
+  const tracked = tracksSupply(form);
+  const stored = storedSchedule(form.scheduleType, form.scheduleConfig, form.dosageAmount);
+  // No refill reminder without a count to count down.
+  const refill = tracked ? form.refillReminderType : 'none';
   return {
     profileId,
     name: form.name.trim(),
+    strength: form.strength.trim() || undefined,
     imageUri: form.imageUri ?? undefined,
     notes: form.notes.trim() || undefined,
     dosageAmount: form.dosageAmount,
     dosageUnit: form.dosageUnit,
-    scheduleType: form.scheduleType,
-    scheduleConfig: cleanConfig(form.scheduleType, form.scheduleConfig),
+    scheduleType: stored.scheduleType,
+    scheduleConfig: stored.scheduleConfig,
     inventoryCount: form.inventoryCount || 0,
+    trackSupply: tracked,
     packageSize: form.packageSize ?? undefined,
     expirationDate: form.expirationDate ?? undefined,
     refillReminderType: refill !== 'none' ? refill : undefined,
@@ -455,24 +594,27 @@ function optional<T>(value: T | null, initial: T | null | undefined): T | undefi
  * only sent when they changed from `initial`.
  */
 export function toUpdateInput(form: MedicineForm, initial?: MedicineForm): UpdateMedicationInput {
-  const refill = form.refillReminderType;
+  const tracked = tracksSupply(form);
+  const refill = tracked ? form.refillReminderType : 'none';
+  const strength = form.strength.trim();
   const notes = form.notes.trim();
   // Any scheduleType/scheduleConfig in an update resets the schedule start and clears a moved
   // dose in the backend, so only send them when the schedule really changed.
   const scheduleChanged = !initial || !schedulesEqual(form, initial);
+  const stored = storedSchedule(form.scheduleType, form.scheduleConfig, form.dosageAmount);
   // Supply changes while the form is open (doses logged meanwhile); don't overwrite them.
   const inventoryChanged = !initial || form.inventoryCount !== initial.inventoryCount;
   return {
     name: form.name.trim(),
+    strength: strength || (initial?.strength.trim() ? null : undefined),
     imageUri: optional(form.imageUri, initial?.imageUri),
     notes: notes || (initial?.notes.trim() ? CLEARED : undefined),
     dosageAmount: form.dosageAmount,
     dosageUnit: form.dosageUnit,
-    scheduleType: scheduleChanged ? form.scheduleType : undefined,
-    scheduleConfig: scheduleChanged
-      ? cleanConfig(form.scheduleType, form.scheduleConfig)
-      : undefined,
+    scheduleType: scheduleChanged ? stored.scheduleType : undefined,
+    scheduleConfig: scheduleChanged ? stored.scheduleConfig : undefined,
     inventoryCount: inventoryChanged ? form.inventoryCount || 0 : undefined,
+    trackSupply: tracked,
     packageSize: optional(form.packageSize, initial?.packageSize),
     // null clears a previously stored expiration date.
     expirationDate: form.expirationDate ?? (initial?.expirationDate ? null : undefined),
@@ -482,23 +624,30 @@ export function toUpdateInput(form: MedicineForm, initial?: MedicineForm): Updat
     minHoursBetweenDoses: optional(form.minHoursBetweenDoses, initial?.minHoursBetweenDoses),
     bypassDnd: form.bypassDnd,
     isPrn: form.scheduleType === 'prn',
+    // Per-time amounts only: the schedule start stays. Changed times: the default (start of today)
+    // until save.ts decides with today's logs (`scheduleStartForEdit`).
+    scheduleStart:
+      initial && scheduleChanged && !scheduleTimingChanged(form, initial) ? 'keep' : undefined,
   };
 }
 
 /** A temporary Medication object (for `getScheduleDescription` and previews). */
 export function toPreviewMedication(form: MedicineForm, id = 'preview'): Medication {
   const now = new Date();
+  const stored = storedSchedule(form.scheduleType, form.scheduleConfig, form.dosageAmount);
   return {
     id,
     profileId: 'preview',
     name: form.name.trim(),
+    strength: form.strength.trim() || undefined,
     imageUri: form.imageUri ?? undefined,
     notes: form.notes.trim() || undefined,
     dosageAmount: form.dosageAmount,
     dosageUnit: form.dosageUnit,
-    scheduleType: form.scheduleType,
-    scheduleConfig: JSON.stringify(cleanConfig(form.scheduleType, form.scheduleConfig)),
+    scheduleType: stored.scheduleType,
+    scheduleConfig: JSON.stringify(stored.scheduleConfig),
     inventoryCount: form.inventoryCount,
+    trackSupply: tracksSupply(form),
     packageSize: form.packageSize ?? undefined,
     maxDailyDose: form.maxDailyDose ?? undefined,
     minHoursBetweenDoses: form.minHoursBetweenDoses ?? undefined,
@@ -517,19 +666,75 @@ export function toPreviewMedication(form: MedicineForm, id = 'preview'): Medicat
 // Validation
 // ---------------------------------------------------------------------------------------------
 
-export type StepId = 'name' | 'dose' | 'type' | 'when' | 'supply' | 'extras' | 'review';
+/**
+ * Pages of the editor. The guided add flow has four steps (`FLOW_STEPS`): name, amount, schedule
+ * (how often + when, merged) and review. `supply` and `extras` are not steps: they open as pages
+ * from the review / the edit list / the medicine page.
+ */
+export type StepId = 'name' | 'dose' | 'schedule' | 'supply' | 'extras' | 'review';
 
-export const ALL_STEPS: StepId[] = ['name', 'dose', 'type', 'when', 'supply', 'extras', 'review'];
+/** The guided add flow, always four steps (as-needed medicines just pick the type on step 3). */
+export const FLOW_STEPS: StepId[] = ['name', 'dose', 'schedule', 'review'];
 
-/** Steps of the guided add flow for the current form (as-needed medicines skip "When?"). */
-export function stepsFor(form: Pick<MedicineForm, 'scheduleType'>): StepId[] {
-  return form.scheduleType === 'prn' ? ALL_STEPS.filter((s) => s !== 'when') : ALL_STEPS;
+/** Every editable page, in the order `validateAll` checks them. */
+export const EDIT_SECTIONS: Exclude<StepId, 'review'>[] = [
+  'name',
+  'dose',
+  'schedule',
+  'supply',
+  'extras',
+];
+
+/** Steps of the guided add flow (four for every schedule type). */
+export function stepsFor(_form?: Pick<MedicineForm, 'scheduleType'>): StepId[] {
+  return FLOW_STEPS;
+}
+
+/** Pages behind the edit list (and the add flow's supply / extras pages). */
+export type SectionId =
+  | 'name'
+  | 'dose'
+  | 'schedule'
+  | 'supply'
+  | 'refill'
+  | 'extras'
+  | 'note'
+  | 'limits';
+
+export const SECTION_IDS: SectionId[] = [
+  'name',
+  'dose',
+  'schedule',
+  'supply',
+  'refill',
+  'extras',
+  'note',
+  'limits',
+];
+
+export function isSectionId(value: unknown): value is SectionId {
+  return typeof value === 'string' && (SECTION_IDS as string[]).includes(value);
+}
+
+/** The validation step behind a page (Note and Limits are parts of the extras, Refill of supply). */
+export function sectionStep(section: SectionId): Exclude<StepId, 'review'> {
+  if (section === 'note' || section === 'limits') return 'extras';
+  if (section === 'refill') return 'supply';
+  return section;
+}
+
+/** A new scheduled medicine without a counted supply gets the "Count my supply" sheet. */
+export function wantsSupplyNudge(
+  form: Pick<MedicineForm, 'scheduleType' | 'trackSupply' | 'inventoryCount'>
+): boolean {
+  return form.scheduleType !== 'prn' && !tracksSupply(form);
 }
 
 /** Why a step can't continue. Keys map to `ui.editor.issues.<key>`. */
 export type StepIssue =
   | 'nameRequired'
   | 'nameTooLong'
+  | 'strengthTooLong'
   | 'doseRequired'
   | 'pickDay'
   | 'addTime'
@@ -644,13 +849,14 @@ export function validateStep(
       const name = form.name.trim();
       if (!name) return { ok: false, issue: 'nameRequired' };
       if (name.length > NAME_MAX) return { ok: false, issue: 'nameTooLong' };
+      if (form.strength.trim().length > STRENGTH_MAX)
+        return { ok: false, issue: 'strengthTooLong' };
       return OK;
     }
     case 'dose':
       return form.dosageAmount > 0 ? OK : { ok: false, issue: 'doseRequired' };
-    case 'type':
-      return OK;
-    case 'when':
+    case 'schedule':
+      if (form.scheduleType === 'prn') return OK;
       return validateSchedule(form.scheduleType, form.scheduleConfig, opts);
     case 'supply':
       if (form.refillReminderType !== 'none' && !((form.refillReminderValue ?? 0) > 0))
@@ -675,9 +881,7 @@ export function validateAll(
   form: MedicineForm,
   opts: ValidateOptions = {}
 ): { result: StepResult; step?: StepId } {
-  for (const step of ALL_STEPS) {
-    if (step === 'review') continue;
-    if (step === 'when' && form.scheduleType === 'prn') continue;
+  for (const step of EDIT_SECTIONS) {
     const result = validateStep(step, form, opts);
     if (!result.ok) return { result, step };
   }
@@ -700,12 +904,34 @@ function stableJson(value: unknown): string {
   return JSON.stringify(sort(value));
 }
 
-/** Same schedule type and the same config as stored (`cleanConfig`, key order ignored). */
+/** Same schedule as stored (`storedSchedule`, key order ignored). */
 export function schedulesEqual(a: MedicineForm, b: MedicineForm): boolean {
+  const sa = storedSchedule(a.scheduleType, a.scheduleConfig, a.dosageAmount);
+  const sb = storedSchedule(b.scheduleType, b.scheduleConfig, b.dosageAmount);
   return (
-    a.scheduleType === b.scheduleType &&
-    stableJson(cleanConfig(a.scheduleType, a.scheduleConfig)) ===
-      stableJson(cleanConfig(b.scheduleType, b.scheduleConfig))
+    sa.scheduleType === sb.scheduleType &&
+    stableJson(sa.scheduleConfig) === stableJson(sb.scheduleConfig)
+  );
+}
+
+/** The schedule type or its times changed (per-time amount changes don't count). */
+export function scheduleTimingChanged(a: MedicineForm, b: MedicineForm): boolean {
+  const strip = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(strip);
+    if (v && typeof v === 'object' && !(v instanceof Date)) {
+      return Object.fromEntries(
+        Object.entries(v as Record<string, unknown>)
+          .filter(([k]) => k !== 'dosageAmount')
+          .map(([k, x]) => [k, strip(x)])
+      );
+    }
+    return v;
+  };
+  const sa = storedSchedule(a.scheduleType, a.scheduleConfig, a.dosageAmount);
+  const sb = storedSchedule(b.scheduleType, b.scheduleConfig, b.dosageAmount);
+  return (
+    sa.scheduleType !== sb.scheduleType ||
+    stableJson(strip(sa.scheduleConfig)) !== stableJson(strip(sb.scheduleConfig))
   );
 }
 
@@ -715,7 +941,7 @@ export function formsEqual(a: MedicineForm, b: MedicineForm): boolean {
     JSON.stringify({
       ...f,
       expirationDate: f.expirationDate ? startOfDay(f.expirationDate).getTime() : null,
-      scheduleConfig: cleanConfig(f.scheduleType, f.scheduleConfig),
+      scheduleConfig: cleanConfig(f.scheduleType, f.scheduleConfig, f.dosageAmount),
     });
   return norm(a) === norm(b);
 }

@@ -1,23 +1,19 @@
 /**
- * PIN entry: dots + large round keypad. Shakes with an error haptic when `error` becomes true
- * (clear `error` on the next `onChange` to re-arm it).
+ * PIN entry (docs/DESIGN.md §4): 18 px dots (4 by default, grows to 6 while typing) above a 3×4
+ * grid of 76-tall `field` keys with 30/700 digits. Bottom row: "Clear" (or `leftKey`, e.g. "Use
+ * fingerprint") and backspace as quiet keys. When `error` turns true the dots shake once (not
+ * under Reduce Motion) and turn `danger`; the screen clears the entry and `error` after ~600 ms.
+ * `status` renders directly under the dots (e.g. "That's not it. Try again."), so the message
+ * sits where the eyes already are.
  *
  * @example
- * const [pin, setPin] = useState('');
- * const [wrong, setWrong] = useState(false);
- * <PinPad
- *   value={pin}
- *   onChange={(v) => { setPin(v); setWrong(false); }}
- *   autoSubmitAt={storedPinLength}
- *   onSubmit={verify}
- *   error={wrong}
- *   leftKey={<IconButton icon={ScanFace} variant="plain" accessibilityLabel="Use Face ID" onPress={bio} />}
- * />
- * // Setting a new 4–6 digit PIN:
- * <PinPad value={pin} onChange={setPin} showSubmitKey onSubmit={next} />
+ * <PinPad value={pin} onChange={(v) => { setPin(v); setWrong(false); }}
+ *   autoSubmitAt={storedPinLength} onSubmit={verify} error={wrong}
+ *   leftKey={{ label: 'Use fingerprint', onPress: bio }} />
+ * <PinPad value={pin} onChange={setPin} />   // choosing a new 4–6 digit PIN; screen has its own Next
  */
 import * as React from 'react';
-import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -27,33 +23,36 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Delete } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
-import { useTheme } from '@/lib/theme';
+import { radii, useTheme } from '@/lib/theme';
 import { haptics } from '@/lib/ui/haptics';
 import { Text } from './Text';
 import { Icon } from './Icon';
-import { Button } from './Button';
 
 export interface PinPadProps {
   value: string;
   onChange: (value: string) => void;
   /** Default 6. */
   maxLength?: number;
-  /** Minimum length for the submit key. Default 4. */
+  /** Minimum length (dots shown before typing, submit key enabled). Default 4. */
   minLength?: number;
-  /** Call `onSubmit` automatically once this many digits are entered. */
+  /** Call `onSubmit` automatically once this many digits are entered (also fixes the dot count). */
   autoSubmitAt?: number;
   onSubmit?: (value: string) => void;
   error?: boolean;
   disabled?: boolean;
-  /** Bottom-left key (e.g. biometric button). */
-  leftKey?: React.ReactNode;
-  /** Show a "Confirm" button under the keypad (enabled from `minLength`). */
-  showSubmitKey?: boolean;
-  submitLabel?: string;
+  /** Replaces "Clear" in the bottom-left: a quiet text key, or any node. */
+  leftKey?: { label: string; onPress: () => void } | React.ReactNode;
+  /** Shown directly under the dots (a status / error line). */
+  status?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 
-const KEY = 76;
+const KEY_H = 76;
+const DOT = 18;
+
+function isKeySpec(k: PinPadProps['leftKey']): k is { label: string; onPress: () => void } {
+  return !!k && typeof k === 'object' && 'label' in k && 'onPress' in k && !React.isValidElement(k);
+}
 
 export function PinPad({
   value,
@@ -65,8 +64,7 @@ export function PinPad({
   error = false,
   disabled = false,
   leftKey,
-  showSubmitKey = false,
-  submitLabel,
+  status,
   style,
 }: PinPadProps) {
   const { colors } = useTheme();
@@ -90,44 +88,42 @@ export function PinPad({
 
   const press = (digit: string) => {
     if (disabled || value.length >= maxLength) return;
-    haptics.tap();
     const next = value + digit;
     onChange(next);
     if (autoSubmitAt && next.length === autoSubmitAt) onSubmit?.(next);
   };
   const backspace = () => {
     if (disabled || value.length === 0) return;
-    haptics.tap();
     onChange(value.slice(0, -1));
+  };
+  const clear = () => {
+    if (disabled || value.length === 0) return;
+    onChange('');
   };
 
   const dotCount = autoSubmitAt ?? Math.max(minLength, Math.min(maxLength, value.length));
 
   const digitKey = (d: string) => (
-    <Pressable
-      key={d}
-      disabled={disabled}
-      onPress={() => press(d)}
-      accessibilityRole="button"
-      accessibilityLabel={d}
-      style={({ pressed }) => ({
-        width: KEY,
-        height: KEY,
-        borderRadius: KEY / 2,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: pressed ? colors.accentSoft : colors.surface,
-        borderWidth: 1,
-        borderColor: colors.stroke,
-        opacity: disabled ? 0.5 : 1,
-      })}>
-      <Text variant="title1" weight="500" tabular>
+    <PinKey key={d} disabled={disabled} onPress={() => press(d)} accessibilityLabel={d}>
+      <Text tabular style={{ fontSize: 30, lineHeight: 36 }} weight="700">
         {d}
       </Text>
-    </Pressable>
+    </PinKey>
   );
 
-  const empty = <View style={{ width: KEY, height: KEY }} />;
+  const quietTextKey = (label: string, onPress: () => void, a11y?: string) => (
+    <PinKey quiet disabled={disabled} onPress={onPress} accessibilityLabel={a11y ?? label}>
+      <Text variant="callout" weight="700" tone="secondary" align="center">
+        {label}
+      </Text>
+    </PinKey>
+  );
+
+  let left: React.ReactNode;
+  if (isKeySpec(leftKey)) left = quietTextKey(leftKey.label, leftKey.onPress);
+  else if (leftKey) left = <View style={[styles.key, disabled && styles.disabled]}>{leftKey}</View>;
+  else left = quietTextKey(i18n.t('ui.common.clear'), clear);
+
   const rows = [
     ['1', '2', '3'],
     ['4', '5', '6'],
@@ -135,76 +131,121 @@ export function PinPad({
   ];
 
   return (
-    <View style={[{ alignItems: 'center', gap: 28 }, style]}>
-      <Animated.View
-        accessible
-        accessibilityLabel={i18n.t('ui.common.a11y.pinEntered', {
-          count: value.length,
-          max: dotCount,
-        })}
-        style={[{ flexDirection: 'row', gap: 16, minHeight: 20, alignItems: 'center' }, dotsStyle]}>
-        {Array.from({ length: dotCount }).map((_, i) => {
-          const filled = i < value.length;
-          const c = error ? colors.danger : colors.accent;
-          return (
-            <View
-              key={i}
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: 8,
-                backgroundColor: filled ? c : 'transparent',
-                borderWidth: 2,
-                borderColor: filled ? c : colors.inkTertiary,
-              }}
-            />
-          );
-        })}
-      </Animated.View>
+    <View style={[{ alignItems: 'stretch', gap: 24 }, style]}>
+      <View style={{ gap: 10 }}>
+        <Animated.View
+          accessible
+          accessibilityLabel={i18n.t('ui.common.a11y.pinEntered', {
+            count: value.length,
+            max: dotCount,
+          })}
+          style={[
+            {
+              flexDirection: 'row',
+              gap: 18,
+              minHeight: DOT + 4,
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+            dotsStyle,
+          ]}>
+          {Array.from({ length: dotCount }).map((_, i) => {
+            const filled = i < value.length;
+            const c = error ? colors.danger : colors.ink;
+            return (
+              <View
+                key={i}
+                style={{
+                  width: DOT,
+                  height: DOT,
+                  borderRadius: DOT / 2,
+                  backgroundColor: filled ? c : 'transparent',
+                  borderWidth: 2,
+                  borderColor: filled || error ? c : colors.line2,
+                }}
+              />
+            );
+          })}
+        </Animated.View>
+        {status}
+      </View>
 
-      <View style={{ gap: 16 }}>
+      <View style={{ gap: 12 }}>
         {rows.map((row) => (
-          <View key={row.join('')} style={{ flexDirection: 'row', gap: 24 }}>
+          <View key={row.join('')} style={{ flexDirection: 'row', gap: 12 }}>
             {row.map(digitKey)}
           </View>
         ))}
-        <View style={{ flexDirection: 'row', gap: 24 }}>
-          <View style={{ width: KEY, height: KEY, alignItems: 'center', justifyContent: 'center' }}>
-            {leftKey ?? null}
-          </View>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          {left}
           {digitKey('0')}
-          {value.length > 0 ? (
-            <Pressable
-              onPress={backspace}
-              onLongPress={() => !disabled && onChange('')}
-              disabled={disabled}
-              accessibilityRole="button"
-              accessibilityLabel={i18n.t('ui.common.a11y.deleteDigit')}
-              style={({ pressed }) => ({
-                width: KEY,
-                height: KEY,
-                borderRadius: KEY / 2,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: pressed ? 0.5 : 1,
-              })}>
-              <Icon as={Delete} size={28} tone="secondary" />
-            </Pressable>
-          ) : (
-            empty
-          )}
+          <PinKey
+            quiet
+            onPress={backspace}
+            onLongPress={clear}
+            disabled={disabled}
+            accessibilityLabel={i18n.t('ui.common.a11y.deleteDigit')}>
+            <Icon as={Delete} size={30} tone="secondary" />
+          </PinKey>
         </View>
       </View>
-
-      {showSubmitKey ? (
-        <Button
-          label={submitLabel ?? i18n.t('ui.common.confirm')}
-          size="md"
-          disabled={disabled || value.length < minLength}
-          onPress={() => onSubmit?.(value)}
-          style={{ alignSelf: 'center', minWidth: 160 }}
-        />
-      ) : null}
     </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  key: {
+    flex: 1,
+    // minHeight so a two-line quiet label ("Forgot PIN?") at large text grows the key, not clips.
+    minHeight: KEY_H,
+    paddingHorizontal: 4,
+    borderRadius: radii.button,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabled: { opacity: 0.5 },
+});
+
+/**
+ * One key. Pressed state lives in React state because function `style` props are dropped by the
+ * NativeWind css-interop in this project. Digit keys sit on `field`; quiet keys are transparent
+ * and only show `field` while pressed.
+ */
+function PinKey({
+  quiet = false,
+  disabled,
+  onPress,
+  onLongPress,
+  accessibilityLabel,
+  children,
+}: {
+  quiet?: boolean;
+  disabled?: boolean;
+  onPress: () => void;
+  onLongPress?: () => void;
+  accessibilityLabel: string;
+  children: React.ReactNode;
+}) {
+  const { colors } = useTheme();
+  const [pressed, setPressed] = React.useState(false);
+  const backgroundColor = quiet
+    ? pressed
+      ? colors.field
+      : 'transparent'
+    : pressed
+      ? colors.field2
+      : colors.field;
+  return (
+    <Pressable
+      disabled={disabled}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      style={[styles.key, { backgroundColor }, disabled && styles.disabled]}>
+      {children}
+    </Pressable>
   );
 }

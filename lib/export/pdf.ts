@@ -8,10 +8,20 @@ import { intakeLogs, medications, profiles } from '@/lib/db/schema';
 import { eq, and, gte, desc } from 'drizzle-orm';
 import type { IntakeLog, Medication, Profile } from '@/types';
 import i18n from '@/lib/i18n';
+import { medicineDisplayName } from '@/components/medicines/medicine-info';
 
 // Helper to convert null to undefined
 function nullToUndefined<T>(value: T | null): T | undefined {
   return value === null ? undefined : value;
+}
+
+/** Text from the person (names, strength) is put into HTML: escape it. */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 interface MedicationWithLogs {
@@ -86,6 +96,7 @@ export async function getExportData(profileId: string, days: number = 60): Promi
       id: med.id,
       profileId: med.profileId,
       name: med.name,
+      strength: nullToUndefined(med.strength),
       imageUri: nullToUndefined(med.imageUri),
       notes: nullToUndefined(med.notes),
       dosageAmount: med.dosageAmount,
@@ -93,6 +104,7 @@ export async function getExportData(profileId: string, days: number = 60): Promi
       scheduleType: med.scheduleType as any,
       scheduleConfig: med.scheduleConfig,
       inventoryCount: med.inventoryCount || 0,
+      trackSupply: med.trackSupply !== false,
       packageSize: nullToUndefined(med.packageSize),
       maxDailyDose: nullToUndefined(med.maxDailyDose),
       minHoursBetweenDoses: nullToUndefined(med.minHoursBetweenDoses),
@@ -382,7 +394,7 @@ function generatePDFHTML(data: ExportData): string {
 
     html += `
         <tr>
-          <td><strong>${medication.name}</strong></td>
+          <td><strong>${escapeHtml(medicineDisplayName(medication))}</strong></td>
           <td>${medication.dosageAmount} ${getDosageUnitText(medication.dosageUnit)}</td>
           <td>${getScheduleTypeText(medication.scheduleType)}</td>
           <td class="${statusClass}">${statusText}</td>
@@ -411,7 +423,7 @@ function generatePDFHTML(data: ExportData): string {
 
     html += `
   <div class="section">
-    <div class="medication-header">${medication.name}</div>
+    <div class="medication-header">${escapeHtml(medicineDisplayName(medication))}</div>
     <div class="medication-info">
       ${i18n.t('export.dosage')}: ${medication.dosageAmount} ${getDosageUnitText(medication.dosageUnit)}
       ${medication.scheduleType !== 'prn' ? ` | ${i18n.t('export.scheduleType')}: ${i18n.t(`medications.scheduleTypes.${medication.scheduleType}`)}` : ` | ${i18n.t('export.asneedmedication')}`}

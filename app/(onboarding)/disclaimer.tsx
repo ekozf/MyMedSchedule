@@ -1,6 +1,8 @@
 /**
- * Onboarding step 2 — "Good to know" (disclaimer), and the read-only disclaimer from You
- * (`?viewOnly=true`, closes with router.back()).
+ * Onboarding step 2, "Before you start" (one consent page), and the full "Good to know" text as
+ * a single scrolling read-only page (`?viewOnly=true`, closes with router.back()), opened from
+ * You → About or from the consent page's "Read the full text" (`&fullText=true`). The acknowledgement
+ * record (version, device info, timestamp from the DB) is unchanged.
  */
 import * as React from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -13,10 +15,12 @@ import { DisclaimerView, ONBOARDING_ROUTES } from '@/components/onboarding';
 const DISCLAIMER_VERSION = '1.0.0';
 
 export default function DisclaimerScreen() {
-  const params = useLocalSearchParams<{ viewOnly?: string }>();
+  const params = useLocalSearchParams<{ viewOnly?: string; fullText?: string }>();
   const viewOnly = params.viewOnly === 'true';
   const setDisclaimerAcknowledged = useStore((s) => s.setDisclaimerAcknowledged);
   const [saving, setSaving] = React.useState(false);
+
+  const exit = React.useCallback(() => router.replace(ONBOARDING_ROUTES.welcome), []);
 
   const handleContinue = async () => {
     if (saving) return;
@@ -40,14 +44,21 @@ export default function DisclaimerScreen() {
   };
 
   if (viewOnly) {
-    return <DisclaimerView viewOnly onClose={() => router.back()} />;
+    return (
+      <DisclaimerView
+        viewOnly
+        fullText={params.fullText === 'true'}
+        onClose={() => router.back()}
+      />
+    );
   }
 
   return (
     <DisclaimerView
       onContinue={handleContinue}
       continuing={saving}
-      onExit={() => router.replace(ONBOARDING_ROUTES.welcome)}
+      onExit={exit}
+      onReadFull={() => router.push(ONBOARDING_ROUTES.disclaimerFullText)}
     />
   );
 }

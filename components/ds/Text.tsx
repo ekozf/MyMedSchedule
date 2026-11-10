@@ -1,61 +1,42 @@
 /**
- * Typography primitive (docs/DESIGN.md §2.2). Colour comes from theme tokens via `tone`.
+ * Typography primitive (docs/DESIGN.md §3.2) in Atkinson Hyperlegible Next. Picks the font family
+ * from the weight (Android needs one family per weight). Colour comes from `tone` or `color`.
  *
  * @example
- * <Text variant="largeTitle">Today</Text>
- * <Text variant="subhead" tone="secondary" numberOfLines={1}>1 pill · with food</Text>
- * <Text variant="time">08:00</Text>
- * <Text variant="caption" tone="tertiary">Morning</Text>   // rendered uppercase
+ * <Text variant="title1">Medicines</Text>
+ * <Text variant="footnote" tone="secondary">1 pill · with food</Text>
+ * <Text variant="display" tabular>2</Text>
+ * <Text variant="body" weight="700">Monday</Text>
  */
 import * as React from 'react';
-import { Text as RNText, type TextProps as RNTextProps, type TextStyle } from 'react-native';
-import { toneColor, useTheme, type Tone } from '@/lib/theme';
+import {
+  StyleSheet,
+  Text as RNText,
+  type TextProps as RNTextProps,
+  type TextStyle,
+} from 'react-native';
+import { fontForWeight, toneColor, type, useTheme, type Tone, type TypeRole } from '@/lib/theme';
 
-export type TextVariant =
-  | 'largeTitle'
-  | 'title1'
-  | 'title2'
-  | 'title3'
-  | 'headline'
-  | 'body'
-  | 'callout'
-  | 'subhead'
-  | 'footnote'
-  | 'caption'
-  | 'time';
+export type TextVariant = TypeRole;
 
 export type TextTone = Tone;
 
+/** Style objects per variant (size, line height, weight, letter spacing). */
 export const typography: Record<TextVariant, TextStyle> = {
-  largeTitle: { fontSize: 34, lineHeight: 41, fontWeight: '700', letterSpacing: 0.2 },
-  title1: { fontSize: 28, lineHeight: 34, fontWeight: '700' },
-  title2: { fontSize: 22, lineHeight: 28, fontWeight: '700' },
-  title3: { fontSize: 20, lineHeight: 25, fontWeight: '600' },
-  headline: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
-  body: { fontSize: 17, lineHeight: 22, fontWeight: '400' },
-  callout: { fontSize: 16, lineHeight: 21, fontWeight: '400' },
-  subhead: { fontSize: 15, lineHeight: 20, fontWeight: '400' },
-  footnote: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
-  caption: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '500',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-  },
-  time: { fontSize: 24, lineHeight: 28, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  ...type,
 };
 
-const HEADING_VARIANTS: TextVariant[] = ['largeTitle', 'title1', 'title2'];
+const HEADING_VARIANTS: TextVariant[] = ['display', 'title1', 'title2'];
 
 export interface TextProps extends RNTextProps {
   variant?: TextVariant;
   tone?: TextTone;
-  /** Overrides `tone` with an explicit colour (e.g. a medicine tint). */
+  /** Overrides `tone` with an explicit colour token. */
   color?: string;
   align?: TextStyle['textAlign'];
+  /** Overrides the variant's weight (400/500/600/700/800). */
   weight?: TextStyle['fontWeight'];
-  /** Force tabular numbers (always on for `time`). */
+  /** Tabular figures, for numbers and times that line up. */
   tabular?: boolean;
   className?: string;
   ref?: React.Ref<RNText>;
@@ -73,18 +54,22 @@ export function Text({
   ...rest
 }: TextProps) {
   const { colors } = useTheme();
+  const base = typography[variant];
+  // A weight in `style` (legacy call sites) still maps to the right family.
+  const flat = StyleSheet.flatten(style) as TextStyle | undefined;
+  const resolvedWeight = weight ?? flat?.fontWeight ?? base.fontWeight;
   return (
     <RNText
       accessibilityRole={
         accessibilityRole ?? (HEADING_VARIANTS.includes(variant) ? 'header' : undefined)
       }
       style={[
-        typography[variant],
+        base,
         { color: color ?? toneColor(colors, tone) },
         align ? { textAlign: align } : null,
-        weight ? { fontWeight: weight } : null,
         tabular ? { fontVariant: ['tabular-nums'] } : null,
         style,
+        fontForWeight(resolvedWeight),
       ]}
       {...rest}
     />

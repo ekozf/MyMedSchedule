@@ -13,6 +13,7 @@ describe('Schedule Calculator - Notes Field', () => {
     scheduleType: 'once_daily',
     scheduleConfig: JSON.stringify({ time: '09:00' }),
     inventoryCount: 100,
+    trackSupply: true,
     bypassDnd: false,
     isActive: true,
     isPrn: false,

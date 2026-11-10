@@ -8,14 +8,23 @@
  * describeSchedule(med, formatTimeString); // "Every day at 08:00"
  * nextDoseLine(date, formatTime);          // "Next today at 20:00"
  * getSupplyState(med);                     // { show, low, empty, progress, daysLeft, … }
+ * medicineDisplayName(med);                // "Metformin 500 mg"
+ * nextUnloggedDose(med, logs, now);        // skips doses already taken / skipped early
  */
-import { differenceInCalendarDays, format, isSameYear } from 'date-fns';
+import { addDays, differenceInCalendarDays, format, isSameYear, startOfDay } from 'date-fns';
 import i18n, { getCurrentLocale } from '@/lib/i18n';
 import { getDateFnsLocale } from '@/lib/i18n/date-fns';
-import { getScheduleDescription } from '@/lib/schedule/calculator';
+import {
+  getAllDosesForDate,
+  getScheduleDescription,
+  type ScheduledDose,
+} from '@/lib/schedule/calculator';
+import { doseKey, indexLogs } from '@/components/today/logic';
 import { getRunningLowStatus, type RunningLowStatus } from '@/lib/medications/refill';
 import { formatDose, formatNumber, formatUnit } from '@/lib/ui/format';
+import type { InventoryAdjustment } from '@/lib/db/operations';
 import type { IntakeLog, Medication } from '@/types';
+import { daysOfSupply, paceLabel } from './schedule-summary';
 
 const t = (key: string, options?: Record<string, unknown>) =>
   i18n.t(`ui.medicines.${key}`, options);
@@ -162,6 +171,58 @@ export function nextDoseLine(
   return t(`next.${k}`, { day, time: formatTime(date) });
 }
 
+/**
+ * How a medicine is named everywhere it is identified: "Metformin 500 mg" (the strength is
+ * optional free text from the box). Pure, safe for Today / PDF / previews.
+ */
+export function medicineDisplayName(med: { name: string; strength?: string | null }): string {
+  const name = med.name.trim();
+  const strength = med.strength?.trim();
+  return strength ? `${name} ${strength}` : name;
+}
+
+/** How far ahead to look for the next dose (same horizon as `getNextDose`). */
+const NEXT_DOSE_DAYS = 30;
+
+/**
+ * The next scheduled dose after `now` that has no log yet (taken, partial or skipped). Uses the
+ * same occurrences and log matching as Today (`getAllDosesForDate` + `indexLogs` by scheduled
+ * time), so a 20:00 dose recorded early at 14:36 no longer shows as "next". Null for as-needed or
+ * paused medicines, or when nothing is due in the next 30 days.
+ */
+export function nextUnloggedDose(
+  med: Medication,
+  logs: IntakeLog[],
+  now: Date = new Date()
+): ScheduledDose | null {
+  if (med.isPrn || !med.isActive) return null;
+  const index = indexLogs(logs.filter((l) => l.medicationId === med.id));
+  const first = startOfDay(now);
+  for (let i = 0; i <= NEXT_DOSE_DAYS; i++) {
+    for (const dose of getAllDosesForDate([med], addDays(first, i))) {
+      if (dose.time.getTime() <= now.getTime()) continue;
+      if (index.has(doseKey(dose.medicationId, dose.time))) continue;
+      return dose;
+    }
+  }
+  return null;
+}
+
+/**
+ * Which scheduled dose a log was recorded for, when that is worth saying: "Recorded for today's
+ * 20:00 dose". Null for as-needed logs (no scheduled time).
+ */
+export function loggedForLine(
+  log: IntakeLog,
+  formatTime: (d: Date) => string,
+  now = new Date()
+): string | null {
+  if (!log.scheduledTime) return null;
+  const scheduled = new Date(log.scheduledTime);
+  const { key, day } = dayPart(scheduled, now);
+  return t(`page.loggedFor.${key}`, { day, time: formatTime(scheduled) });
+}
+
 /** Most recent log where a dose was actually taken (taken or partial), or null. */
 export function findLastTaken(logs: IntakeLog[]): IntakeLog | null {
   let best: IntakeLog | null = null;
@@ -221,6 +282,8 @@ function formatGrouped(n: number): string {
 }
 
 export interface SupplyState {
+  /** False when the person chose not to count this medicine (no warnings, no bar). */
+  tracked: boolean;
   /** Whether the supply is worth showing on the list card. */
   show: boolean;
   count: number;
@@ -242,13 +305,29 @@ export interface SupplyState {
   /** "When 7 days are left" / "When 10 doses are left" / "Off". */
   reminderLabel: string;
   tone: 'accent' | 'warning' | 'danger';
+  /** "24 pills" / "84 doses" (no "left"). */
+  amount: string;
+  /** Days the supply lasts at the current schedule (null = unknown, e.g. as needed). */
+  daysLeft: number | null;
+  /** "about 2 weeks" (lower case) or null. */
+  pace: string | null;
+  /** "Refill soon": a refill reminder is set and its threshold is reached. */
+  refillSoon: boolean;
+  /**
+   * Draw the supply in the amber "refill soon" treatment: only when `refillSoon`, or when a
+   * tracked count is 0 ("None left") on an active medicine. Otherwise the count is neutral.
+   */
+  warn: boolean;
+  /** List card line: "29 pills left, about 2 weeks" / "6 pills left, refill soon". */
+  line: string;
 }
 
 export function getSupplyState(med: Medication, now = new Date()): SupplyState {
-  const status = getRunningLowStatus(med, now);
+  const tracked = med.trackSupply !== false;
+  const status = tracked ? getRunningLowStatus(med, now) : null;
   const count = Math.max(0, med.inventoryCount ?? 0);
-  const hasReminder = !!med.refillReminderType && !!med.refillReminderValue;
-  const empty = med.isActive && count <= 0;
+  const hasReminder = tracked && !!med.refillReminderType && !!med.refillReminderValue;
+  const empty = tracked && med.isActive && count <= 0;
   const low = !!status?.isRunningLow;
 
   let daysLabel: string | null = null;
@@ -284,18 +363,38 @@ export function getSupplyState(med: Medication, now = new Date()): SupplyState {
   const byDoses = MEASURED_UNITS.includes(med.dosageUnit) && med.dosageAmount > 0;
   const dosesLeft = byDoses ? Math.floor(count / med.dosageAmount + 1e-9) : null;
 
+  const amount =
+    dosesLeft !== null
+      ? t('supply.doseCount', { count: dosesLeft })
+      : formatDose(count, med.dosageUnit);
+  const daysLeft = tracked ? daysOfSupply(med, count, now) : null;
+  const pace = tracked && count > 0 ? paceLabel(daysLeft) : null;
+  const refillSoon = tracked && count > 0 && hasReminder && low;
+  const warn = tracked && med.isActive && (refillSoon || count <= 0);
+  const line = !tracked
+    ? t('list.supplyNotTracked')
+    : count <= 0
+      ? t('list.supplyNone')
+      : refillSoon
+        ? t('list.supplyLow', { amount })
+        : pace
+          ? t('list.supplyPace', { amount, pace })
+          : t('list.supplyPlain', { amount });
+
   return {
+    tracked,
+    amount,
+    daysLeft,
+    pace,
+    refillSoon,
+    warn,
+    line,
     show: count > 0 || hasReminder || med.isActive,
     count,
-    leftLabel: t('supply.left', {
-      amount:
-        dosesLeft !== null
-          ? t('supply.doseCount', { count: dosesLeft })
-          : formatDose(count, med.dosageUnit),
-    }),
+    leftLabel: t('supply.left', { amount }),
     dosesLeft,
     amountLabel: byDoses ? `${formatGrouped(count)} ${formatUnit(count, med.dosageUnit)}` : null,
-    progress: packageSize ? Math.min(1, count / packageSize) : null,
+    progress: tracked && packageSize ? Math.min(1, count / packageSize) : null,
     daysLabel,
     low,
     empty,
@@ -326,4 +425,60 @@ export function sortMedicines(meds: Medication[]): Medication[] {
     if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
+}
+
+/**
+ * Bar value for a tracked supply: the count against the pack size. Null without a pack size (a
+ * bar needs a baseline to mean anything; the count and pace are shown as text instead) or when
+ * the supply isn't tracked.
+ */
+export function supplyProgress(supply: SupplyState): number | null {
+  if (!supply.tracked) return null;
+  return supply.progress;
+}
+
+/** A dose limit (most in one day or time between doses) is set. */
+export function medicineHasLimits(
+  med: Pick<Medication, 'maxDailyDose' | 'minHoursBetweenDoses'>
+): boolean {
+  return !!(med.maxDailyDose || med.minHoursBetweenDoses);
+}
+
+/** A note, a limit or an expiry date is set. */
+export function medicineHasExtras(
+  med: Pick<Medication, 'notes' | 'maxDailyDose' | 'minHoursBetweenDoses' | 'expirationDate'>
+): boolean {
+  return !!(
+    med.notes?.trim() ||
+    med.maxDailyDose ||
+    med.minHoursBetweenDoses ||
+    med.expirationDate
+  );
+}
+
+const SUPPLY_REASONS = ['refill', 'lost', 'correction', 'other'];
+
+/**
+ * The "Last change" value for the supply card: "+30 pills (Refill) · 9 Nov" (no brackets without
+ * a reason; the year only when it isn't this year).
+ */
+export function lastChangeValue(
+  adjustment: Pick<InventoryAdjustment, 'previousCount' | 'newCount' | 'reason' | 'createdAt'>,
+  unit: Medication['dosageUnit'],
+  now: Date = new Date()
+): string {
+  const delta = Math.round((adjustment.newCount - adjustment.previousCount) * 100) / 100;
+  const sign = delta > 0 ? '+' : delta < 0 ? '\u2212' : '';
+  const change = `${sign}${formatDose(Math.abs(delta), unit)}`;
+  const date = new Date(adjustment.createdAt);
+  const day = format(date, isSameYear(date, now) ? 'd MMM' : 'd MMM yyyy', {
+    locale: getDateFnsLocale(),
+  });
+  const reason =
+    adjustment.reason && SUPPLY_REASONS.includes(adjustment.reason)
+      ? t(`supplySheet.reasons.${adjustment.reason}`)
+      : null;
+  return reason
+    ? t('supply.lastChangeWithReason', { change, reason, date: day })
+    : t('supply.lastChangeValue', { change, date: day });
 }

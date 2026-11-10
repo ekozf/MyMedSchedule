@@ -8,7 +8,13 @@
 /**
  * True when `amount` is more than what's left: the backend refuses to log such a taken/partial
  * dose (`InventoryInsufficientError`), so offer "Update supply" instead of a doomed save.
+ * Never true for an untracked supply (`trackSupply === false`): nothing is counted down.
  */
-export function isSupplyShort(inventoryCount: number, amount: number): boolean {
+export function isSupplyShort(
+  inventoryCount: number,
+  amount: number,
+  trackSupply: boolean | undefined = true
+): boolean {
+  if (trackSupply === false) return false;
   return amount > 0 && inventoryCount + 1e-9 < amount;
 }

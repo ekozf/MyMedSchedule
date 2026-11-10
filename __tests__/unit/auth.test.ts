@@ -8,6 +8,7 @@ import {
   verifyPIN,
   hasPIN,
   deletePIN,
+  getPINLength,
   authenticateWithBiometric,
   authenticate,
   setupBiometricAuth,
@@ -151,6 +152,39 @@ describe('Auth', () => {
 
       const result = await hasPIN();
       expect(result).toBe(false);
+    });
+  });
+
+  describe('PIN length', () => {
+    it('stores the length (not the PIN) next to the PIN', async () => {
+      await setPIN('12345');
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('user_pin', '12345');
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('user_pin_length', '5');
+    });
+
+    it('setupPINAuth stores the length too', async () => {
+      await setupPINAuth('123456');
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('user_pin_length', '6');
+    });
+
+    it('reads the stored length', async () => {
+      vi.mocked(SecureStore.getItemAsync).mockResolvedValue('4');
+      expect(await getPINLength()).toBe(4);
+      expect(SecureStore.getItemAsync).toHaveBeenCalledWith('user_pin_length');
+    });
+
+    it('returns null when no length was stored (older installs) or it is invalid', async () => {
+      vi.mocked(SecureStore.getItemAsync).mockResolvedValue(null);
+      expect(await getPINLength()).toBeNull();
+      vi.mocked(SecureStore.getItemAsync).mockResolvedValue('abc');
+      expect(await getPINLength()).toBeNull();
+      vi.mocked(SecureStore.getItemAsync).mockResolvedValue('9');
+      expect(await getPINLength()).toBeNull();
+    });
+
+    it('deletePIN removes the length as well', async () => {
+      await deletePIN();
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('user_pin_length');
     });
   });
 

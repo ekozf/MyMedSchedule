@@ -5,6 +5,7 @@ import {
   createEmptyForm,
   cyclePattern,
   defaultConfigFor,
+  dropRedundantAmounts,
   everyXHoursTimes,
   formFromMedication,
   formsEqual,
@@ -35,6 +36,7 @@ function med(patch: Partial<Medication> = {}): Medication {
     scheduleType: 'once_daily',
     scheduleConfig: JSON.stringify({ time: '08:00' }),
     inventoryCount: 30,
+    trackSupply: true,
     bypassDnd: false,
     isActive: true,
     isPrn: false,
@@ -169,24 +171,24 @@ describe('editor form model', () => {
       expect(validateStep('dose', form).ok).toBe(true);
     });
 
-    it('when: friendly issues backed by the zod rules', () => {
+    it('schedule: friendly issues backed by the zod rules', () => {
       const past = addDays(startOfDay(now), -3).toISOString();
       const f: MedicineForm = {
         ...form,
         scheduleType: 'every_x_days',
         scheduleConfig: { intervalDays: 2, startDate: past, time: '08:00' },
       };
-      expect(validateStep('when', f)).toMatchObject({ ok: false, issue: 'startInPast' });
-      expect(validateStep('when', f, { allowPastStartDate: true }).ok).toBe(true);
+      expect(validateStep('schedule', f)).toMatchObject({ ok: false, issue: 'startInPast' });
+      expect(validateStep('schedule', f, { allowPastStartDate: true }).ok).toBe(true);
       expect(
-        validateStep('when', {
+        validateStep('schedule', {
           ...form,
           scheduleType: 'multiple_daily',
           scheduleConfig: { times: [] },
         }).issue
       ).toBe('addTime');
       expect(
-        validateStep('when', {
+        validateStep('schedule', {
           ...form,
           scheduleType: 'cycle',
           scheduleConfig: {
@@ -197,7 +199,7 @@ describe('editor form model', () => {
           },
         }).issue
       ).toBe('daysOnRange');
-      expect(validateStep('when', { ...form, scheduleType: 'prn', scheduleConfig: {} }).ok).toBe(
+      expect(validateStep('schedule', { ...form, scheduleType: 'prn', scheduleConfig: {} }).ok).toBe(
         true
       );
     });
@@ -221,16 +223,47 @@ describe('editor form model', () => {
         scheduleType: 'specific_weekdays' as const,
         scheduleConfig: { weekdays: [], time: '08:00' },
       };
-      expect(validateAll(noDays).step).toBe('when');
+      expect(validateAll(noDays).step).toBe('schedule');
     });
 
-    it('as-needed medicines skip the "When?" step', () => {
-      expect(stepsFor({ scheduleType: 'prn' })).not.toContain('when');
-      expect(stepsFor({ scheduleType: 'once_daily' })).toContain('when');
+    it('the add flow is name, amount, schedule and review for every type', () => {
+      expect(stepsFor({ scheduleType: 'prn' })).toEqual(['name', 'dose', 'schedule', 'review']);
+      expect(stepsFor({ scheduleType: 'once_daily' })).toEqual([
+        'name',
+        'dose',
+        'schedule',
+        'review',
+      ]);
     });
   });
 
   describe('mappers', () => {
+    it('drops per-time amounts equal to the usual amount', () => {
+      const form: MedicineForm = {
+        ...createEmptyForm(),
+        name: 'Metformin',
+        dosageAmount: 1,
+        scheduleType: 'multiple_daily',
+        scheduleConfig: {
+          times: [{ time: '08:00', dosageAmount: 1 }, { time: '20:00', dosageAmount: 2 }],
+        },
+      };
+      const expected = { times: [{ time: '08:00' }, { time: '20:00', dosageAmount: 2 }] };
+      expect(dropRedundantAmounts(form).scheduleConfig).toEqual(expected);
+      expect(toCreateInput(form, 'p1').scheduleConfig).toEqual(expected);
+      expect(toUpdateInput(form).scheduleConfig).toEqual(expected);
+      // Nothing redundant: same object back.
+      const clean = dropRedundantAmounts(form);
+      expect(dropRedundantAmounts(clean)).toBe(clean);
+      // Tapping "Different amount" and leaving it at the usual amount isn't an unsaved change.
+      const base: MedicineForm = { ...form, scheduleConfig: { times: [{ time: '08:00' }, { time: '20:00' }] } };
+      const tapped: MedicineForm = {
+        ...base,
+        scheduleConfig: { times: [{ time: '08:00', dosageAmount: 1 }, { time: '20:00' }] },
+      };
+      expect(formsEqual(base, tapped)).toBe(true);
+    });
+
     it('toCreateInput matches the old add screen', () => {
       const form: MedicineForm = {
         ...createEmptyForm(),
@@ -245,6 +278,7 @@ describe('editor form model', () => {
       expect(toCreateInput(form, 'p1')).toEqual({
         profileId: 'p1',
         name: 'Metformin',
+        strength: undefined,
         imageUri: undefined,
         notes: undefined,
         dosageAmount: 2,
@@ -252,6 +286,7 @@ describe('editor form model', () => {
         scheduleType: 'multiple_daily',
         scheduleConfig: { times: [{ time: '08:00', dosageAmount: 1 }, { time: '20:00' }] },
         inventoryCount: 0,
+        trackSupply: false,
         packageSize: undefined,
         expirationDate: undefined,
         refillReminderType: undefined,

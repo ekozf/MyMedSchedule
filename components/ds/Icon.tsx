@@ -2,9 +2,9 @@
  * Lucide icon tinted with a theme token (raw lucide icons don't pick up classNames).
  *
  * @example
- * <Icon as={Pill} />                     // 22pt, ink
- * <Icon as={Check} tone="success" size={18} />
- * <Icon as={Pill} color={getMedTint('Metformin')} />
+ * <Icon as={Pill} />                       // 24pt, ink, stroke 2
+ * <Icon as={Check} tone="done" size={20} />
+ * <Icon as={Pill} color={colors.ink2} size={28} />
  */
 import type { LucideIcon } from 'lucide-react-native';
 import { toneColor, useTheme, type Tone } from '@/lib/theme';
@@ -18,7 +18,7 @@ const NATIVE_HIDDEN =
 
 export interface IconProps {
   as: LucideIcon;
-  /** Default 22 (rows); 24 in the tab bar. */
+  /** Default 24 (rows); 28 in the tab bar. */
   size?: number;
   tone?: Tone;
   /** Explicit colour, wins over `tone`. */
@@ -30,7 +30,7 @@ export interface IconProps {
 
 export function Icon({
   as: IconComponent,
-  size = 22,
+  size = 24,
   tone = 'primary',
   color,
   strokeWidth = 2,

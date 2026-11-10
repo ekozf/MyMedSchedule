@@ -1,40 +1,36 @@
 /**
- * Status marker for a journal entry: taken (teal check), skipped (x), partial (half circle).
- * Always paired with the status word elsewhere in the row — never colour alone.
+ * The 22 px dot on the Journal rail, plus the matching status pill tone. The dot is decoration:
+ * the row always says the status in words (the pill), so it is hidden from screen readers.
+ *
+ * taken   = `done` fill + `doneInk` ring
+ * partial = `now` fill + `nowInk` ring
+ * skipped = `field` fill + `line2` ring
  *
  * @example
  * <StatusDot action="taken" />
- * const { label, tone, icon } = statusMeta('partial');
+ * <StatusPill label={statusLabel(a)} tone={statusPillTone(a)} />
  */
 import * as React from 'react';
 import { View } from 'react-native';
-import { Check, Contrast, X, type LucideIcon } from 'lucide-react-native';
-import i18n from '@/lib/i18n';
-import { Icon, statusColors, useTheme } from '@/components/ds';
+import { useTheme, type PillTone } from '@/components/ds';
 import type { IntakeAction } from '@/types';
 
-export type StatusToneName = 'success' | 'danger' | 'warning';
+export const DOT_SIZE = 22;
 
-const META: Record<IntakeAction, { icon: LucideIcon; tone: StatusToneName }> = {
-  taken: { icon: Check, tone: 'success' },
-  skipped: { icon: X, tone: 'danger' },
-  partial: { icon: Contrast, tone: 'warning' },
-};
-
-export function statusMeta(action: IntakeAction): {
-  icon: LucideIcon;
-  tone: StatusToneName;
-  label: string;
-} {
-  const m = META[action] ?? META.taken;
-  return { ...m, label: i18n.t(`ui.journal.actions.${action}`) };
+export function statusPillTone(action: IntakeAction): PillTone {
+  if (action === 'taken') return 'done';
+  if (action === 'partial') return 'now';
+  return 'neutral';
 }
 
-export function StatusDot({ action, size = 24 }: { action: IntakeAction; size?: number }) {
+export function StatusDot({ action, size = DOT_SIZE }: { action: IntakeAction; size?: number }) {
   const { colors } = useTheme();
-  const { icon, tone } = statusMeta(action);
-  const sc = statusColors(colors, tone);
-  const filled = action === 'taken';
+  const [fill, ring] =
+    action === 'taken'
+      ? [colors.done, colors.doneInk]
+      : action === 'partial'
+        ? [colors.now, colors.nowInk]
+        : [colors.field, colors.line2];
   return (
     <View
       accessibilityElementsHidden
@@ -43,16 +39,10 @@ export function StatusDot({ action, size = 24 }: { action: IntakeAction; size?: 
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: filled ? sc.fg : sc.bg,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-      <Icon
-        as={icon}
-        size={Math.round(size * 0.58)}
-        color={filled ? colors.onAccent : sc.fg}
-        strokeWidth={action === 'partial' ? 2.25 : 3}
-      />
-    </View>
+        backgroundColor: fill,
+        borderWidth: 3,
+        borderColor: ring,
+      }}
+    />
   );
 }

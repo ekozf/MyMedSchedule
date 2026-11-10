@@ -1,5 +1,5 @@
 /**
- * Big profile avatar with a camera badge. Tap → action sheet (Take photo / Choose from library /
+ * Big (120) profile avatar with a camera badge. Tap → action sheet (Take photo / Choose from library /
  * Remove photo) with camera / library permission requests and friendly "allow access" prompts.
  *
  * @example
@@ -49,7 +49,6 @@ export function AvatarPicker({ name, uri, onChange, disabled }: AvatarPickerProp
       ),
       confirmLabel: i18n.t('ui.you.form.photo.openSettings'),
       cancelLabel: i18n.t('ui.common.notNow'),
-      icon: kind === 'camera' ? Camera : Images,
     });
     if (ok) Linking.openSettings().catch(() => {});
   };
@@ -65,7 +64,7 @@ export function AvatarPicker({ name, uri, onChange, disabled }: AvatarPickerProp
       if (!result.canceled && result.assets[0]) onChange(result.assets[0].uri);
     } catch (error) {
       console.error('Error taking photo:', error);
-      toast.show({ title: i18n.t('ui.you.form.photo.failed'), tone: 'danger' });
+      toast.show({ title: i18n.t('ui.you.form.photo.failed') });
     }
   };
 
@@ -83,7 +82,7 @@ export function AvatarPicker({ name, uri, onChange, disabled }: AvatarPickerProp
       if (!result.canceled && result.assets[0]) onChange(result.assets[0].uri);
     } catch (error) {
       console.error('Error picking image:', error);
-      toast.show({ title: i18n.t('ui.you.form.photo.failed'), tone: 'danger' });
+      toast.show({ title: i18n.t('ui.you.form.photo.failed') });
     }
   };
 
@@ -134,11 +133,11 @@ export function AvatarPicker({ name, uri, onChange, disabled }: AvatarPickerProp
             width: size,
             height: size,
             borderRadius: size / 2,
-            backgroundColor: colors.accentSoft,
+            backgroundColor: colors.field,
             alignItems: 'center',
             justifyContent: 'center',
           }}>
-          <Icon as={UserRound} size={48} tone="accent" />
+          <Icon as={UserRound} size={48} tone="secondary" />
         </View>
       )}
       <View
@@ -146,16 +145,16 @@ export function AvatarPicker({ name, uri, onChange, disabled }: AvatarPickerProp
           position: 'absolute',
           right: 0,
           bottom: 2,
-          width: 40,
-          height: 40,
-          borderRadius: 20,
+          width: 44,
+          height: 44,
+          borderRadius: 22,
           backgroundColor: colors.accent,
           borderWidth: 3,
-          borderColor: colors.surfaceSolid,
+          borderColor: colors.bg,
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-        <Icon as={Camera} size={18} color={colors.onAccent} />
+        <Icon as={Camera} size={20} color={colors.onAccent} />
       </View>
     </PressableScale>
   );

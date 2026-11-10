@@ -2,10 +2,11 @@
  * Save side effects for add / edit, identical to the previous screens:
  * add  → createMedication, requestNotificationPermissions, (granted) schedule doses unless as
  *        needed + refill reminder, reload medications.
- * edit → updateMedication, (active) cancel + reschedule doses unless as needed + refill reminder,
+ * edit → updateMedication (a changed schedule starts now unless a passed time today is logged),
+ *        (active) cancel + reschedule doses unless as needed + refill reminder,
  *        reload medications.
  */
-import { createMedication, updateMedication } from '@/lib/db/operations';
+import { createMedication, getIntakeLogsByMedication, updateMedication } from '@/lib/db/operations';
 import { requestNotificationPermissions } from '@/lib/notifications/permissions';
 import {
   cancelNotificationsForMedication,
@@ -14,7 +15,8 @@ import {
 } from '@/lib/notifications/scheduler';
 import { useStore } from '@/store';
 import type { Medication } from '@/types';
-import { toCreateInput, toUpdateInput, type MedicineForm } from './form-model';
+import { schedulesEqual, toCreateInput, toUpdateInput, type MedicineForm } from './form-model';
+import { scheduleStartForEdit } from './schedule-start';
 
 export async function saveNewMedicine(
   form: MedicineForm,
@@ -40,7 +42,12 @@ export async function saveEditedMedicine(
   initial: MedicineForm,
   profileId: string
 ): Promise<Medication | null> {
-  const updated = await updateMedication(id, toUpdateInput(form, initial));
+  const input = toUpdateInput(form, initial);
+  if (!schedulesEqual(form, initial)) {
+    const logs = await getIntakeLogsByMedication(id);
+    input.scheduleStart = scheduleStartForEdit(form, initial, logs);
+  }
+  const updated = await updateMedication(id, input);
 
   if (updated && updated.isActive) {
     await cancelNotificationsForMedication(id);

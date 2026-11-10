@@ -92,6 +92,11 @@ const useOverlayStore = create<OverlayState>((set) => ({
 /** Nesting level of the closest enclosing host (0 = app root). */
 const OverlayDepthContext = React.createContext(0);
 
+/** Nesting level of the enclosing overlay host: 0 at the app root, > 0 inside a sheet or modal. */
+export function useOverlayDepth(): number {
+  return React.useContext(OverlayDepthContext);
+}
+
 /**
  * Wraps a presented context (sheet content, native modal screen) so hosts inside it rank above
  * the host that encloses it. Renders `children` and, when `host` is true, this level's host.

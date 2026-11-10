@@ -12,6 +12,8 @@ import * as React from 'react';
 
 export const MAX_ATTEMPTS = 5;
 export const COOLDOWN_MS = 30_000;
+/** How long a wrong entry stays on screen (red, shaken dots) before it clears. */
+export const PIN_ERROR_FLASH_MS = 600;
 
 let failures = 0;
 let lockedUntil = 0;

@@ -2,6 +2,8 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 
 const PIN_KEY = 'user_pin';
+/** Number of digits in the PIN (not secret): lets the PIN pad submit on its own. */
+const PIN_LENGTH_KEY = 'user_pin_length';
 const AUTH_METHOD_KEY = 'auth_method';
 
 export type AuthMethod = 'biometric' | 'pin' | 'none';
@@ -13,14 +15,14 @@ export type AuthMethod = 'biometric' | 'pin' | 'none';
 export async function isDeviceSupportsBiometric(): Promise<boolean> {
   const compatible = await LocalAuthentication.hasHardwareAsync();
   if (!compatible) return false;
-  
+
   const enrolled = await LocalAuthentication.isEnrolledAsync();
   return enrolled;
 }
 
 export async function getBiometricType(): Promise<string[]> {
   const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-  return types.map(type => {
+  return types.map((type) => {
     switch (type) {
       case LocalAuthentication.AuthenticationType.FINGERPRINT:
         return 'fingerprint';
@@ -56,6 +58,17 @@ export async function setPIN(pin: string): Promise<void> {
     throw new Error('PIN must be at least 4 digits');
   }
   await SecureStore.setItemAsync(PIN_KEY, pin);
+  await SecureStore.setItemAsync(PIN_LENGTH_KEY, String(pin.length));
+}
+
+/**
+ * Length of the stored PIN, or null when unknown (no PIN, or a PIN set by an older version that
+ * didn't store its length: the lock screen then keeps its "Open" button).
+ */
+export async function getPINLength(): Promise<number | null> {
+  const raw = await SecureStore.getItemAsync(PIN_LENGTH_KEY);
+  const n = raw == null ? NaN : parseInt(raw, 10);
+  return Number.isInteger(n) && n >= 4 && n <= 6 ? n : null;
 }
 
 export async function verifyPIN(pin: string): Promise<boolean> {
@@ -70,6 +83,7 @@ export async function hasPIN(): Promise<boolean> {
 
 export async function deletePIN(): Promise<void> {
   await SecureStore.deleteItemAsync(PIN_KEY);
+  await SecureStore.deleteItemAsync(PIN_LENGTH_KEY);
 }
 
 // ============================================================================
@@ -93,19 +107,19 @@ export async function authenticateWithBiometric(
       fallbackLabel: options?.fallbackLabel || 'Use PIN',
       disableDeviceFallback: options?.disableDeviceFallback ?? false,
     });
-    
+
     if (result.success) {
       return { success: true };
     } else {
-      return { 
-        success: false, 
-        error: result.error || 'Authentication failed' 
+      return {
+        success: false,
+        error: result.error || 'Authentication failed',
       };
     }
   } catch (error: any) {
-    return { 
-      success: false, 
-      error: error.message || 'Authentication error' 
+    return {
+      success: false,
+      error: error.message || 'Authentication error',
     };
   }
 }
@@ -118,14 +132,14 @@ export async function authenticate(
   options?: BiometricAuthOptions
 ): Promise<{ success: boolean; error?: string; method?: AuthMethod }> {
   const authMethod = await getAuthMethod();
-  
+
   if (authMethod === 'none') {
     return { success: true, method: 'none' };
   }
-  
+
   if (authMethod === 'biometric') {
     const biometricSupported = await isDeviceSupportsBiometric();
-    
+
     if (biometricSupported) {
       const result = await authenticateWithBiometric(options);
       return { ...result, method: 'biometric' };
@@ -133,29 +147,29 @@ export async function authenticate(
       // Fallback to PIN if biometric is not available
       const hasPinStored = await hasPIN();
       if (hasPinStored) {
-        return { 
-          success: false, 
+        return {
+          success: false,
           error: 'Biometric not available, please use PIN',
-          method: 'pin'
+          method: 'pin',
         };
       } else {
-        return { 
-          success: false, 
-          error: 'No authentication method available' 
+        return {
+          success: false,
+          error: 'No authentication method available',
         };
       }
     }
   }
-  
+
   if (authMethod === 'pin') {
     // PIN authentication needs to be handled in UI
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: 'PIN authentication required',
-      method: 'pin'
+      method: 'pin',
     };
   }
-  
+
   return { success: false, error: 'Unknown authentication method' };
 }
 
@@ -165,50 +179,50 @@ export async function authenticate(
 
 export async function setupBiometricAuth(): Promise<{ success: boolean; error?: string }> {
   const supported = await isDeviceSupportsBiometric();
-  
+
   if (!supported) {
-    return { 
-      success: false, 
-      error: 'Biometric authentication is not available on this device' 
+    return {
+      success: false,
+      error: 'Biometric authentication is not available on this device',
     };
   }
-  
+
   // Test authentication
   const result = await authenticateWithBiometric({
     promptMessage: 'Verify your biometric to enable authentication',
   });
-  
+
   if (result.success) {
     await setAuthMethod('biometric');
     return { success: true };
   }
-  
+
   return result;
 }
 
 export async function setupPINAuth(pin: string): Promise<{ success: boolean; error?: string }> {
   try {
     if (pin.length < 4 || pin.length > 6) {
-      return { 
-        success: false, 
-        error: 'PIN must be between 4 and 6 digits' 
+      return {
+        success: false,
+        error: 'PIN must be between 4 and 6 digits',
       };
     }
-    
+
     if (!/^\d+$/.test(pin)) {
-      return { 
-        success: false, 
-        error: 'PIN must contain only numbers' 
+      return {
+        success: false,
+        error: 'PIN must contain only numbers',
       };
     }
-    
+
     await setPIN(pin);
     await setAuthMethod('pin');
     return { success: true };
   } catch (error: any) {
-    return { 
-      success: false, 
-      error: error.message || 'Failed to set up PIN' 
+    return {
+      success: false,
+      error: error.message || 'Failed to set up PIN',
     };
   }
 }
@@ -230,17 +244,17 @@ export async function changeAuthMethod(
     await disableAuth();
     return { success: true };
   }
-  
+
   if (newMethod === 'biometric') {
     return await setupBiometricAuth();
   }
-  
+
   if (newMethod === 'pin') {
     if (!pin) {
       return { success: false, error: 'PIN is required' };
     }
     return await setupPINAuth(pin);
   }
-  
+
   return { success: false, error: 'Invalid authentication method' };
 }

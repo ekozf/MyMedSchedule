@@ -1,26 +1,19 @@
 /**
- * Onboarding step 1 — Welcome: breathing app mark, name, one-line promise, three value points,
- * a language chip (top right) and a big "Get started".
+ * Onboarding step 1, Welcome (spec §5.1): compact language chip top right (globe + language
+ * name), then the title and one sentence, then a small 2×2 pill box below them (captioned
+ * "Example", footnote ink2) (the only
+ * picture: 96-tall tiles at 85% opacity, not pressable, announced as one image) and "Get started"
+ * at the bottom.
  *
  * @example
  * <WelcomeView languageLabel="English" onLanguagePress={openSheet} onGetStarted={next} />
  */
 import * as React from 'react';
 import { View } from 'react-native';
-import Animated from 'react-native-reanimated';
-import {
-  BellRing,
-  ChevronDown,
-  Globe,
-  Smartphone,
-  Users,
-  type LucideIcon,
-} from 'lucide-react-native';
+import { Globe } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
-import { Button, Card, Icon, PressableScale, Screen, Text, useTheme } from '@/components/ds';
-import { AppMark } from './AppMark';
-import { OnboardingHeader } from './OnboardingHeader';
-import { useEnter } from './motion';
+import { Button, Compartment, Icon, PressableScale, Screen, Text, useTheme } from '@/components/ds';
+import { useTimeFormat } from '@/lib/ui/format';
 
 export interface WelcomeViewProps {
   /** Current language in its own name ("English", "Türkçe", …). */
@@ -29,105 +22,128 @@ export interface WelcomeViewProps {
   onGetStarted: () => void;
 }
 
-const POINTS: { key: 'reminders' | 'local' | 'family'; icon: LucideIcon }[] = [
-  { key: 'reminders', icon: BellRing },
-  { key: 'local', icon: Smartphone },
-  { key: 'family', icon: Users },
-];
-
 export function WelcomeView({ languageLabel, onLanguagePress, onGetStarted }: WelcomeViewProps) {
-  const { colors } = useTheme();
-  const enter = useEnter(120);
-
   return (
     <Screen
       header={
-        <OnboardingHeader
-          step={0}
-          right={<LanguageChip label={languageLabel} onPress={onLanguagePress} />}
-        />
+        <View
+          style={{
+            minHeight: 56,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingTop: 4,
+          }}>
+          <LanguageChip label={languageLabel} onPress={onLanguagePress} />
+        </View>
       }
-      footer={
-        <Button
-          label={i18n.t('ui.onboarding.welcome.getStarted')}
-          size="lg"
-          fullWidth
-          onPress={onGetStarted}
-        />
-      }
-      contentContainerStyle={{ justifyContent: 'center' }}>
-      <View style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 12 }}>
-        <Animated.View entering={enter(0)}>
-          <AppMark size={128} breathing />
-        </Animated.View>
-        <Animated.View entering={enter(1)} style={{ alignItems: 'center', marginTop: 12, gap: 8 }}>
-          <Text variant="largeTitle" align="center">
-            {i18n.t('ui.onboarding.appName')}
+      footer={<Button label={i18n.t('ui.onboarding.welcome.getStarted')} onPress={onGetStarted} />}
+      contentContainerStyle={{ flexGrow: 1 }}>
+      <View style={{ flex: 1, gap: 28, paddingVertical: 12 }}>
+        <View style={{ gap: 12 }}>
+          <Text variant="title1">{i18n.t('ui.onboarding.welcome.title')}</Text>
+          <Text variant="body" tone="secondary">
+            {i18n.t('ui.onboarding.welcome.body')}
           </Text>
-          <Text variant="title3" tone="secondary" align="center" weight="500">
-            {i18n.t('ui.onboarding.welcome.promise')}
+        </View>
+        <View style={{ gap: 8 }}>
+          <Text variant="footnote" tone="secondary" importantForAccessibility="no">
+            {i18n.t('ui.onboarding.welcome.example')}
           </Text>
-        </Animated.View>
+          <PillBoxPicture />
+        </View>
       </View>
-
-      <Animated.View entering={enter(2)} style={{ marginTop: 20 }}>
-        <Card>
-          <View style={{ gap: 14 }}>
-            {POINTS.map((p) => (
-              <View
-                key={p.key}
-                accessible
-                accessibilityRole="text"
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: colors.accentSoft,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                  <Icon as={p.icon} size={20} tone="accent" />
-                </View>
-                <Text variant="headline" weight="500" style={{ flex: 1 }}>
-                  {i18n.t(`ui.onboarding.welcome.points.${p.key}`)}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </Card>
-      </Animated.View>
     </Screen>
   );
 }
 
-/** "🌐 English ▾" pill that opens the language sheet. */
+const TILE = 96;
+
+/**
+ * Four compartments in the four states: Morning done (2/2, All taken), Midday now (1 to take,
+ * Due at 13:00), Evening default (2 to take, From 20:00), Night empty. Decorative, one label.
+ */
+function PillBoxPicture() {
+  const { formatTime } = useTimeFormat();
+  const tile = TILE;
+  const c = (k: string) => i18n.t(`ui.compartments.${k}`);
+  const t = (k: string, o?: Record<string, string>) => i18n.t(`ui.today.tray.${k}`, o);
+  const at = (h: number) => {
+    const d = new Date();
+    d.setHours(h, 0, 0, 0);
+    return d;
+  };
+  return (
+    <View
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={i18n.t('ui.onboarding.welcome.pictureA11y')}
+      style={{ opacity: 0.85 }}>
+      <View importantForAccessibility="no-hide-descendants" style={{ gap: 10 }}>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Compartment
+            label={c('morning')}
+            state="done"
+            taken={2}
+            total={2}
+            sub={t('allTaken')}
+            minHeight={tile}
+            style={{ flex: 1 }}
+          />
+          <Compartment
+            label={c('midday')}
+            state="now"
+            taken={0}
+            total={1}
+            sub={t('dueAt', { time: formatTime(at(13)) })}
+            minHeight={tile}
+            style={{ flex: 1 }}
+          />
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Compartment
+            label={c('evening')}
+            state="default"
+            taken={0}
+            total={2}
+            sub={t('from', { time: formatTime(at(20)) })}
+            minHeight={tile}
+            style={{ flex: 1 }}
+          />
+          <Compartment
+            label={c('night')}
+            state="empty"
+            emptyText={c('emptyNight')}
+            minHeight={tile}
+            style={{ flex: 1 }}
+          />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/** Compact "🌐 English" pill that opens the language sheet. 48 tall (touch target). */
 export function LanguageChip({ label, onPress }: { label: string; onPress: () => void }) {
   const { colors } = useTheme();
   return (
     <PressableScale
-      haptic="tap"
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={i18n.t('ui.onboarding.welcome.languageA11y', { language: label })}
-      hitSlop={4}
       style={{
-        minHeight: 40,
+        minHeight: 48,
         paddingHorizontal: 14,
         borderRadius: 999,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.stroke,
+        backgroundColor: colors.field,
       }}>
-      <Icon as={Globe} size={16} tone="secondary" />
-      <Text variant="subhead" weight="600">
+      <Icon as={Globe} size={20} tone="secondary" />
+      <Text variant="callout" weight="700">
         {label}
       </Text>
-      <Icon as={ChevronDown} size={16} tone="secondary" />
     </PressableScale>
   );
 }

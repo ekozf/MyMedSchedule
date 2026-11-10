@@ -1,86 +1,81 @@
 /**
- * Glass surface (docs/DESIGN.md §2.3): translucent fill + hairline stroke + soft shadow (light
- * only). iOS adds a BlurView; Android uses the translucent fill only.
+ * Flat card: `field` fill on `bg`, radius 22, no border, no shadow (docs/DESIGN.md §3.4).
+ * Pressable when `onPress` is set. `tone` switches to a semantic fill.
  *
  * @example
  * <Card>…</Card>
- * <Card tone="warning" onPress={openSupply} accessibilityLabel="Supply">…</Card>
- * <Card padded={false} style={{ overflow: 'hidden' }}>{list}</Card>
+ * <Card tone="now">…</Card>
+ * <Card onPress={open} accessibilityLabel="Metformin, 29 left">…</Card>
+ * <Card selected>…</Card>     // 2 px accent border on bg (option cards)
  */
 import * as React from 'react';
-import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
 import { cssInterop } from 'nativewind';
-import { radii, statusColors, useTheme, type StatusTone } from '@/lib/theme';
+import { radii, useTheme, type Palette } from '@/lib/theme';
 import { PressableScale, type PressableScaleProps } from './PressableScale';
 
-export type CardTone = StatusTone;
+export type CardTone =
+  | 'default'
+  | 'done'
+  | 'now'
+  | 'danger'
+  | 'inverse'
+  | 'bg';
 
 export interface CardProps extends Omit<PressableScaleProps, 'style' | 'children'> {
   children?: React.ReactNode;
   /** Inner padding 16. Default true. */
   padded?: boolean;
-  /** Soft tinted background instead of glass. */
   tone?: CardTone;
-  /** When set, the card is pressable (spring scale + haptic). */
+  /** 2 px accent border on `bg` fill. */
+  selected?: boolean;
+  /** When set, the card is pressable. */
   onPress?: PressableScaleProps['onPress'];
-  /** iOS only: blur behind the glass. Default true. Turn off in long lists for perf. */
-  blur?: boolean;
   radius?: number;
   style?: StyleProp<ViewStyle>;
   className?: string;
+}
+
+export function cardFill(colors: Palette, tone: CardTone): string {
+  switch (tone) {
+    case 'done':
+      return colors.done;
+    case 'now':
+      return colors.now;
+    case 'danger':
+      return colors.dangerSoft;
+    case 'inverse':
+      return colors.inverse;
+    case 'bg':
+      return colors.bg;
+    default:
+      return colors.field;
+  }
 }
 
 function CardImpl({
   children,
   padded = true,
   tone = 'default',
+  selected = false,
   onPress,
-  blur = true,
   radius = radii.card,
   style,
   ...pressableProps
 }: CardProps) {
-  const { colors, isDark } = useTheme();
-  const tinted = tone !== 'default';
-  const fill = tinted ? statusColors(colors, tone).bg : colors.surface;
-  const useBlur = Platform.OS === 'ios' && blur && !tinted;
-
+  const { colors } = useTheme();
   const surfaceStyle: ViewStyle = {
     borderRadius: radius,
-    borderWidth: tinted ? 0 : StyleSheet.hairlineWidth * 2,
-    borderColor: colors.stroke,
-    backgroundColor: useBlur ? 'transparent' : fill,
-    ...(isDark
-      ? null
-      : {
-          shadowColor: colors.shadow,
-          shadowOpacity: 0.08,
-          shadowRadius: 24,
-          shadowOffset: { width: 0, height: 8 },
-        }),
+    backgroundColor: selected ? colors.bg : cardFill(colors, tone),
+    borderWidth: 2,
+    borderColor: selected ? colors.accent : 'transparent',
+    padding: padded ? 16 : 0,
   };
-
-  const content = (
-    <>
-      {useBlur ? (
-        <View style={[StyleSheet.absoluteFill, { borderRadius: radius, overflow: 'hidden' }]}>
-          <BlurView
-            intensity={30}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: fill }]} />
-        </View>
-      ) : null}
-      <View style={padded ? { padding: 16 } : null}>{children}</View>
-    </>
-  );
 
   if (onPress) {
     return (
       <PressableScale onPress={onPress} style={[surfaceStyle, style]} {...pressableProps}>
-        {content}
+        {children}
       </PressableScale>
     );
   }
@@ -93,7 +88,7 @@ function CardImpl({
       accessibilityHint={pressableProps.accessibilityHint}
       accessibilityState={pressableProps.accessibilityState ?? undefined}
       testID={pressableProps.testID}>
-      {content}
+      {children}
     </View>
   );
 }

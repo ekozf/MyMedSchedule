@@ -1,16 +1,16 @@
 /**
- * New profile (modal): photo + name. After creating, asks whether to switch to it now.
+ * New profile (modal, spec §5.6): photo + name, primary "Create profile". After creating, asks
+ * whether to switch to the new person now.
  */
 import * as React from 'react';
 import { router } from 'expo-router';
-import { Repeat } from 'lucide-react-native';
 import i18n, { getCurrentLocale } from '@/lib/i18n';
 import { useStore } from '@/store';
 import { createProfile, setActiveProfile as setActiveProfileDB } from '@/lib/db/operations';
-import { Button, NavHeader, Screen, haptics, useConfirm, useToast } from '@/components/ds';
+import { Button, NavHeader, Screen, useConfirm, useToast } from '@/components/ds';
 import { ModalScope, MODAL_SAFE_TOP } from '@/components/you/ModalScope';
 import { ProfileForm } from '@/components/you/ProfileForm';
-import { isAppLanguage } from '@/components/you/LanguageSheet';
+import { isAppLocale } from '@/components/onboarding';
 import { firstName, switchToProfile } from '@/components/you/profile-actions';
 import { useDiscardGuard } from '@/components/you/use-discard-guard';
 
@@ -36,7 +36,6 @@ function CreateProfileScreen() {
   const handleCreate = async () => {
     const trimmed = name.trim();
     if (!trimmed) {
-      haptics.warning();
       setError(i18n.t('ui.you.form.nameRequired'));
       return;
     }
@@ -51,7 +50,7 @@ function CreateProfileScreen() {
         name: trimmed,
         avatarUri,
         settings: {
-          language: isAppLanguage(locale) ? locale : 'en',
+          language: isAppLocale(locale) ? locale : 'en',
           use24HourTime: true,
           authRequired: false,
         },
@@ -63,31 +62,25 @@ function CreateProfileScreen() {
     } catch (e) {
       console.error('Failed to create profile:', e);
       setSaving(false);
-      toast.show({
-        title: i18n.t('ui.you.form.createFailed'),
-        message: i18n.t('ui.you.form.tryAgain'),
-        tone: 'danger',
-      });
+      toast.show({ title: i18n.t('ui.you.form.createFailed') });
       return;
     }
 
-    haptics.success();
     const short = firstName(created.name);
     const switchNow =
       !previous ||
       (await confirm({
         title: i18n.t('ui.you.form.switchTitle', { name: short }),
         message: i18n.t('ui.you.form.switchMessage', { name: short }),
-        confirmLabel: i18n.t('ui.you.form.switchConfirm'),
+        confirmLabel: i18n.t('ui.you.form.switchConfirm', { name: short }),
         cancelLabel: i18n.t('ui.common.notNow'),
-        icon: Repeat,
       }));
 
     let toastTitle = i18n.t('ui.you.form.created', { name: short });
     if (switchNow) {
       try {
         await switchToProfile(created);
-        toastTitle = i18n.t('ui.you.profiles.switched', { name: short });
+        toastTitle = i18n.t('ui.you.people.switched', { name: short });
       } catch (e) {
         console.error('Failed to switch to new profile:', e);
       }
@@ -95,7 +88,7 @@ function CreateProfileScreen() {
 
     allowLeave();
     // Moves to the screen underneath once this modal closes.
-    toast.show({ title: toastTitle, tone: 'success' });
+    toast.show({ title: toastTitle });
     router.back();
   };
 
@@ -107,9 +100,8 @@ function CreateProfileScreen() {
       footer={
         <Button
           label={i18n.t('ui.you.form.create')}
-          size="lg"
-          fullWidth
           loading={saving}
+          disabled={!name.trim()}
           onPress={handleCreate}
         />
       }>
@@ -120,6 +112,8 @@ function CreateProfileScreen() {
           if (error) setError(null);
         }}
         nameError={error}
+        label={i18n.t('ui.you.form.nameLabel')}
+        helper={i18n.t('ui.you.form.nameHelper')}
         avatarUri={avatarUri}
         onChangeAvatar={setAvatarUri}
         onSubmit={handleCreate}

@@ -9,7 +9,6 @@
 import * as React from 'react';
 import { useNavigation } from 'expo-router';
 import { usePreventRemove } from '@react-navigation/native';
-import { Undo2 } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import { useConfirm } from '@/components/ds';
 
@@ -29,7 +28,6 @@ export function useDiscardGuard(active: boolean) {
       confirmLabel: i18n.t('ui.you.form.discardConfirm'),
       cancelLabel: i18n.t('ui.you.form.keepEditing'),
       tone: 'danger',
-      icon: Undo2,
     }).then((ok) => {
       if (!ok) return;
       allowed.current = true;

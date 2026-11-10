@@ -1,5 +1,8 @@
 const { hairlineWidth } = require('nativewind/theme');
 
+const c = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
+/** "Pill Box" tokens (docs/DESIGN.md §3) — keep in sync with lib/theme.ts and global.css. */
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: 'class',
@@ -8,99 +11,58 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // "Calm" tokens (docs/DESIGN.md §2.1) — see global.css
-        canvas: {
-          top: 'rgb(var(--bg-top) / <alpha-value>)',
-          mid: 'rgb(var(--bg-mid) / <alpha-value>)',
-          bottom: 'rgb(var(--bg-bottom) / <alpha-value>)',
-        },
-        surface: {
-          DEFAULT: 'var(--surface)',
-          solid: 'rgb(var(--surface-solid) / <alpha-value>)',
-          sunken: 'var(--surface-sunken)',
-        },
-        stroke: 'var(--stroke)',
-        separator: 'var(--separator)',
-        ink: {
-          DEFAULT: 'rgb(var(--ink) / <alpha-value>)',
-          secondary: 'rgb(var(--ink-secondary) / <alpha-value>)',
-          tertiary: 'rgb(var(--ink-tertiary) / <alpha-value>)',
-        },
-        accent: {
-          DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
-          soft: 'var(--accent-soft)',
-          foreground: 'rgb(var(--accent-foreground) / <alpha-value>)',
-        },
-        success: {
-          DEFAULT: 'rgb(var(--success) / <alpha-value>)',
-          soft: 'var(--success-soft)',
-        },
-        warning: {
-          DEFAULT: 'rgb(var(--warning) / <alpha-value>)',
-          soft: 'var(--warning-soft)',
-        },
-        danger: {
-          DEFAULT: 'rgb(var(--danger) / <alpha-value>)',
-          soft: 'var(--danger-soft)',
-        },
-        'on-accent': 'rgb(var(--on-accent) / <alpha-value>)',
-
-        // Legacy shadcn names (pre-redesign screens), mapped onto the new palette
-        border: 'rgb(var(--border) / <alpha-value>)',
-        input: 'rgb(var(--input) / <alpha-value>)',
-        ring: 'rgb(var(--ring) / <alpha-value>)',
-        background: 'rgb(var(--background) / <alpha-value>)',
-        foreground: 'rgb(var(--foreground) / <alpha-value>)',
-        primary: {
-          DEFAULT: 'rgb(var(--primary) / <alpha-value>)',
-          foreground: 'rgb(var(--primary-foreground) / <alpha-value>)',
-        },
-        secondary: {
-          DEFAULT: 'rgb(var(--secondary) / <alpha-value>)',
-          foreground: 'rgb(var(--secondary-foreground) / <alpha-value>)',
-        },
-        destructive: {
-          DEFAULT: 'rgb(var(--destructive) / <alpha-value>)',
-          foreground: 'rgb(var(--destructive-foreground) / <alpha-value>)',
-        },
-        muted: {
-          DEFAULT: 'rgb(var(--muted) / <alpha-value>)',
-          foreground: 'rgb(var(--muted-foreground) / <alpha-value>)',
-        },
-        popover: {
-          DEFAULT: 'rgb(var(--popover) / <alpha-value>)',
-          foreground: 'rgb(var(--popover-foreground) / <alpha-value>)',
-        },
-        card: {
-          DEFAULT: 'rgb(var(--card) / <alpha-value>)',
-          foreground: 'rgb(var(--card-foreground) / <alpha-value>)',
-        },
+        bg: c('bg'),
+        field: c('field'),
+        field2: c('field2'),
+        ink: c('ink'),
+        ink2: c('ink2'),
+        line: c('line'),
+        line2: c('line2'),
+        accent: c('accent'),
+        'on-accent': c('on-accent'),
+        done: c('done'),
+        'done-ink': c('done-ink'),
+        now: c('now'),
+        'now-ink': c('now-ink'),
+        late: c('late'),
+        danger: c('danger'),
+        'danger-soft': c('danger-soft'),
+        inverse: c('inverse'),
+        'on-inverse': c('on-inverse'),
+        backdrop: 'var(--backdrop)',
+      },
+      fontFamily: {
+        regular: ['AtkinsonHyperlegibleNext_400Regular'],
+        medium: ['AtkinsonHyperlegibleNext_500Medium'],
+        semibold: ['AtkinsonHyperlegibleNext_600SemiBold'],
+        bold: ['AtkinsonHyperlegibleNext_700Bold'],
+        extrabold: ['AtkinsonHyperlegibleNext_800ExtraBold'],
+      },
+      fontSize: {
+        display: ['46px', { lineHeight: '48px' }],
+        title1: ['34px', { lineHeight: '38px' }],
+        title2: ['28px', { lineHeight: '32px' }],
+        title3: ['22px', { lineHeight: '27px' }],
+        headline: ['19px', { lineHeight: '25px' }],
+        body: ['18px', { lineHeight: '25px' }],
+        callout: ['17px', { lineHeight: '23px' }],
+        subhead: ['16px', { lineHeight: '22px' }],
+        footnote: ['15px', { lineHeight: '20px' }],
+        caption: ['13px', { lineHeight: '18px' }],
       },
       borderRadius: {
-        card: '24px',
-        row: '20px',
-        input: '16px',
-        sheet: '32px',
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        card: '22px',
+        group: '20px',
+        field: '18px',
+        button: '16px',
+        tile: '14px',
+        sheet: '28px',
+      },
+      spacing: {
+        gutter: '20px',
       },
       borderWidth: {
         hairline: hairlineWidth(),
-      },
-      keyframes: {
-        'accordion-down': {
-          from: { height: '0' },
-          to: { height: 'var(--radix-accordion-content-height)' },
-        },
-        'accordion-up': {
-          from: { height: 'var(--radix-accordion-content-height)' },
-          to: { height: '0' },
-        },
-      },
-      animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
       },
     },
   },

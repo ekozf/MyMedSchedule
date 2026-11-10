@@ -1,27 +1,24 @@
 /**
- * Journal tab (DESIGN.md §4.5). Loads every intake log + every medicine (inactive included, for
+ * Journal tab (DESIGN.md §5.5). Loads every intake log + every medicine (inactive included, for
  * names) for the active profile on focus, on profile change, on pull-to-refresh and whenever the
  * journal refresh signal is bumped (e.g. after /log/past). Optional route param `medicationId`
  * preselects the medicine filter ("See in Journal" on a medicine).
  */
 import * as React from 'react';
 import { router, useFocusEffect, useLocalSearchParams, useNavigation } from 'expo-router';
-import i18n from '@/lib/i18n';
-import { useToast } from '@/components/ds';
 import { getIntakeLogsByProfile, getMedicationsByProfile } from '@/lib/db/operations';
 import { useStore } from '@/store';
 import type { IntakeLog, Medication } from '@/types';
-import { EntrySheet, type EntryDraft } from '@/components/journal/EntrySheet';
+import { EntrySheet } from '@/components/journal/EntrySheet';
 import { JournalView } from '@/components/journal/JournalView';
 import { useJournalActions } from '@/components/journal/actions';
 import { useJournalRefresh } from '@/components/journal/journal-refresh';
-import { DEFAULT_FILTERS, type JournalFilters } from '@/components/journal/utils';
+import { DEFAULT_FILTERS, type JournalFilters } from '@/components/journal/filtering';
 
 export default function JournalScreen() {
   const profileId = useStore((s) => s.activeProfile?.id);
   const navigation = useNavigation();
-  const toast = useToast();
-  const { saveChange, deleteEntry } = useJournalActions();
+  const { deleteEntry } = useJournalActions();
 
   const params = useLocalSearchParams<{ medicationId?: string | string[] }>();
   const medicationIdParam = Array.isArray(params.medicationId)
@@ -80,7 +77,7 @@ export default function JournalScreen() {
     }, [load])
   );
 
-  // Changes made from transparent modals (/log/past) may not re-focus this tab.
+  // Also reload when logs change elsewhere (e.g. a sheet on another screen) without a re-focus.
   const refreshVersion = useJournalRefresh((s) => s.version);
   React.useEffect(() => {
     if (refreshVersion > 0) loadRef.current();
@@ -97,6 +94,8 @@ export default function JournalScreen() {
   // ---- Entry sheet ------------------------------------------------------------------------
   const [selected, setSelected] = React.useState<IntakeLog | null>(null);
   const [sheetOpen, setSheetOpen] = React.useState(false);
+  // Navigation and the remove confirm run once the sheet has gone (overlays sit above sheets,
+  // but a route push from inside a closing sheet can be dropped).
   const afterClose = React.useRef<(() => void) | null>(null);
 
   const openEntry = (log: IntakeLog) => {
@@ -105,24 +104,8 @@ export default function JournalScreen() {
     setSheetOpen(true);
   };
 
-  const onSave = async (draft: EntryDraft) => {
-    if (!selected) return false;
-    const ok = await saveChange(selected, draft);
-    if (ok) {
-      afterClose.current = () =>
-        toast.show({ title: i18n.t('ui.journal.entry.updated'), tone: 'success' });
-      setSheetOpen(false);
-    }
-    return ok;
-  };
-
-  const onDeleteFromSheet = () => {
-    const log = selected;
-    if (!log) return;
-    // Confirm + toast after the sheet has gone (toasts render under open sheets).
-    afterClose.current = () => {
-      deleteEntry(log);
-    };
+  const closeThen = (next: () => void) => {
+    afterClose.current = next;
     setSheetOpen(false);
   };
 
@@ -152,9 +135,6 @@ export default function JournalScreen() {
         refreshing={refreshing}
         onRefresh={() => load(true)}
         onOpenEntry={openEntry}
-        onDeleteEntry={(log) => {
-          deleteEntry(log);
-        }}
         onLogPast={logPast}
       />
       <EntrySheet
@@ -163,8 +143,15 @@ export default function JournalScreen() {
         medication={selected ? medications.find((m) => m.id === selected.medicationId) : undefined}
         onClose={() => setSheetOpen(false)}
         onDismissed={onDismissed}
-        onSave={onSave}
-        onDelete={onDeleteFromSheet}
+        onChange={() => {
+          const log = selected;
+          if (log)
+            closeThen(() => router.push({ pathname: '/log/past', params: { logId: log.id } }));
+        }}
+        onDelete={() => {
+          const log = selected;
+          if (log) closeThen(() => void deleteEntry(log));
+        }}
       />
     </>
   );

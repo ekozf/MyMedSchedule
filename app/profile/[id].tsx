@@ -1,25 +1,14 @@
 /**
- * Edit profile (modal): photo + name, and "Delete profile" for profiles that aren't in use.
+ * Edit profile (modal, spec §5.6): 120 avatar with camera badge, "Name" field, "Remove this
+ * person" (disabled with an explanation for the person in use), primary "Save changes".
  */
 import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Trash2, UserRoundX } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import { useStore } from '@/store';
 import { getProfileById, updateProfile } from '@/lib/db/operations';
-import {
-  Button,
-  EmptyState,
-  ListGroup,
-  ListRow,
-  NavHeader,
-  Screen,
-  Text,
-  haptics,
-  useTheme,
-  useToast,
-} from '@/components/ds';
+import { Button, EmptyState, NavHeader, Screen, Text, useTheme, useToast } from '@/components/ds';
 import type { Profile } from '@/types';
 import { ModalScope, MODAL_SAFE_TOP } from '@/components/you/ModalScope';
 import { ProfileForm } from '@/components/you/ProfileForm';
@@ -89,7 +78,6 @@ function EditProfileScreen() {
     if (!id || !profile) return;
     const trimmed = name.trim();
     if (!trimmed) {
-      haptics.warning();
       setError(i18n.t('ui.you.form.nameRequired'));
       return;
     }
@@ -106,19 +94,14 @@ function EditProfileScreen() {
         avatarUri: avatarUri ?? '',
       });
       await loadProfiles();
-      haptics.success();
       allowLeave();
       // Moves to the screen underneath once this modal closes.
-      toast.show({ title: i18n.t('ui.you.form.saved'), tone: 'success' });
+      toast.show({ title: i18n.t('ui.you.form.saved') });
       router.back();
     } catch (e) {
       console.error('Failed to update profile:', e);
       setBusy(false);
-      toast.show({
-        title: i18n.t('ui.you.form.saveFailed'),
-        message: i18n.t('ui.you.form.tryAgain'),
-        tone: 'danger',
-      });
+      toast.show({ title: i18n.t('ui.you.form.saveFailed') });
     }
   };
 
@@ -128,21 +111,13 @@ function EditProfileScreen() {
     setBusy(true);
     try {
       await removeProfile(profile.id);
-      haptics.success();
       allowLeave();
-      toast.show({
-        title: i18n.t('ui.you.form.deleted', { name: firstName(profile.name) }),
-        tone: 'success',
-      });
+      toast.show({ title: i18n.t('ui.you.form.removed', { name: firstName(profile.name) }) });
       router.back();
     } catch (e) {
       console.error('Failed to delete profile:', e);
       setBusy(false);
-      toast.show({
-        title: i18n.t('ui.you.form.deleteFailed'),
-        message: i18n.t('ui.you.form.tryAgain'),
-        tone: 'danger',
-      });
+      toast.show({ title: i18n.t('ui.you.form.removeFailed') });
     }
   };
 
@@ -166,7 +141,6 @@ function EditProfileScreen() {
     return (
       <Screen safeTop={MODAL_SAFE_TOP} header={header}>
         <EmptyState
-          icon={UserRoundX}
           title={i18n.t('ui.you.form.notFound')}
           action={{ label: i18n.t('ui.common.close'), onPress: () => router.back() }}
         />
@@ -182,9 +156,8 @@ function EditProfileScreen() {
       footer={
         <Button
           label={i18n.t('ui.you.form.save')}
-          size="lg"
-          fullWidth
           loading={busy}
+          disabled={!name.trim()}
           onPress={handleSave}
         />
       }>
@@ -195,26 +168,27 @@ function EditProfileScreen() {
           if (error) setError(null);
         }}
         nameError={error}
+        label={i18n.t('ui.you.form.nameLabel')}
+        helper={i18n.t('ui.you.form.nameHelper')}
         avatarUri={avatarUri}
         onChangeAvatar={setAvatarUri}
         onSubmit={handleSave}
         disabled={busy}>
-        {isActive ? (
-          <Text variant="footnote" tone="secondary" style={{ paddingHorizontal: 16 }}>
-            {i18n.t('ui.you.form.activeCaption')}
-          </Text>
-        ) : (
-          <ListGroup>
-            <ListRow
-              icon={Trash2}
-              title={i18n.t('ui.you.profiles.delete')}
-              destructive
-              accessory="none"
+        <View style={{ gap: 8, marginTop: 8 }}>
+          {/* The person in use can't be removed: say why instead of showing a dead button. */}
+          {isActive ? (
+            <Text variant="footnote" tone="secondary">
+              {i18n.t('ui.you.form.removeDisabled')}
+            </Text>
+          ) : (
+            <Button
+              variant="danger"
+              label={i18n.t('ui.you.form.remove')}
               disabled={busy}
               onPress={handleDelete}
             />
-          </ListGroup>
-        )}
+          )}
+        </View>
       </ProfileForm>
     </Screen>
   );

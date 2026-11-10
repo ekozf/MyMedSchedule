@@ -1,7 +1,8 @@
 /**
- * Bottom sheet on a transparent RN `Modal`: spring slide-up, fading backdrop (tap to close),
- * grabber, drag-down-to-dismiss (from the header region, or from the content when it is scrolled
- * to the top), keyboard aware, max 92% height, sticky footer.
+ * Bottom sheet on a transparent RN `Modal` (docs/DESIGN.md §4): `bg`, top radius 28, grab handle
+ * 44×5, header with `title2` + optional subtitle + round 44 close button, max 86% height.
+ * Slides up in 320 ms, scrim fades; dismiss on scrim tap, drag down (from the header, or from the
+ * content when it is scrolled to the top) and the back button. Keyboard aware, sticky footer.
  *
  * The sheet stays mounted while its exit animation runs; `onDismissed` fires once it's gone
  * (use it to chain another sheet / navigation / toast safely).
@@ -10,6 +11,11 @@
  * while it is open is presented from this sheet's modal, so it appears above it (iOS can't present
  * a second modal from the root while this one is up).
  *
+ * Content that expands inside a scrolling sheet (an inline editor) can call
+ * `useSheetScroll()?.reveal(y, height)` with its position relative to the sheet content to scroll
+ * it fully into view. Content gets 24 + the bottom safe-area inset of padding so the last button
+ * never sits under the gesture bar.
+ *
  * @example
  * const [open, setOpen] = useState(false);
  * <Sheet
@@ -17,7 +23,7 @@
  *   onClose={() => setOpen(false)}
  *   title="Supply"
  *   subtitle="Metformin"
- *   footer={<Button label="Save" size="lg" fullWidth onPress={save} />}>
+ *   footer={<Button label="Save" onPress={save} />}>
  *   <Stepper value={n} onChange={setN} min={0} max={999} />
  * </Sheet>
  */
@@ -54,8 +60,10 @@ import Animated, {
 import { scheduleOnRN } from 'react-native-worklets';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import i18n from '@/lib/i18n';
-import { SPRING, radii, useTheme, withAlpha } from '@/lib/theme';
+import { DURATION, SPRING, radii, useTheme } from '@/lib/theme';
+import { X } from 'lucide-react-native';
 import { Text } from './Text';
+import { IconButton } from './IconButton';
 import { OverlayScope } from './OverlayHost';
 
 export interface SheetProps {
@@ -79,6 +87,8 @@ export interface SheetProps {
   contentContainerStyle?: StyleProp<ViewStyle>;
   /** Hide the grabber handle. */
   hideGrabber?: boolean;
+  /** Round close button in the header. Default: true when dismissible and there is a title. */
+  showClose?: boolean;
   accessibilityLabel?: string;
   testID?: string;
   /**
@@ -88,7 +98,23 @@ export interface SheetProps {
   registerOverlayHost?: boolean;
 }
 
+export interface SheetScrollApi {
+  /**
+   * Scroll so the region [y, y + height] (relative to the top of the sheet's children) is fully
+   * visible, preferring its bottom edge (where an editor's save button sits).
+   */
+  reveal: (y: number, height: number) => void;
+}
+
+const SheetScrollContext = React.createContext<SheetScrollApi | null>(null);
+
+/** The open sheet's scroll helpers; null outside a scrollable sheet. */
+export function useSheetScroll(): SheetScrollApi | null {
+  return React.useContext(SheetScrollContext);
+}
+
 const DISMISS_DISTANCE = 0.25; // of sheet height
+const SHEET_EASING = Easing.bezier(0.2, 0.8, 0.2, 1);
 const DISMISS_VELOCITY = 900;
 
 export function Sheet({
@@ -105,6 +131,7 @@ export function Sheet({
   dismissible = true,
   contentContainerStyle,
   hideGrabber = false,
+  showClose,
   accessibilityLabel,
   testID,
   registerOverlayHost = true,
@@ -121,6 +148,9 @@ export function Sheet({
   const appear = useSharedValue(0); // reduced-motion fade 0..1
   const sheetHeight = useSharedValue(windowHeight * 0.5);
   const scrollY = useSharedValue(0);
+  const scrollRef = React.useRef<React.ComponentRef<typeof GHScrollView>>(null);
+  const viewportHeight = React.useRef(0);
+  const contentTop = React.useRef(0);
   const keyboardLift = useSharedValue(0);
 
   const visibleRef = React.useRef(visible);
@@ -154,10 +184,10 @@ export function Sheet({
       }
       if (reduceMotion) {
         offset.value = 0;
-        appear.value = withTiming(1, { duration: 200 });
+        appear.value = withTiming(1, { duration: 1 });
       } else {
         appear.value = 1;
-        offset.value = withSpring(0, SPRING);
+        offset.value = withTiming(0, { duration: DURATION.sheet, easing: SHEET_EASING });
       }
     } else if (mounted) {
       const done = (finished?: boolean) => {
@@ -165,11 +195,11 @@ export function Sheet({
         if (finished) scheduleOnRN(finishExit);
       };
       if (reduceMotion) {
-        appear.value = withTiming(0, { duration: 180 }, done);
+        appear.value = withTiming(0, { duration: 1 }, done);
       } else {
         offset.value = withTiming(
           Math.max(sheetHeight.value, 200) + 40,
-          { duration: 240, easing: Easing.in(Easing.quad) },
+          { duration: DURATION.scrim, easing: Easing.in(Easing.quad) },
           done
         );
       }
@@ -274,6 +304,28 @@ export function Sheet({
     });
   const scrollGesture = Gesture.Simultaneous(nativeScroll, contentPan);
 
+  const scrollApi = React.useMemo<SheetScrollApi>(
+    () => ({
+      reveal: (y, height) => {
+        // Wait a frame so the sheet and the viewport have their new layout.
+        setTimeout(() => {
+          const viewport = viewportHeight.current;
+          if (!scrollRef.current || viewport <= 0) return;
+          const top = contentTop.current + y;
+          const bottom = top + height + 24; // keep a little air under the last button
+          const current = scrollY.value;
+          let target: number | null = null;
+          if (bottom > current + viewport) target = Math.min(top, bottom - viewport);
+          else if (top < current) target = top;
+          if (target !== null) {
+            scrollRef.current.scrollTo({ y: Math.max(0, target), animated: !reduceMotion });
+          }
+        }, 60);
+      },
+    }),
+    [scrollY, reduceMotion]
+  );
+
   const sheetStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: offset.value }],
     opacity: reduceMotion ? appear.value : 1,
@@ -294,13 +346,16 @@ export function Sheet({
 
   const maxHeightStyle = useAnimatedStyle(() => {
     const available = containerHeight - insets.top - 8 - keyboardLift.value;
-    return { maxHeight: Math.min(containerHeight * 0.92, available) };
+    return { maxHeight: Math.min(containerHeight * 0.86, available) };
   });
 
   if (!mounted) return null;
 
-  const hasHeader = !!(title || subtitle || headerLeft || headerRight);
-  const bottomPad = footer ? 0 : Math.max(insets.bottom, 12) + 12;
+  const closeVisible = showClose ?? (dismissible && !!title);
+  const hasHeader = !!(title || subtitle || headerLeft || headerRight || closeVisible);
+  const bottomPad = footer ? 0 : insets.bottom + 24;
+  // Children start below the content padding (0 with a header, 4 without).
+  contentTop.current = hasHeader ? 0 : 4;
 
   const header = (
     <View>
@@ -308,46 +363,50 @@ export function Sheet({
         <View style={{ height: 12 }} />
       ) : (
         <View
-          style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 6 }}
+          style={{ alignItems: 'center', paddingTop: 10, paddingBottom: 6 }}
           accessible={dismissible}
           accessibilityRole={dismissible ? 'button' : undefined}
           accessibilityLabel={dismissible ? i18n.t('ui.common.a11y.dragToClose') : undefined}
           onAccessibilityTap={dismissible ? requestClose : undefined}>
-          <View
-            style={{
-              width: 36,
-              height: 5,
-              borderRadius: 3,
-              backgroundColor: withAlpha(colors.ink, isDark ? 0.25 : 0.18),
-            }}
-          />
+          <View style={{ width: 44, height: 5, borderRadius: 3, backgroundColor: colors.line2 }} />
         </View>
       )}
       {hasHeader ? (
+        // row-reverse: the close button comes first in focus order but sits on the right.
         <View
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
+            flexDirection: 'row-reverse',
+            alignItems: 'flex-start',
             paddingHorizontal: 20,
             paddingTop: 6,
-            paddingBottom: 12,
+            paddingBottom: 16,
             gap: 12,
-            minHeight: 48,
+            minHeight: 56,
           }}>
-          {headerLeft}
-          <View style={{ flex: 1 }}>
-            {title ? (
-              <Text variant="title3" accessibilityRole="header" numberOfLines={2}>
-                {title}
-              </Text>
-            ) : null}
-            {subtitle ? (
-              <Text variant="subhead" tone="secondary" style={{ marginTop: 2 }}>
-                {subtitle}
-              </Text>
-            ) : null}
-          </View>
+          {closeVisible ? (
+            <IconButton
+              icon={X}
+              size="sm"
+              accessibilityLabel={i18n.t('ui.common.a11y.close')}
+              onPress={requestClose}
+            />
+          ) : null}
           {headerRight}
+          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {headerLeft}
+            <View style={{ flex: 1, paddingTop: 4 }}>
+              {title ? (
+                <Text variant="title2" accessibilityRole="header">
+                  {title}
+                </Text>
+              ) : null}
+              {subtitle ? (
+                <Text variant="body" tone="secondary" style={{ marginTop: 4 }}>
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
+          </View>
         </View>
       ) : null}
     </View>
@@ -361,6 +420,10 @@ export function Sheet({
   const content = scrollable ? (
     <GestureDetector gesture={scrollGesture}>
       <GHScrollView
+        ref={scrollRef}
+        onLayout={(e) => {
+          viewportHeight.current = e.nativeEvent.layout.height;
+        }}
         style={{ flexGrow: 0, flexShrink: 1 }}
         contentContainerStyle={padding}
         bounces={false}
@@ -371,7 +434,7 @@ export function Sheet({
         onScroll={(e) => {
           scrollY.value = e.nativeEvent.contentOffset.y;
         }}>
-        {children}
+        <SheetScrollContext.Provider value={scrollApi}>{children}</SheetScrollContext.Provider>
       </GHScrollView>
     </GestureDetector>
   ) : (
@@ -412,14 +475,15 @@ export function Sheet({
               }}
               style={[
                 {
-                  backgroundColor: colors.surfaceSolid,
+                  backgroundColor: colors.bg,
                   borderTopLeftRadius: radii.sheet,
                   borderTopRightRadius: radii.sheet,
                   overflow: 'hidden',
-                  shadowColor: colors.shadow,
-                  shadowOpacity: isDark ? 0 : 0.12,
-                  shadowRadius: 24,
-                  shadowOffset: { width: 0, height: -4 },
+                  // Dark mode: bg on a dark scrim has no edge, so draw a 1 px top border.
+                  borderTopWidth: isDark ? 1 : 0,
+                  borderLeftWidth: isDark ? 1 : 0,
+                  borderRightWidth: isDark ? 1 : 0,
+                  borderColor: isDark ? colors.line2 : 'transparent',
                 },
                 maxHeightStyle,
                 sheetStyle,
@@ -433,8 +497,6 @@ export function Sheet({
                     paddingTop: 12,
                     paddingBottom: Math.max(insets.bottom, 12) + 8,
                     gap: 8,
-                    borderTopWidth: StyleSheet.hairlineWidth,
-                    borderTopColor: colors.separator,
                   }}>
                   {footer}
                 </View>

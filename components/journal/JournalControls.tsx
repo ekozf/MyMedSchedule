@@ -1,170 +1,242 @@
 /**
- * Light filter bar under the Journal title: range segments, then one chip row with the medicine
- * picker chip (opens a sheet) and the status chips, then a calm one-line summary.
+ * Journal filters under the title, folded behind one "Filter · Last 7 days" chip (the period it
+ * shows, and a count badge when any
+ * filter differs from the default) so the first day shows without scrolling. Tapping it reveals
+ * one row with the range segments (7 days / 30 days / 90 days / All) and one row with two picker
+ * chips, "All medicines ▾" (radio sheet of medicines) and "All statuses ▾" (radio sheet All /
+ * Taken / Partial / Skipped). Open or closed is remembered for the rest of the app session. The
+ * day headers carry the counts ("2 taken"), so there is no separate summary line.
  *
  * @example
- * <JournalControls filters={f} onChange={setF} medications={meds} summary="18 entries · 15 taken" />
+ * <JournalControls filters={f} onChange={setF} medications={meds} />
  */
 import * as React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { ChevronDown, Layers } from 'lucide-react-native';
+import { View } from 'react-native';
+import { ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import {
-  Chip,
-  ChipRow,
   Icon,
-  MedTile,
+  OptionRow,
   PressableScale,
   SegmentedControl,
+  Sheet,
   Text,
-  statusColors,
+  radii,
   useTheme,
 } from '@/components/ds';
 import type { Medication } from '@/types';
-import { MedicineFilterSheet } from './MedicineFilterSheet';
-import { statusMeta } from './StatusDot';
-import { ACTIONS, RANGE_KEYS, type JournalFilters, type RangeKey } from './utils';
+import { medicineDisplayName } from '@/components/medicines/medicine-info';
+import { MedicinePickerSheet } from './MedicinePickerSheet';
+import {
+  ACTIONS,
+  RANGE_KEYS,
+  activeFilterCount,
+  type ActionFilter,
+  type JournalFilters,
+  type RangeKey,
+} from './filtering';
 
 export interface JournalControlsProps {
   filters: JournalFilters;
   onChange: (filters: JournalFilters) => void;
   /** Every medicine of the profile, inactive included. */
   medications: Medication[];
-  /** Summary line (e.g. "18 entries · 15 taken"); hidden when empty. */
-  summary?: string;
 }
 
 const RANGE_LABEL: Record<RangeKey, string> = { '7': 'd7', '30': 'd30', '90': 'd90', all: 'all' };
+const STATUS_OPTIONS: ActionFilter[] = ['all', ...ACTIONS];
 
-export function JournalControls({ filters, onChange, medications, summary }: JournalControlsProps) {
-  const [sheetOpen, setSheetOpen] = React.useState(false);
+const statusName = (a: ActionFilter) =>
+  i18n.t(a === 'all' ? 'ui.journal.filter.allStatuses' : `ui.journal.actions.${a}`);
+
+/** Filters open or folded: kept for the app session (module state, not persisted). */
+let sessionExpanded = false;
+
+export function JournalControls({ filters, onChange, medications }: JournalControlsProps) {
+  const [expanded, setExpandedState] = React.useState(sessionExpanded);
+  const setExpanded = (v: boolean) => {
+    sessionExpanded = v;
+    setExpandedState(v);
+  };
+  const active = activeFilterCount(filters);
+  const [medOpen, setMedOpen] = React.useState(false);
+  const [statusOpen, setStatusOpen] = React.useState(false);
   const set = (patch: Partial<JournalFilters>) => onChange({ ...filters, ...patch });
 
-  const selectedMed =
-    filters.medicationId === 'all'
-      ? null
-      : (medications.find((m) => m.id === filters.medicationId) ?? null);
   const medLabel: string =
     filters.medicationId === 'all'
       ? i18n.t('ui.journal.filter.allMedicines')
-      : (selectedMed?.name ?? String(i18n.t('ui.journal.row.deletedMedicine')));
+      : (() => {
+          const m = medications.find((x) => x.id === filters.medicationId);
+          return m ? medicineDisplayName(m) : String(i18n.t('ui.journal.row.deletedMedicine'));
+        })();
+  const statusLabel =
+    filters.action === 'all'
+      ? i18n.t('ui.journal.filter.statusChip')
+      : i18n.t(`ui.journal.actions.${filters.action}`);
 
   return (
-    <View style={{ gap: 12, paddingBottom: 4 }}>
-      <SegmentedControl
-        value={filters.range}
-        onChange={(range) => set({ range })}
-        options={RANGE_KEYS.map((k) => ({
-          value: k,
-          label: i18n.t(`ui.journal.range.${RANGE_LABEL[k]}`),
-          accessibilityLabel: i18n.t(`ui.journal.range.a11y.${RANGE_LABEL[k]}`),
-        }))}
+    <View style={{ gap: 12 }}>
+      <FilterToggle
+        count={active}
+        rangeLabel={i18n.t(`ui.journal.range.a11y.${RANGE_LABEL[filters.range]}`)}
+        expanded={expanded}
+        onPress={() => setExpanded(!expanded)}
       />
+      {expanded ? (
+        <>
+          <SegmentedControl
+            value={filters.range}
+            onChange={(range) => set({ range })}
+            options={RANGE_KEYS.map((k) => ({
+              value: k,
+              label: i18n.t(`ui.journal.range.${RANGE_LABEL[k]}`),
+              accessibilityLabel: i18n.t(`ui.journal.range.a11y.${RANGE_LABEL[k]}`),
+            }))}
+          />
 
-      <ChipRow>
-        <MedicineChip
-          label={medLabel}
-          medication={selectedMed}
-          selected={filters.medicationId !== 'all'}
-          onPress={() => setSheetOpen(true)}
-        />
-        <Separator />
-        <Chip
-          label={i18n.t('ui.journal.actions.all')}
-          selected={filters.action === 'all'}
-          onPress={() => set({ action: 'all' })}
-        />
-        {ACTIONS.map((a) => {
-          const meta = statusMeta(a);
-          return (
-            <Chip
-              key={a}
-              label={meta.label}
-              icon={meta.icon}
-              tone={meta.tone}
-              selected={filters.action === a}
-              onPress={() => set({ action: filters.action === a ? 'all' : a })}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            <PickerChip
+              label={medLabel}
+              accessibilityLabel={i18n.t('ui.journal.filter.a11yMedicine', { name: medLabel })}
+              selected={filters.medicationId !== 'all'}
+              onPress={() => setMedOpen(true)}
             />
-          );
-        })}
-      </ChipRow>
-
-      {summary ? (
-        <Text variant="footnote" tone="secondary" style={{ paddingHorizontal: 4 }}>
-          {summary}
-        </Text>
+            <PickerChip
+              label={statusLabel}
+              accessibilityLabel={i18n.t('ui.journal.filter.a11yStatus', { name: statusLabel })}
+              selected={filters.action !== 'all'}
+              onPress={() => setStatusOpen(true)}
+            />
+          </View>
+        </>
       ) : null}
 
-      <MedicineFilterSheet
-        visible={sheetOpen}
-        onClose={() => setSheetOpen(false)}
+      <MedicinePickerSheet
+        visible={medOpen}
+        onClose={() => setMedOpen(false)}
+        title={i18n.t('ui.journal.filter.sheetTitle')}
         medications={medications}
         value={filters.medicationId}
+        includeAll
         onChange={(medicationId) => set({ medicationId })}
       />
+
+      <Sheet
+        visible={statusOpen}
+        onClose={() => setStatusOpen(false)}
+        title={i18n.t('ui.journal.filter.statusSheetTitle')}>
+        <View style={{ gap: 10, paddingBottom: 8 }} accessibilityRole="radiogroup">
+          {STATUS_OPTIONS.map((a) => (
+            <OptionRow
+              key={a}
+              title={statusName(a)}
+              selected={filters.action === a}
+              onPress={() => {
+                set({ action: a });
+                setStatusOpen(false);
+              }}
+            />
+          ))}
+        </View>
+      </Sheet>
     </View>
   );
 }
 
-function Separator() {
+/**
+ * "Filter · Last 7 days (2) ▾": folds the filters in and out; names the period so it's clear
+ * what the list covers while folded. 48 tall, `field`, count badge in accent.
+ */
+function FilterToggle({
+  count,
+  rangeLabel,
+  expanded,
+  onPress,
+}: {
+  count: number;
+  rangeLabel: string;
+  expanded: boolean;
+  onPress: () => void;
+}) {
   const { colors } = useTheme();
   return (
-    <View
-      style={{ width: StyleSheet.hairlineWidth * 2, height: 24, backgroundColor: colors.separator }}
-    />
+    <PressableScale
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${rangeLabel}. ${i18n.t('ui.journal.filter.toggleA11y', { count })}`}
+      accessibilityState={{ expanded }}
+      style={{
+        minHeight: 48,
+        alignSelf: 'flex-start',
+        maxWidth: '100%',
+        paddingLeft: 16,
+        paddingRight: 14,
+        borderRadius: radii.pill,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: colors.field,
+      }}>
+      <Icon as={SlidersHorizontal} size={20} tone="secondary" />
+      <Text variant="callout" weight="600" style={{ flexShrink: 1 }}>
+        {i18n.t('ui.journal.filter.toggleWithRange', { range: rangeLabel })}
+      </Text>
+      {count > 0 ? (
+        <View
+          style={{
+            minWidth: 24,
+            height: 24,
+            paddingHorizontal: 6,
+            borderRadius: radii.pill,
+            backgroundColor: colors.accent,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <Text variant="caption" color={colors.onAccent} tabular>
+            {count}
+          </Text>
+        </View>
+      ) : null}
+      <Icon as={expanded ? ChevronUp : ChevronDown} size={20} tone="secondary" />
+    </PressableScale>
   );
 }
 
-/** Chip with a trailing chevron: it opens a picker rather than toggling. */
-function MedicineChip({
+/** A chip with a trailing ▾: it opens a picker instead of toggling. Same size as `Chip`. */
+function PickerChip({
   label,
-  medication,
+  accessibilityLabel,
   selected,
   onPress,
 }: {
   label: string;
-  medication: Medication | null;
+  accessibilityLabel: string;
   selected: boolean;
   onPress: () => void;
 }) {
   const { colors } = useTheme();
-  const sc = statusColors(colors, 'accent');
-  const fg = selected ? sc.fg : colors.ink;
+  const fg = selected ? colors.onAccent : colors.ink;
   return (
     <PressableScale
-      haptic="tap"
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={i18n.t('ui.journal.filter.a11yMedicine', { name: label })}
-      accessibilityState={{ selected }}
-      hitSlop={4}
+      accessibilityLabel={accessibilityLabel}
       style={{
-        minHeight: 40,
-        maxWidth: 240,
-        paddingLeft: medication ? 5 : 14,
-        paddingRight: 12,
-        borderRadius: 20,
+        minHeight: 50,
+        maxWidth: '100%',
+        paddingLeft: 20,
+        paddingRight: 16,
+        borderRadius: radii.pill,
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: selected ? sc.bg : colors.surface,
-        borderWidth: StyleSheet.hairlineWidth * 2,
-        borderColor: selected ? 'transparent' : colors.stroke,
+        backgroundColor: selected ? colors.accent : colors.field,
       }}>
-      {medication ? (
-        <MedTile
-          name={medication.name}
-          imageUri={medication.imageUri}
-          size="sm"
-          style={{ width: 30, height: 30, borderRadius: 15 }}
-        />
-      ) : (
-        <Icon as={Layers} size={18} color={colors.inkSecondary} />
-      )}
-      <Text variant="subhead" weight="600" color={fg} numberOfLines={1} style={{ flexShrink: 1 }}>
+      <Text variant="callout" weight="600" color={fg} style={{ flexShrink: 1 }}>
         {label}
       </Text>
-      <Icon as={ChevronDown} size={16} color={selected ? sc.fg : colors.inkSecondary} />
+      <Icon as={ChevronDown} size={20} color={fg} />
     </PressableScale>
   );
 }

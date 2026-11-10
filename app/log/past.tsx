@@ -1,96 +1,130 @@
 /**
- * /log/past — "Log a past dose" (transparent modal). Optional search param `medicationId`
- * preselects that medicine. Closes with `router.back()` once the sheet has animated away; after a
- * save it then shows a "Logged" toast with Undo.
+ * `/log/past` — "Log a past dose" as a full page (no tab bar).
+ *
+ * Params:
+ * - `medicationId`: preselect that medicine (e.g. from Today's as-needed sheet).
+ * - `logId`: edit mode — change that existing entry (from the Journal entry sheet).
+ *
+ * After saving it goes back and shows a toast ("Saved to your Journal." with Undo, or
+ * "Changes saved.").
  */
 import * as React from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import i18n from '@/lib/i18n';
-import { OverlayScope, useToast } from '@/components/ds';
-import { getMedicationsByProfile } from '@/lib/db/operations';
+import { NavHeader, OverlayScope, Screen, goBackOrHome, useToast } from '@/components/ds';
+import { getIntakeLogsByProfile, getMedicationsByProfile } from '@/lib/db/operations';
 import { useStore } from '@/store';
-import { useTimeFormat } from '@/lib/ui/format';
 import type { IntakeLog, Medication } from '@/types';
-import { PastDoseSheet, type PastDoseDraft } from '@/components/journal/PastDoseSheet';
-import { statusMeta } from '@/components/journal/StatusDot';
+import { PastDoseForm, type PastDoseDraft } from '@/components/journal/PastDoseForm';
 import { useJournalActions } from '@/components/journal/actions';
-import { dayLabel } from '@/components/journal/utils';
 
-type After = { kind: 'back' } | { kind: 'add' } | { kind: 'logged'; log: IntakeLog; name: string };
+const first = (v?: string | string[]) => (Array.isArray(v) ? v[0] : v) || undefined;
 
 export default function LogPastScreen() {
-  const params = useLocalSearchParams<{ medicationId?: string | string[] }>();
-  const medicationId = Array.isArray(params.medicationId)
-    ? params.medicationId[0]
-    : params.medicationId;
+  const params = useLocalSearchParams<{
+    medicationId?: string | string[];
+    logId?: string | string[];
+  }>();
+  const medicationId = first(params.medicationId);
+  const logId = first(params.logId);
+
   const profileId = useStore((s) => s.activeProfile?.id);
   const storeMeds = useStore((s) => s.medications);
   const toast = useToast();
-  const { formatTime } = useTimeFormat();
-  const { logPastDose, undoPastDose } = useJournalActions();
+  const { logPastDose, undoPastDose, saveChange } = useJournalActions();
 
-  const [visible, setVisible] = React.useState(true);
-  // Start from the store (instant), then refresh from the database (only active medicines).
+  // New entry: start from the store (instant), then refresh from the database.
   const [medications, setMedications] = React.useState<Medication[]>(() =>
-    storeMeds.filter((m) => m.isActive && m.profileId === profileId)
+    logId ? [] : storeMeds.filter((m) => m.isActive && m.profileId === profileId)
   );
+  const [entry, setEntry] = React.useState<{ log: IntakeLog; medication: Medication } | null>(null);
+  // What is already logged, for the "Which dose?" chips ("08:00 · taken").
+  const [logs, setLogs] = React.useState<IntakeLog[] | undefined>(undefined);
+  // Wait for the database before showing "No medicines yet" or an entry to change.
+  const [ready, setReady] = React.useState(() => !logId && medications.length > 0);
+
   React.useEffect(() => {
     if (!profileId) return;
     let alive = true;
-    getMedicationsByProfile(profileId, true)
-      .then((meds) => alive && setMedications(meds))
-      .catch((error) => console.error('Failed to load medicines:', error));
+    (async () => {
+      try {
+        if (!logId) {
+          const meds = await getMedicationsByProfile(profileId, true);
+          if (!alive) return;
+          setMedications(meds);
+          setReady(true);
+          // Best-effort: without it the chips just don't show what's already logged.
+          getIntakeLogsByProfile(profileId)
+            .then((all) => alive && setLogs(all))
+            .catch((error) => console.warn('Failed to load logs for past dose:', error));
+          return;
+        }
+        const [logs, meds] = await Promise.all([
+          getIntakeLogsByProfile(profileId),
+          getMedicationsByProfile(profileId, false),
+        ]);
+        if (!alive) return;
+        const log = logs.find((l) => l.id === logId);
+        const medication = log ? meds.find((m) => m.id === log.medicationId) : undefined;
+        if (!log || !medication) {
+          toast.show({ title: i18n.t('ui.journal.past.notFound') });
+          goBackOrHome();
+          return;
+        }
+        setMedications(meds);
+        setEntry({ log, medication });
+        setReady(true);
+      } catch (error) {
+        console.error('Failed to load for past dose:', error);
+        if (!alive) return;
+        if (logId) {
+          toast.show({ title: i18n.t('ui.journal.past.notFound') });
+          goBackOrHome();
+        } else {
+          setReady(true);
+        }
+      }
+    })();
     return () => {
       alive = false;
     };
-  }, [profileId]);
-
-  const after = React.useRef<After>({ kind: 'back' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileId, logId]);
 
   const onSubmit = async (draft: PastDoseDraft) => {
+    if (entry) {
+      const ok = await saveChange(entry.log, draft);
+      if (!ok) return false;
+      goBackOrHome();
+      toast.show({ title: i18n.t('ui.journal.past.changed') });
+      return true;
+    }
     const log = await logPastDose(draft);
     if (!log) return false;
-    after.current = { kind: 'logged', log, name: draft.medication.name };
-    setVisible(false);
+    goBackOrHome();
+    toast.show({
+      title: i18n.t('ui.journal.past.saved'),
+      action: { label: i18n.t('ui.common.undo'), onPress: () => undoPastDose(log) },
+    });
     return true;
-  };
-
-  const onDismissed = () => {
-    const next = after.current;
-    if (next.kind === 'add') {
-      router.replace('/medication/add');
-      return;
-    }
-    router.back();
-    if (next.kind === 'logged') {
-      const when = new Date(next.log.actualTime);
-      toast.show({
-        title: i18n.t('ui.journal.past.logged', { name: next.name }),
-        message: `${statusMeta(next.log.action).label} · ${i18n.t('ui.journal.entry.dayAtTime', {
-          day: dayLabel(when),
-          time: formatTime(when),
-        })}`,
-        tone: 'success',
-        action: { label: i18n.t('ui.common.undo'), onPress: () => undoPastDose(next.log) },
-      });
-    }
   };
 
   // A modal route: overlays opened while it is up are presented from it (see OverlayHost).
   return (
     <OverlayScope>
-      <PastDoseSheet
-        visible={visible}
-        onClose={() => setVisible(false)}
-        onDismissed={onDismissed}
-        medications={medications}
-        initialMedicationId={medicationId}
-        onSubmit={onSubmit}
-        onAddMedicine={() => {
-          after.current = { kind: 'add' };
-          setVisible(false);
-        }}
-      />
+      {ready ? (
+        <PastDoseForm
+          key={entry?.log.id ?? 'new'}
+          medications={medications}
+          initialMedicationId={medicationId}
+          entry={entry ?? undefined}
+          logs={logs}
+          onSubmit={onSubmit}
+          onAddMedicine={() => router.replace('/medication/add')}
+        />
+      ) : (
+        <Screen header={<NavHeader backIcon="close" />} />
+      )}
     </OverlayScope>
   );
 }

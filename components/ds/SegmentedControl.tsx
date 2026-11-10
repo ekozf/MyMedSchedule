@@ -1,5 +1,6 @@
 /**
- * Sliding segmented control on a sunken track.
+ * Segmented control (docs/DESIGN.md §4): `field` track, 4 px padding, radius 14, 48-tall
+ * segments; the selected one is `bg` with a 1 px shadow.
  *
  * @example
  * const [range, setRange] = useState<'7d' | '30d' | '90d' | 'all'>('7d');
@@ -30,8 +31,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import type { LucideIcon } from 'lucide-react-native';
-import { SPRING, useTheme, withAlpha } from '@/lib/theme';
-import { haptics } from '@/lib/ui/haptics';
+import { SPRING, radii, useTheme } from '@/lib/theme';
 import { Text } from './Text';
 import { Icon } from './Icon';
 
@@ -46,25 +46,24 @@ export interface SegmentedControlProps<T extends string | number> {
   options: SegmentOption<T>[];
   value: T;
   onChange: (value: T) => void;
-  size?: 'md' | 'lg';
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
-const PAD = 3;
+const PAD = 4;
+const SEG = 48;
 
 export function SegmentedControl<T extends string | number>({
   options,
   value,
   onChange,
-  size = 'md',
   disabled,
   style,
 }: SegmentedControlProps<T>) {
   const { colors, isDark } = useTheme();
   const reduceMotion = useReducedMotion();
   const [width, setWidth] = React.useState(0);
-  const height = size === 'lg' ? 52 : 44;
+  const height = SEG + PAD * 2;
   const index = Math.max(
     0,
     options.findIndex((o) => o.value === value)
@@ -87,8 +86,8 @@ export function SegmentedControl<T extends string | number>({
       style={[
         {
           height,
-          borderRadius: height / 2,
-          backgroundColor: colors.surfaceSunken,
+          borderRadius: radii.tile,
+          backgroundColor: colors.field,
           padding: PAD,
           flexDirection: 'row',
           opacity: disabled ? 0.45 : 1,
@@ -105,13 +104,16 @@ export function SegmentedControl<T extends string | number>({
               left: PAD,
               width: segW,
               height: height - PAD * 2,
-              borderRadius: (height - PAD * 2) / 2,
-              backgroundColor: isDark ? withAlpha(colors.ink, 0.14) : colors.surfaceSolid,
-              shadowColor: colors.shadow,
-              shadowOpacity: isDark ? 0 : 0.1,
-              shadowRadius: 6,
-              shadowOffset: { width: 0, height: 2 },
-              elevation: isDark ? 0 : 1,
+              borderRadius: radii.tile - PAD,
+              backgroundColor: colors.bg,
+              // Dark mode: the shadow is invisible, so a hairline keeps the selected segment apart.
+              borderWidth: isDark ? 1 : 0,
+              borderColor: colors.line,
+              shadowColor: colors.ink,
+              shadowOpacity: 0.12,
+              shadowRadius: 1,
+              shadowOffset: { width: 0, height: 1 },
+              elevation: 1,
             },
             thumbStyle,
           ]}
@@ -126,10 +128,8 @@ export function SegmentedControl<T extends string | number>({
             accessibilityRole="tab"
             accessibilityState={{ selected, disabled: !!disabled }}
             accessibilityLabel={opt.accessibilityLabel ?? opt.label}
-            hitSlop={{ top: 4, bottom: 4 }}
             onPress={() => {
               if (!selected) {
-                haptics.tap();
                 onChange(opt.value);
               }
             }}
@@ -142,13 +142,14 @@ export function SegmentedControl<T extends string | number>({
               paddingHorizontal: 6,
             }}>
             {opt.icon ? (
-              <Icon as={opt.icon} size={18} tone={selected ? 'primary' : 'secondary'} />
+              <Icon as={opt.icon} size={20} tone={selected ? 'primary' : 'secondary'} />
             ) : null}
             <Text
-              variant={size === 'lg' ? 'callout' : 'subhead'}
-              weight="600"
+              variant="callout"
+              weight={selected ? '700' : '600'}
               tone={selected ? 'primary' : 'secondary'}
-              numberOfLines={1}>
+              align="center"
+              numberOfLines={2}>
               {opt.label}
             </Text>
           </Pressable>

@@ -1,15 +1,14 @@
 /**
- * Screen scaffold: sky gradient + safe area + (scrolling) content with the 20pt gutter.
+ * Screen scaffold: flat `bg` + safe area + (scrolling) content with the 20pt side padding.
  *
  * @example
- * // Tab screen: large header scrolls with content, bottom padding clears the floating tab bar
+ * // Tab screen
  * <Screen bottomInset="tabBar" refreshControl={<RefreshControl … />}>
- *   <TabHeader title="Medicines" />
- *   …
+ *   <Text variant="title1">Medicines</Text>
  * </Screen>
  *
- * // Stack screen: fixed nav header + sticky primary action
- * <Screen header={<NavHeader title="Supply" />} footer={<Button label="Save" size="lg" fullWidth />}>
+ * // Page without tab bar: fixed nav header + sticky primary action
+ * <Screen header={<NavHeader title="Supply" />} footer={<Button label="Save" />}>
  *   …
  * </Screen>
  */
@@ -18,17 +17,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  StyleSheet,
   View,
   type ScrollViewProps,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme, withAlpha } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 import { GUTTER, useTabBarInset } from '@/lib/ui/layout';
-import { GradientBackground } from './GradientBackground';
 
 export interface ScreenProps {
   children?: React.ReactNode;
@@ -37,17 +33,17 @@ export interface ScreenProps {
   refreshControl?: ScrollViewProps['refreshControl'];
   contentContainerStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
-  /** Fixed (non-scrolling) header, e.g. `<NavHeader />`. Put `<TabHeader />` in children instead to let it scroll. */
+  /** Fixed (non-scrolling) header, e.g. `<NavHeader />`. */
   header?: React.ReactNode;
   /** Sticky bottom area (primary action), above the bottom safe area. */
   footer?: React.ReactNode;
-  /** 'tabBar' adds padding so content clears the floating tab bar. Default 'none'. */
+  /** 'tabBar' on tab screens (the tab bar already covers the bottom safe area). Default 'none'. */
   bottomInset?: 'tabBar' | 'none';
   /** Lift content (and footer) above the keyboard. */
   keyboardAware?: boolean;
   /** Apply the top safe-area inset. Default true; set false for iOS page-sheet modals. */
   safeTop?: boolean;
-  /** Horizontal 20pt gutter on content. Default true. */
+  /** Horizontal 20pt side padding on content. Default true. */
   padded?: boolean;
   scrollRef?: React.Ref<ScrollView>;
   /** Extra ScrollView props (onScroll, stickyHeaderIndices, …). */
@@ -75,10 +71,10 @@ export function Screen({
 
   const onTabBar = bottomInset === 'tabBar';
   const contentBottom = footer ? 16 : onTabBar ? tabBarInset : insets.bottom + 24;
-  const footerBottom = onTabBar ? tabBarInset - 8 : insets.bottom + 12;
+  const footerBottom = onTabBar ? 16 : insets.bottom + 16;
 
   const contentStyle: StyleProp<ViewStyle> = [
-    { paddingHorizontal: padded ? GUTTER : 0, paddingTop: header ? 4 : 8 },
+    { paddingHorizontal: padded ? GUTTER : 0, paddingTop: header ? 4 : 12 },
     scroll
       ? { paddingBottom: contentBottom, flexGrow: 1 }
       : { flex: 1, paddingBottom: footer ? 0 : contentBottom },
@@ -107,13 +103,14 @@ export function Screen({
       {header ? <View style={{ paddingHorizontal: padded ? GUTTER : 0 }}>{header}</View> : null}
       {body}
       {footer ? (
-        <View style={{ paddingHorizontal: GUTTER, paddingTop: 12, paddingBottom: footerBottom }}>
-          <LinearGradient
-            pointerEvents="none"
-            colors={[withAlpha(colors.bgBottom, 0), colors.bgBottom]}
-            locations={[0, 0.35]}
-            style={StyleSheet.absoluteFill}
-          />
+        <View
+          style={{
+            paddingHorizontal: GUTTER,
+            paddingTop: 12,
+            paddingBottom: footerBottom,
+            gap: 8,
+            backgroundColor: colors.bg,
+          }}>
           {footer}
         </View>
       ) : null}
@@ -121,8 +118,11 @@ export function Screen({
   );
 
   return (
-    <View style={[{ flex: 1, paddingTop: safeTop ? insets.top : 0 }, style]}>
-      <GradientBackground />
+    <View
+      style={[
+        { flex: 1, paddingTop: safeTop ? insets.top : 0, backgroundColor: colors.bg },
+        style,
+      ]}>
       {keyboardAware ? (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           {inner}

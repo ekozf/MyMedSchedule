@@ -1,13 +1,14 @@
 /**
- * Optional number as a list row ("Max per day · Not set") that opens a sheet with a big stepper,
- * Save and Remove. Keeps rarely used numbers out of the way until someone needs them.
+ * Optional number as a grouped row ("Most in one day · Not set") that opens a sheet with a big
+ * stepper, a primary "Save" and a quiet clear action ("Remove limit" once set, "No limit" before).
+ * Keeps rarely used numbers out
+ * of the way until someone needs them. Render inside a `ListGroup`.
  *
  * @example
  * <ListGroup header="Safety">
  *   <OptionalNumberRow
- *     icon={ShieldAlert}
- *     title="Max per day"
- *     hint="We'll check with you before you take more than this."
+ *     title="Most in one day"
+ *     subtitle="We'll check with you before you go over"
  *     value={form.maxDailyDose}
  *     defaultValue={4}
  *     format={(n) => formatDose(n, 'pills')}
@@ -18,15 +19,18 @@
  */
 import * as React from 'react';
 import { View } from 'react-native';
-import type { LucideIcon } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
-import { Button, ListRow, Sheet, Stepper, Text } from '@/components/ds';
+import { Button, ListRow, Sheet, Stepper } from '@/components/ds';
 
 export interface OptionalNumberRowProps {
   title: string;
-  hint?: string;
-  icon?: LucideIcon;
-  iconTint?: string;
+  /** Description under the row title and above the stepper in the sheet. */
+  subtitle?: string;
+  /**
+   * Show `subtitle` on the row only once a value is set (for descriptions of what the value does,
+   * which would be a false promise while nothing is set). The sheet always shows it. Default false.
+   */
+  subtitleOnlyWhenSet?: boolean;
   value: number | null;
   /** Value the stepper starts at when nothing is set yet. */
   defaultValue: number;
@@ -39,15 +43,19 @@ export interface OptionalNumberRowProps {
   max?: number;
   step?: number;
   allowDecimal?: boolean;
-  /** Text shown when not set. Default "Not set". */
+  /** Row value when not set. Default "Not set". */
   emptyLabel?: string;
+  /**
+   * Label of the quiet clear button, given whether a value is set; null hides it.
+   * Default: "Remove limit" when set, "No limit" when not.
+   */
+  clearLabel?: (hasValue: boolean) => string | null;
 }
 
 export function OptionalNumberRow({
   title,
-  hint,
-  icon,
-  iconTint,
+  subtitle,
+  subtitleOnlyWhenSet = false,
   value,
   defaultValue,
   format,
@@ -58,9 +66,18 @@ export function OptionalNumberRow({
   step = 1,
   allowDecimal,
   emptyLabel,
+  clearLabel,
 }: OptionalNumberRowProps) {
   const [open, setOpen] = React.useState(false);
   const [draft, setDraft] = React.useState(value ?? defaultValue);
+  const empty: string = emptyLabel ?? String(i18n.t('ui.editor.extras.notSet'));
+  const clear =
+    clearLabel?.(value !== null) ??
+    (clearLabel
+      ? null
+      : String(
+          i18n.t(value !== null ? 'ui.editor.screens.removeLimit' : 'ui.editor.screens.noLimit')
+        ));
 
   const show = () => {
     setDraft(value ?? defaultValue);
@@ -70,33 +87,29 @@ export function OptionalNumberRow({
   return (
     <>
       <ListRow
-        icon={icon}
-        iconTint={iconTint}
         title={title}
-        value={value !== null ? format(value) : (emptyLabel ?? i18n.t('ui.editor.extras.notSet'))}
+        subtitle={subtitleOnlyWhenSet && value === null ? undefined : subtitle}
+        value={value !== null ? format(value) : empty}
         onPress={show}
       />
       <Sheet
         visible={open}
         onClose={() => setOpen(false)}
         title={title}
+        subtitle={subtitle}
         footer={
-          <View style={{ gap: 8 }}>
+          <View style={{ gap: 4 }}>
             <Button
-              label={i18n.t('ui.editor.extras.set')}
-              size="lg"
-              fullWidth
+              label={i18n.t('ui.editor.screens.saveValue')}
               onPress={() => {
                 onChange(draft);
                 setOpen(false);
               }}
             />
-            {value !== null ? (
+            {clear ? (
               <Button
-                label={i18n.t('ui.editor.extras.remove')}
-                variant="plain"
-                size="lg"
-                fullWidth
+                label={clear}
+                variant="quiet"
                 onPress={() => {
                   onChange(null);
                   setOpen(false);
@@ -105,12 +118,7 @@ export function OptionalNumberRow({
             ) : null}
           </View>
         }>
-        <View style={{ gap: 16, paddingBottom: 8 }}>
-          {hint ? (
-            <Text variant="body" tone="secondary">
-              {hint}
-            </Text>
-          ) : null}
+        <View style={{ paddingBottom: 8 }}>
           <Stepper
             value={draft}
             onChange={setDraft}

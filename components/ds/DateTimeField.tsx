@@ -1,5 +1,7 @@
 /**
- * Field showing a formatted date or time. iOS: opens a Sheet with a spinner + Done.
+ * Field showing a formatted date or time, styled like `TextField` (field fill, radius 18, 68 tall,
+ * 22/600 value, label 16/700 ink2), with a leading clock / calendar icon and a trailing chevron
+ * (the same treatment as the add-medicine time rows). iOS: opens a Sheet with a spinner + Done.
  * Android: opens the native dialog directly. Time respects the profile's 24h setting.
  *
  * @example
@@ -10,7 +12,7 @@
 import * as React from 'react';
 import { Platform, View, type StyleProp, type ViewStyle } from 'react-native';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
-import { Calendar, Clock } from 'lucide-react-native';
+import { Calendar, ChevronRight, Clock } from 'lucide-react-native';
 import { format } from 'date-fns';
 import i18n, { getCurrentLocale } from '@/lib/i18n';
 import { getDateFnsLocale } from '@/lib/i18n/date-fns';
@@ -90,43 +92,39 @@ export function DateTimeField({
   };
 
   return (
-    <View style={[{ gap: 6 }, style]}>
+    <View style={[{ gap: 8 }, style]}>
       {label ? (
-        <Text variant="subhead" tone="secondary" style={{ paddingHorizontal: 4 }}>
+        <Text variant="subhead" weight="700" tone="secondary" style={{ paddingHorizontal: 4 }}>
           {label}
         </Text>
       ) : null}
       <PressableScale
         onPress={openPicker}
         disabled={disabled}
-        haptic="tap"
-        activeScale={0.98}
         accessibilityRole="button"
         accessibilityLabel={[label, display ?? placeholder ?? defaultTitle]
           .filter(Boolean)
           .join(', ')}
         style={{
-          minHeight: 56,
-          borderRadius: radii.input,
-          backgroundColor: colors.surfaceSunken,
+          minHeight: 68,
+          borderRadius: radii.field,
+          backgroundColor: colors.field,
           flexDirection: 'row',
           alignItems: 'center',
-          paddingHorizontal: 16,
+          paddingHorizontal: 18,
           gap: 12,
           opacity: disabled ? 0.5 : 1,
         }}>
-        <Icon
-          as={mode === 'time' ? Clock : Calendar}
-          size={20}
-          tone={display ? 'accent' : 'tertiary'}
-        />
+        <Icon as={mode === 'time' ? Clock : Calendar} size={24} tone="secondary" />
         <Text
-          variant={mode === 'time' && display ? 'headline' : 'body'}
-          tone={display ? 'primary' : 'tertiary'}
+          variant={display ? 'title3' : 'body'}
+          weight={display ? '600' : '400'}
+          tone={display ? 'primary' : 'secondary'}
           tabular={mode === 'time'}
-          style={{ flex: 1 }}>
+          style={[{ flex: 1 }, display ? { letterSpacing: 0 } : null]}>
           {display ?? placeholder ?? defaultTitle}
         </Text>
+        <Icon as={ChevronRight} size={24} tone="secondary" />
       </PressableScale>
 
       {Platform.OS === 'ios' ? (
@@ -138,8 +136,6 @@ export function DateTimeField({
           footer={
             <Button
               label={i18n.t('ui.common.done')}
-              size="lg"
-              fullWidth
               onPress={() => {
                 onChange(draft);
                 setOpen(false);

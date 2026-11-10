@@ -1,18 +1,19 @@
 import { Stack } from 'expo-router';
+import { useTheme } from '@/lib/theme';
 
 /**
- * Transparent modal group for log sheets (`/log/as-needed`, `/log/past`). Each screen renders
- * a `<Sheet visible onClose={router.back}>` over the previous screen.
+ * Log routes. `/log/past` is a full page pushed with the platform's default transition.
+ * (As-needed doses are logged with an in-place sheet on Today and the medicine page.)
  */
 export default function LogLayout() {
+  const { colors } = useTheme();
   return (
     <Stack
       screenOptions={{
         headerShown: false,
-        presentation: 'transparentModal',
-        animation: 'fade',
-        contentStyle: { backgroundColor: 'transparent' },
-      }}
-    />
+        contentStyle: { backgroundColor: colors.bg },
+      }}>
+      <Stack.Screen name="past" />
+    </Stack>
   );
 }

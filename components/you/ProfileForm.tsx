@@ -1,21 +1,22 @@
 /**
- * Profile form body shared by /profile/create and /profile/[id]: big avatar with camera badge +
- * large name field. Extra content (e.g. the delete row) goes in `children`.
+ * Profile form body: 120 avatar with camera badge (photo picker) and a large name field with a
+ * hint. Used by onboarding "What should we call you?" and the New / Edit profile pages. Extra
+ * content (e.g. "Remove this person") goes in `children`.
  *
  * @example
  * <ProfileForm name={name} onChangeName={setName} avatarUri={uri} onChangeAvatar={setUri}
- *   nameError={error} onSubmit={save} autoFocus />
+ *   label="Name" helper="Shown on your Today screen." nameError={error} onSubmit={save} />
  */
 import * as React from 'react';
 import { View } from 'react-native';
-import Animated, { FadeInDown, useReducedMotion, FadeIn } from 'react-native-reanimated';
-import i18n from '@/lib/i18n';
 import { TextField } from '@/components/ds';
 import { AvatarPicker } from './AvatarPicker';
 
 export interface ProfileFormProps {
   name: string;
   onChangeName: (name: string) => void;
+  label: string;
+  helper: string;
   nameError?: string | null;
   avatarUri?: string;
   onChangeAvatar: (uri: string | undefined) => void;
@@ -28,6 +29,8 @@ export interface ProfileFormProps {
 export function ProfileForm({
   name,
   onChangeName,
+  label,
+  helper,
   nameError,
   avatarUri,
   onChangeAvatar,
@@ -36,22 +39,17 @@ export function ProfileForm({
   disabled,
   children,
 }: ProfileFormProps) {
-  const reduceMotion = useReducedMotion();
   return (
-    <Animated.View
-      entering={reduceMotion ? FadeIn : FadeInDown.duration(260)}
-      style={{ gap: 28, paddingTop: 8 }}>
+    <View style={{ gap: 28, paddingTop: 8 }}>
       <View style={{ alignItems: 'center' }}>
         <AvatarPicker name={name} uri={avatarUri} onChange={onChangeAvatar} disabled={disabled} />
       </View>
       <TextField
-        size="lg"
-        label={i18n.t('ui.you.form.nameLabel')}
-        placeholder={i18n.t('ui.you.form.namePlaceholder')}
+        label={label}
         value={name}
         onChangeText={onChangeName}
         error={nameError}
-        helper={nameError ? undefined : i18n.t('ui.you.form.nameHelper')}
+        helper={nameError ? undefined : helper}
         autoFocus={autoFocus}
         autoCapitalize="words"
         autoCorrect={false}
@@ -63,6 +61,6 @@ export function ProfileForm({
         onSubmitEditing={onSubmit}
       />
       {children}
-    </Animated.View>
+    </View>
   );
 }

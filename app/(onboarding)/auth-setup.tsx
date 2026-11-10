@@ -1,19 +1,19 @@
 /**
- * Onboarding step 3 — "Keep it private" (choose an app lock), and App lock settings from You
- * (`?reconfigure=true`, returns with router.back()).
+ * Onboarding step 3, "Keep it private" (choose an app lock, or "Not now"), and the App lock page
+ * from You (`?reconfigure=true`, returns with router.back()).
  *
- * Reconfigure mode first asks for the current PIN / biometrics (gap fix), and "Turn off" uses
- * `disableAuth()` so the stored PIN is removed too (the old screen left it behind).
+ * App lock first asks for the current PIN / biometrics ("First, confirm it's you"); "No lock"
+ * asks "Turn off the lock?" and uses `disableAuth()` so the stored PIN is removed too.
  */
 import * as React from 'react';
 import { BackHandler } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ShieldOff } from 'lucide-react-native';
 import {
   authenticate,
   disableAuth,
   getAuthMethod,
   getBiometricType,
+  getPINLength,
   hasPIN,
   isDeviceSupportsBiometric,
   setAuthMethod,
@@ -23,9 +23,10 @@ import {
   type AuthMethod,
 } from '@/lib/auth';
 import i18n from '@/lib/i18n';
-import { haptics, useConfirm, useToast } from '@/components/ds';
+import { useConfirm, useToast } from '@/components/ds';
 import {
   ONBOARDING_ROUTES,
+  PIN_ERROR_FLASH_MS,
   ProtectView,
   biometricInfo,
   isBiometricCancel,
@@ -51,6 +52,8 @@ export default function AuthSetupScreen() {
   const [biometric, setBiometric] = React.useState<BiometricInfo | null>(null);
   const [current, setCurrent] = React.useState<AuthMethod | null>(null);
   const [pinStored, setPinStored] = React.useState(false);
+  /** Length of the stored PIN ("First, confirm it's you" submits on its own); null = unknown. */
+  const [storedPinLength, setStoredPinLength] = React.useState<number | null>(null);
   const [busy, setBusy] = React.useState<ProtectBusy>(null);
   const [message, setMessage] = React.useState<string | null>(null);
 
@@ -58,6 +61,9 @@ export default function AuthSetupScreen() {
   const [firstPin, setFirstPin] = React.useState('');
   const [pinError, setPinError] = React.useState(false);
   const [pinMessage, setPinMessage] = React.useState<string | null>(null);
+  const [createHint, setCreateHint] = React.useState<string | null>(null);
+  /** "Repeat your PIN" didn't match: keep the first PIN and ask for it again. */
+  const [pinMismatch, setPinMismatch] = React.useState(false);
   const clearTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const verifyingRef = React.useRef(false);
 
@@ -75,12 +81,15 @@ export default function AuthSetupScreen() {
     setPinMessage(null);
   };
 
-  /** Wrong entry: shake (PinPad), message, then clear the dots. */
+  /** Wrong entry: shake + red dots (PinPad) for 600 ms, then clear; the message stays. */
   const rejectPin = (msg: string | null) => {
     setPinError(true);
     setPinMessage(msg);
     if (clearTimer.current) clearTimeout(clearTimer.current);
-    clearTimer.current = setTimeout(() => setPin(''), 450);
+    clearTimer.current = setTimeout(() => {
+      setPin('');
+      setPinError(false);
+    }, PIN_ERROR_FLASH_MS);
   };
 
   // ---------------------------------------------------------------------------
@@ -128,10 +137,15 @@ export default function AuthSetupScreen() {
         return;
       }
       try {
-        const [method, has] = await Promise.all([getAuthMethod(), hasPIN()]);
+        const [method, has, length] = await Promise.all([
+          getAuthMethod(),
+          hasPIN(),
+          getPINLength().catch(() => null),
+        ]);
         if (!alive) return;
         setCurrent(method);
         setPinStored(has);
+        setStoredPinLength(has ? length : null);
         if (method === 'pin' && has) {
           setStage('verify-pin');
         } else if (method === 'biometric') {
@@ -167,7 +181,6 @@ export default function AuthSetupScreen() {
           : method === 'pin'
             ? t('toast.pin')
             : t('toast.off'),
-      tone: method === 'none' ? 'default' : 'success',
     });
   };
 
@@ -182,7 +195,6 @@ export default function AuthSetupScreen() {
     const result = await setupBiometricAuth();
     setBusy(null);
     if (result.success) {
-      haptics.success();
       finish('biometric');
     } else if (!isBiometricCancel(result.error)) {
       setMessage(t('biometricFailed', { method: biometric.label }));
@@ -193,6 +205,8 @@ export default function AuthSetupScreen() {
     if (busy) return;
     setMessage(null);
     setFirstPin('');
+    setCreateHint(null);
+    setPinMismatch(false);
     resetPin();
     setStage('pin-create');
   };
@@ -204,14 +218,16 @@ export default function AuthSetupScreen() {
       router.back();
       return;
     }
-    const ok = await confirm({
-      title: reconfigure ? t('turnOffTitle') : t('skipTitle'),
-      message: i18n.t(reconfigure ? 'auth.disableAuthWarning' : 'auth.skipAuthWarning'),
-      confirmLabel: reconfigure ? t('turnOff') : t('skipConfirm'),
-      tone: reconfigure ? 'danger' : 'warning',
-      icon: ShieldOff,
-    });
-    if (!ok) return;
+    // Onboarding "Not now" needs no confirmation; turning an existing lock off does.
+    if (reconfigure) {
+      const ok = await confirm({
+        title: t('turnOffTitle'),
+        message: t('turnOffMessage'),
+        confirmLabel: t('turnOff'),
+        tone: 'danger',
+      });
+      if (!ok) return;
+    }
     setBusy('off');
     try {
       if (reconfigure) await disableAuth();
@@ -219,7 +235,7 @@ export default function AuthSetupScreen() {
     } catch (error) {
       console.error('Failed to turn off app lock:', error);
       setBusy(null);
-      setMessage(i18n.t('ui.common.somethingWentWrong'));
+      setMessage(t('saveFailed'));
       return;
     }
     setBusy(null);
@@ -255,7 +271,8 @@ export default function AuthSetupScreen() {
     }
     setPin(value);
     if (pinMessage) setPinMessage(null);
-    if (stage === 'verify-pin' && value.length === 6) submitVerify(value);
+    // Known length: the PinPad submits on its own. Unknown (older install): 6 digits submit.
+    if (stage === 'verify-pin' && !storedPinLength && value.length === 6) submitVerify(value);
   };
 
   const onPinSubmit = async (value: string) => {
@@ -265,29 +282,29 @@ export default function AuthSetupScreen() {
     }
     if (stage === 'pin-create') {
       // Same validation as before: 4–6 digits, digits only.
-      if (value.length < 4 || value.length > 6) {
-        rejectPin(i18n.t('auth.pinBetween'));
-        return;
-      }
-      if (!/^\d+$/.test(value)) {
-        rejectPin(i18n.t('auth.pinNumbersOnly'));
+      if (value.length < 4 || value.length > 6 || !/^\d+$/.test(value)) {
+        rejectPin(t('tooShort'));
         return;
       }
       setFirstPin(value);
+      setCreateHint(null);
+      setPinMismatch(false);
       resetPin();
       setStage('pin-confirm');
       return;
     }
     if (stage === 'pin-confirm') {
       if (value !== firstPin) {
-        rejectPin(t('mismatch'));
+        // Keep the first PIN: shake, clear, and ask for it again with a clear error line.
+        setPinMismatch(true);
+        rejectPin(null);
         return;
       }
+      setPinMismatch(false);
       setBusy('pin');
       const result = await setupPINAuth(value);
       setBusy(null);
       if (result.success) {
-        haptics.success();
         finish('pin');
       } else {
         console.error('Failed to set up PIN:', result.error);
@@ -306,6 +323,7 @@ export default function AuthSetupScreen() {
     if (stage === 'pin-confirm') {
       resetPin();
       setFirstPin('');
+      setPinMismatch(false);
       setStage('pin-create');
       return true;
     }
@@ -342,7 +360,16 @@ export default function AuthSetupScreen() {
       onPinSubmit={onPinSubmit}
       pinError={pinError}
       pinMessage={pinMessage}
+      createHint={createHint}
+      pinMismatch={pinMismatch}
+      onRestartPin={() => {
+        resetPin();
+        setFirstPin('');
+        setPinMismatch(false);
+        setStage('pin-create');
+      }}
       confirmLength={firstPin.length || undefined}
+      verifyLength={storedPinLength ?? undefined}
       cooldownSeconds={stage === 'verify-pin' ? cooldownSeconds : 0}
       onVerifyBiometric={() => verifyBiometric(pinStored)}
       onUsePin={

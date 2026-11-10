@@ -6,6 +6,7 @@
  */
 import { mergeLocale } from '../merge';
 import common from './common';
+import compartments from './compartments';
 import editor from './editor';
 import journal from './journal';
 import medicines from './medicines';
@@ -15,7 +16,18 @@ import shell from './shell';
 import today from './today';
 import you from './you';
 
-const fragments = { common, shell, safety, today, medicines, editor, journal, you, onboarding };
+const fragments = {
+  common,
+  compartments,
+  shell,
+  safety,
+  today,
+  medicines,
+  editor,
+  journal,
+  you,
+  onboarding,
+};
 
 type Fragments = typeof fragments;
 type Lang = 'en' | 'nl' | 'tr';

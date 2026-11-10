@@ -23,6 +23,7 @@ describe('Dose Validation', () => {
     scheduleType: 'once_daily',
     scheduleConfig: '{}',
     inventoryCount: 100,
+    trackSupply: true,
     maxDailyDose: 40,
     minHoursBetweenDoses: 4,
     bypassDnd: false,

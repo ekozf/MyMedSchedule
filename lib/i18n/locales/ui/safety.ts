@@ -14,6 +14,10 @@ export default defineFragment({
     notEnoughSupplyTitle: 'Not enough left',
     notEnoughSupply:
       'Your supply shows only {{amount}} left. Update your supply first, then log this dose.',
+    supplyLowTitle: 'Your supply count is {{amount}}. Log it anyway?',
+    supplyLow: "The count won't go below 0. You can correct it any time under Update supply.",
+    logAnyway: 'Log anyway',
+    updateSupplyFirst: 'Update supply first',
     couldNotSave: 'That could not be saved. Please try again.',
     couldNotDelete: 'That could not be removed. Please try again.',
   },
@@ -29,6 +33,10 @@ export default defineFragment({
     notEnoughSupplyTitle: 'Niet genoeg over',
     notEnoughSupply:
       'Je voorraad toont nog maar {{amount}}. Werk eerst je voorraad bij en registreer daarna deze dosis.',
+    supplyLowTitle: 'Je voorraad staat op {{amount}}. Toch registreren?',
+    supplyLow: 'De telling gaat niet onder 0. Je kunt hem altijd aanpassen via Voorraad bijwerken.',
+    logAnyway: 'Toch registreren',
+    updateSupplyFirst: 'Eerst voorraad bijwerken',
     couldNotSave: 'Opslaan is niet gelukt. Probeer het opnieuw.',
     couldNotDelete: 'Verwijderen is niet gelukt. Probeer het opnieuw.',
   },
@@ -44,6 +52,11 @@ export default defineFragment({
     notEnoughSupplyTitle: 'Yeterli ilaç yok',
     notEnoughSupply:
       'Stokunuzda yalnızca {{amount}} görünüyor. Önce stoğunuzu güncelleyin, sonra bu dozu kaydedin.',
+    supplyLowTitle: 'Stok sayınız {{amount}}. Yine de kaydedilsin mi?',
+    supplyLow:
+      "Sayı 0'ın altına inmez. İstediğiniz zaman Stoku güncelle bölümünden düzeltebilirsiniz.",
+    logAnyway: 'Yine de kaydet',
+    updateSupplyFirst: 'Önce stoku güncelle',
     couldNotSave: 'Kaydedilemedi. Lütfen tekrar deneyin.',
     couldNotDelete: 'Kaldırılamadı. Lütfen tekrar deneyin.',
   },

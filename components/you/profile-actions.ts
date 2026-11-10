@@ -3,7 +3,6 @@
  * Order of calls matches the previous ProfileSwitcher / settings / profile screens.
  */
 import * as React from 'react';
-import { Trash2 } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import { useStore } from '@/store';
 import {
@@ -15,7 +14,7 @@ import {
   cancelAllNotificationsForMedication,
   ensureNext3DoseNotificationsForAllActiveMedications,
 } from '@/lib/notifications/scheduler';
-import { useConfirm } from '@/components/ds';
+import { useConfirm, useToast } from '@/components/ds';
 import type { Profile } from '@/types';
 
 export type ProfileLite = Pick<Profile, 'id' | 'name' | 'avatarUri'>;
@@ -53,20 +52,78 @@ export async function removeProfile(profileId: string): Promise<void> {
   await useStore.getState().loadProfiles();
 }
 
-/** Danger confirm for deleting a profile. Resolves true when the person confirmed. */
+/** "Remove {{name}}?" danger confirm. Resolves true when the person confirmed. */
 export function useConfirmDeleteProfile() {
   const confirm = useConfirm();
   return React.useCallback(
     (profile: ProfileLite) => {
       const name = firstName(profile.name);
       return confirm({
-        title: i18n.t('ui.you.form.deleteTitle', { name }),
-        message: i18n.t('ui.you.form.deleteMessage', { name }),
-        confirmLabel: i18n.t('ui.you.form.deleteConfirm'),
+        title: i18n.t('ui.you.form.removeTitle', { name }),
+        message: i18n.t('ui.you.form.removeMessage', { name }),
+        confirmLabel: i18n.t('ui.you.form.removeConfirm', { name }),
         tone: 'danger',
-        icon: Trash2,
       });
     },
     [confirm]
+  );
+}
+
+/**
+ * Switch to another person with the "Switch to Tom?" confirm, then a toast with Undo. Shared by
+ * the Settings people row and the person picker on the tab headers. Resolves true when switched.
+ *
+ * @example
+ * const askToSwitch = useSwitchPerson();
+ * <PeopleRow onPress={askToSwitch} … />
+ */
+export function useSwitchPerson() {
+  const confirm = useConfirm();
+  const toast = useToast();
+  const switching = React.useRef(false);
+
+  const switchTo = React.useCallback(
+    async (lite: ProfileLite, withUndo: boolean): Promise<boolean> => {
+      const store = useStore.getState();
+      const target = store.profiles.find((p) => p.id === lite.id);
+      const previous = store.activeProfile;
+      if (!target || !previous || target.id === previous.id || switching.current) return false;
+      switching.current = true;
+      try {
+        await switchToProfile(target);
+        toast.show({
+          title: i18n.t('ui.you.people.switched', { name: firstName(target.name) }),
+          action: withUndo
+            ? {
+                label: i18n.t('ui.you.people.undo'),
+                onPress: () => {
+                  void switchTo(previous, false);
+                },
+              }
+            : undefined,
+        });
+        return true;
+      } catch (error) {
+        console.error('Failed to switch profile:', error);
+        toast.show({ title: i18n.t('ui.you.people.switchFailed') });
+        return false;
+      } finally {
+        switching.current = false;
+      }
+    },
+    [toast]
+  );
+
+  return React.useCallback(
+    async (lite: ProfileLite): Promise<boolean> => {
+      const name = firstName(lite.name);
+      const ok = await confirm({
+        title: i18n.t('ui.you.people.switchTitle', { name }),
+        message: i18n.t('ui.you.people.switchMessage', { name }),
+        confirmLabel: i18n.t('ui.you.people.switchConfirm', { name }),
+      });
+      return ok ? switchTo(lite, true) : false;
+    },
+    [confirm, switchTo]
   );
 }

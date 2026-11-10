@@ -1,8 +1,11 @@
 /**
- * Current app-lock method, resolved to what the person actually uses (Face ID, Touch ID, …).
+ * Current app-lock method, resolved to what the person actually uses (Face ID, fingerprint, …),
+ * and its short label for the You → Privacy row.
+ *
+ * @example
+ * appLockLabel(await getAppLockKind()); // "PIN"
  */
 import { Platform } from 'react-native';
-import { Fingerprint, KeyRound, LockOpen, ScanFace, type LucideIcon } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import { getAuthMethod, getBiometricType } from '@/lib/auth';
 
@@ -25,30 +28,17 @@ export async function getAppLockKind(): Promise<AppLockKind> {
 
 export function appLockLabel(kind: AppLockKind): string {
   const ios = Platform.OS === 'ios';
+  const t = (k: string) => i18n.t(`ui.you.privacy.lock.${k}`);
   switch (kind) {
     case 'face':
-      return i18n.t(ios ? 'ui.you.security.lock.faceId' : 'ui.you.security.lock.faceUnlock');
+      return t(ios ? 'faceId' : 'faceUnlock');
     case 'fingerprint':
-      return i18n.t(ios ? 'ui.you.security.lock.touchId' : 'ui.you.security.lock.fingerprint');
+      return t(ios ? 'touchId' : 'fingerprint');
     case 'biometric':
-      return i18n.t('ui.you.security.lock.biometrics');
+      return t('biometrics');
     case 'pin':
-      return i18n.t('ui.you.security.lock.pin');
+      return t('pin');
     default:
-      return i18n.t('ui.you.security.lock.off');
-  }
-}
-
-export function appLockIcon(kind: AppLockKind): LucideIcon {
-  switch (kind) {
-    case 'face':
-      return ScanFace;
-    case 'fingerprint':
-    case 'biometric':
-      return Fingerprint;
-    case 'pin':
-      return KeyRound;
-    default:
-      return LockOpen;
+      return t('off');
   }
 }

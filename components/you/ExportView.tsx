@@ -1,240 +1,150 @@
 /**
- * Export report screen pieces (presentational): `ExportBody` (what's inside, risks, tips,
- * acknowledgement switch) and `ExportActions` (Save to device / Share, sticky footer).
+ * Export a report (spec §5.6), presentational pieces: `ExportBody` (title, sentence, a plain
+ * "What's inside" list, then the one warning card "Before you share" with three bullets and a
+ * "More about sharing safely" link that expands the rest, and the footnote "This is a report to
+ * read or print. It is not a backup the app can restore.") and `ExportActions` for the sticky
+ * footer (the "isn't encrypted" checkbox directly above "Save PDF" + "Share PDF", both disabled
+ * until the box is ticked).
+ *
+ * @example
+ * <Screen footer={<ExportActions acknowledged={ok} onAcknowledgedChange={setOk} busy={busy}
+ *   onSave={save} onShare={share} />}>
+ *   <ExportBody profileName="Margaret" />
+ * </Screen>
  */
 import * as React from 'react';
-import { Platform, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
-import {
-  CalendarDays,
-  Cloud,
-  Download,
-  Eye,
-  FileText,
-  HandHeart,
-  LockOpen,
-  Percent,
-  Pill,
-  Share2,
-  ShieldAlert,
-  ShieldCheck,
-  Smartphone,
-  Stethoscope,
-  Trash2,
-  type LucideIcon,
-} from 'lucide-react-native';
+import { View } from 'react-native';
 import i18n from '@/lib/i18n';
-import {
-  Button,
-  Card,
-  Divider,
-  Icon,
-  ListGroup,
-  ListRow,
-  Text,
-  useTheme,
-  withAlpha,
-} from '@/components/ds';
+import { Button, Card, CheckboxCard, Text, useTheme } from '@/components/ds';
 
 export type ExportBusy = 'save' | 'share' | null;
 
+const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`ui.you.export.${key}`, opts);
+
 export interface ExportBodyProps {
   profileName: string;
-  acknowledged: boolean;
-  onAcknowledgedChange: (value: boolean) => void;
-  disabled?: boolean;
 }
 
-export function ExportBody({
-  profileName,
-  acknowledged,
-  onAcknowledgedChange,
-  disabled,
-}: ExportBodyProps) {
-  const { colors } = useTheme();
-  const reduceMotion = useReducedMotion();
-  const enter = (i: number) =>
-    reduceMotion ? FadeIn.duration(200) : FadeInDown.duration(280).delay(i * 50);
+/** Always shown in "Before you share"; the rest is behind "More about sharing safely". */
+const MAIN_RISKS = ['notEncrypted', 'readable', 'trusted'];
+const MORE_RISKS = ['copies', 'remains'];
 
+export function ExportBody({ profileName }: ExportBodyProps) {
+  const [more, setMore] = React.useState(false);
   return (
-    <View style={{ gap: 20 }}>
-      <Animated.View entering={enter(0)} style={{ alignItems: 'center', gap: 10, paddingTop: 4 }}>
-        <View
-          style={{
-            width: 80,
-            height: 80,
-            borderRadius: 40,
-            backgroundColor: colors.accentSoft,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
-          <Icon as={FileText} size={38} tone="accent" />
-        </View>
-        <Text variant="title1" align="center" accessibilityRole="header">
-          {i18n.t('ui.you.export.title')}
+    <View style={{ gap: 20, paddingTop: 8 }}>
+      <View style={{ gap: 8 }}>
+        <Text variant="title1">{t('title')}</Text>
+        <Text variant="body" tone="secondary">
+          {t('description', { name: profileName })}
         </Text>
-        <Text variant="body" tone="secondary" align="center">
-          {i18n.t('ui.you.export.description', { name: profileName })}
-        </Text>
-      </Animated.View>
-
-      <Animated.View entering={enter(1)}>
-        <Card>
-          <View style={{ gap: 14 }}>
-            <Text variant="title3" accessibilityRole="header">
-              {i18n.t('ui.you.export.insideTitle')}
-            </Text>
-            <Bullet
-              icon={Pill}
-              tint={colors.accent}
-              text={i18n.t('ui.you.export.inside.medicines')}
-            />
-            <Bullet
-              icon={CalendarDays}
-              tint={colors.accent}
-              text={i18n.t('ui.you.export.inside.entries')}
-            />
-            <Bullet
-              icon={Percent}
-              tint={colors.accent}
-              text={i18n.t('ui.you.export.inside.adherence')}
-            />
-          </View>
-        </Card>
-      </Animated.View>
-
-      <Animated.View entering={enter(2)}>
-        <Card>
-          <View style={{ gap: 14 }}>
-            <Text variant="title3" accessibilityRole="header">
-              {i18n.t('ui.you.export.shareTitle')}
-            </Text>
-            <Bullet
-              icon={LockOpen}
-              tint={colors.warning}
-              text={i18n.t('ui.you.export.risks.notEncrypted')}
-            />
-            <Bullet
-              icon={Eye}
-              tint={colors.warning}
-              text={i18n.t('ui.you.export.risks.readable')}
-            />
-            <Bullet
-              icon={Cloud}
-              tint={colors.warning}
-              text={i18n.t('ui.you.export.risks.copies')}
-            />
-            <Bullet
-              icon={Smartphone}
-              tint={colors.warning}
-              text={i18n.t('ui.you.export.risks.remains')}
-            />
-            <Divider style={{ marginVertical: 2 }} />
-            <Text variant="headline" accessibilityRole="header">
-              {i18n.t('ui.you.export.tipsTitle')}
-            </Text>
-            <Bullet
-              icon={Stethoscope}
-              tint={colors.success}
-              text={i18n.t('ui.you.export.tips.trusted')}
-            />
-            <Bullet
-              icon={Trash2}
-              tint={colors.success}
-              text={i18n.t('ui.you.export.tips.delete')}
-            />
-            <Bullet
-              icon={HandHeart}
-              tint={colors.success}
-              text={i18n.t('ui.you.export.tips.secure')}
-            />
-          </View>
-        </Card>
-      </Animated.View>
-
-      <Animated.View entering={enter(3)}>
-        <ListGroup>
-          <ListRow
-            icon={acknowledged ? ShieldCheck : ShieldAlert}
-            iconTint={acknowledged ? colors.success : colors.warning}
-            title={i18n.t('ui.you.export.acknowledge')}
-            switchValue={acknowledged}
-            onSwitchChange={onAcknowledgedChange}
-            disabled={disabled}
-          />
-        </ListGroup>
-      </Animated.View>
-    </View>
-  );
-}
-
-function Bullet({ icon, tint, text }: { icon: LucideIcon; tint: string; text: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-      <View
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 10,
-          backgroundColor: withAlpha(tint, 0.14),
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        <Icon as={icon} size={18} color={tint} />
       </View>
-      <Text variant="callout" style={{ flex: 1, paddingTop: 5 }}>
-        {text}
+      <BulletList
+        title={t('insideTitle')}
+        items={['medicines', 'entries', 'adherence'].map((k) => t(`inside.${k}`))}
+      />
+      <BulletCard
+        title={t('shareTitle')}
+        items={(more ? [...MAIN_RISKS, ...MORE_RISKS] : MAIN_RISKS).map((k) => t(`risks.${k}`))}>
+        <Button
+          variant="link"
+          size="sm"
+          label={t(more ? 'lessAboutSharing' : 'moreAboutSharing')}
+          onPress={() => setMore((v) => !v)}
+          accessibilityState={{ expanded: more }}
+        />
+      </BulletCard>
+      <Text variant="footnote" tone="secondary" style={{ paddingHorizontal: 4 }}>
+        {t('notBackup')}
       </Text>
     </View>
   );
 }
 
+function BulletCard(props: { title: string; items: string[]; children?: React.ReactNode }) {
+  return (
+    <Card>
+      <BulletList {...props} />
+    </Card>
+  );
+}
+
+function BulletList({
+  title,
+  items,
+  children,
+}: {
+  title: string;
+  items: string[];
+  children?: React.ReactNode;
+}) {
+  const { colors } = useTheme();
+  return (
+    <>
+      <View style={{ gap: 12 }}>
+        <Text variant="headline" accessibilityRole="header">
+          {title}
+        </Text>
+        {items.map((item) => (
+          <View key={item} style={{ flexDirection: 'row', gap: 12 }} accessible>
+            {/* Bullet aligned with the first line of 18/25 body text. */}
+            <View
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: colors.ink2,
+                marginTop: 9,
+              }}
+            />
+            <Text variant="body" style={{ flex: 1 }}>
+              {item}
+            </Text>
+          </View>
+        ))}
+        {children ? <View style={{ alignItems: 'flex-start' }}>{children}</View> : null}
+      </View>
+    </>
+  );
+}
+
 export interface ExportActionsProps {
   acknowledged: boolean;
+  onAcknowledgedChange: (value: boolean) => void;
   busy: ExportBusy;
   onSave: () => void;
   onShare: () => void;
 }
 
-export function ExportActions({ acknowledged, busy, onSave, onShare }: ExportActionsProps) {
-  const preparing = i18n.t('ui.you.export.preparing');
-  let hint: string | null = null;
-  if (busy) hint = preparing;
-  else if (!acknowledged) hint = i18n.t('ui.you.export.ackHint');
-  else if (Platform.OS === 'ios') hint = i18n.t('ui.you.export.iosSaveHint');
-
+export function ExportActions({
+  acknowledged,
+  onAcknowledgedChange,
+  busy,
+  onSave,
+  onShare,
+}: ExportActionsProps) {
+  const locked = !acknowledged || busy !== null;
   return (
-    <View style={{ gap: 10 }}>
-      {hint ? (
-        <Text
-          variant="footnote"
-          tone={busy ? 'accent' : 'secondary'}
-          align="center"
-          accessibilityLiveRegion="polite">
-          {hint}
-        </Text>
-      ) : null}
+    <>
+      <CheckboxCard
+        label={t('acknowledge')}
+        checked={acknowledged}
+        onChange={onAcknowledgedChange}
+        disabled={busy !== null}
+      />
       <Button
-        label={i18n.t('ui.you.export.save')}
-        icon={Download}
-        size="lg"
-        fullWidth
+        variant="secondary"
+        label={busy === 'save' ? t('preparing') : t('savePdf')}
         loading={busy === 'save'}
-        disabled={!acknowledged || (busy !== null && busy !== 'save')}
-        accessibilityLabel={busy === 'save' ? preparing : undefined}
+        disabled={locked && busy !== 'save'}
         onPress={onSave}
       />
       <Button
-        label={i18n.t('ui.you.export.share')}
-        icon={Share2}
-        variant="secondary"
-        size="lg"
-        fullWidth
+        label={busy === 'share' ? t('preparing') : t('sharePdf')}
         loading={busy === 'share'}
-        disabled={!acknowledged || (busy !== null && busy !== 'share')}
-        accessibilityLabel={busy === 'share' ? preparing : undefined}
+        disabled={locked && busy !== 'share'}
         onPress={onShare}
       />
-    </View>
+    </>
   );
 }

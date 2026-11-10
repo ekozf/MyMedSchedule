@@ -5,13 +5,14 @@
  * @example
  * await saveSupply(med, computeNewCount('add', med.inventoryCount, 30), profileId);
  * await setMedicineActive(med, false, profileId);
- * const logAsNeeded = useLogAsNeeded();
+ * const logAsNeeded = useLogAsNeeded({ onUpdateSupply: (m) => openSupplySheet(m) });
  * const log = await logAsNeeded(med, 1.5, 'headache'); // null when cancelled / failed
  */
 import { useCallback } from 'react';
 import { bumpLogs } from '@/lib/ui/data-refresh';
 import {
   createIntakeLogAndUpdateInventory,
+  createInventoryAdjustment,
   deleteMedication,
   getMedicationById,
   updateMedication,
@@ -22,12 +23,28 @@ import {
   scheduleNotificationsForMedication,
   scheduleRefillReminder,
 } from '@/lib/notifications/scheduler';
-import { useDoseSafetyCheck, useLogErrorHandler } from '@/lib/ui/dose-actions';
+import { useDoseSafetyCheck, useLogErrorHandler, useSupplyCheck } from '@/lib/ui/dose-actions';
 import { haptics } from '@/lib/ui/haptics';
 import { useStore } from '@/store';
 import type { IntakeLog, Medication } from '@/types';
 
 export type SupplyMode = 'add' | 'remove' | 'set';
+
+/** Why the supply changed (the supply sheet's "Why?" chips). Stored with the adjustment. */
+export type SupplyReason = 'refill' | 'lost' | 'correction' | 'other';
+
+export interface SupplyChange {
+  /** Which part of the supply sheet made the change. Default 'set'. */
+  mode?: SupplyMode;
+  /** The number entered (what was added / removed, or the new total). Default the new count. */
+  amount?: number;
+  reason?: SupplyReason | null;
+  /**
+   * First count only: the refill reminder to set with it ('days' or, for as-needed medicines,
+   * 'doses'), or null for none. Undefined leaves the reminder as it is.
+   */
+  refill?: { type: 'days' | 'doses'; value: number } | null;
+}
 
 /** New supply count for an adjustment (remove never goes below 0). */
 export function computeNewCount(mode: SupplyMode, current: number, amount: number): number {
@@ -47,13 +64,48 @@ async function reloadMedications(profileId?: string) {
   if (id) await useStore.getState().loadMedications(id);
 }
 
-/** Save a new supply count, re-plan the refill reminder and reload the store. */
+/**
+ * Save a new supply count, record the change (with its reason) for "Last change", re-plan the
+ * refill reminder and reload the store. Entering a count means the person counts this medicine,
+ * so an untracked supply starts being tracked; the first count can set the refill reminder too.
+ */
 export async function saveSupply(
   medication: Medication,
   newCount: number,
-  profileId?: string
+  profileId?: string,
+  change: SupplyChange = {}
 ): Promise<void> {
-  await updateMedicationInventory(medication.id, newCount);
+  const next = Math.max(0, newCount);
+  const untracked = medication.trackSupply === false;
+  const previous = untracked ? 0 : Math.max(0, medication.inventoryCount ?? 0);
+  const refill =
+    change.refill === undefined
+      ? {}
+      : change.refill
+        ? { refillReminderType: change.refill.type, refillReminderValue: change.refill.value }
+        : { refillReminderType: null, refillReminderValue: null };
+  if (untracked || change.refill !== undefined) {
+    await updateMedication(medication.id, {
+      inventoryCount: next,
+      trackSupply: true,
+      ...refill,
+    });
+  } else {
+    await updateMedicationInventory(medication.id, next);
+  }
+  try {
+    await createInventoryAdjustment({
+      medicationId: medication.id,
+      adjustmentType: change.mode ?? 'set',
+      amount: change.amount ?? next,
+      previousCount: previous,
+      newCount: next,
+      reason: change.reason ?? undefined,
+    });
+  } catch (error) {
+    // The count is saved; a missing history line must not turn this into a failed save.
+    console.warn('Failed to record supply change:', error);
+  }
   const updated = await getMedicationById(medication.id);
   if (updated) await scheduleRefillReminder(updated);
   await reloadMedications(profileId);
@@ -85,11 +137,16 @@ export async function removeMedicine(medication: Medication, profileId?: string)
 
 /**
  * Returns `log(medication, amount, notes?)` for an as-needed dose taken now: safety check →
- * create log (+ supply) → reload → success haptic. Resolves the log, or null when the person
- * cancelled at the safety check or saving failed (the error has been explained already).
+ * supply check (a short count asks "Log anyway" / "Update supply first", never blocks) → create
+ * log (+ supply) → reload → success haptic. Resolves the log, or null when the person cancelled,
+ * chose "Update supply first" (`onUpdateSupply` is called) or saving failed (already explained).
  */
-export function useLogAsNeeded() {
+export function useLogAsNeeded(
+  options: { onUpdateSupply?: (medication: Medication) => void } = {}
+) {
+  const { onUpdateSupply } = options;
   const checkSafety = useDoseSafetyCheck();
+  const checkSupply = useSupplyCheck();
   const showLogError = useLogErrorHandler();
 
   return useCallback(
@@ -98,16 +155,22 @@ export function useLogAsNeeded() {
       if (!profileId) return null;
       const now = new Date();
       if (!(await checkSafety(medication, amount, now))) return null;
+      const supply = await checkSupply(medication, amount);
+      if (supply === 'update') onUpdateSupply?.(medication);
+      if (supply === 'update' || supply === 'cancel') return null;
       try {
-        const { log } = await createIntakeLogAndUpdateInventory({
-          medicationId: medication.id,
-          profileId,
-          scheduledTime: undefined,
-          actualTime: now,
-          action: 'taken',
-          dosageAmount: amount,
-          notes: notes?.trim() ? notes.trim() : undefined,
-        });
+        const { log } = await createIntakeLogAndUpdateInventory(
+          {
+            medicationId: medication.id,
+            profileId,
+            scheduledTime: undefined,
+            actualTime: now,
+            action: 'taken',
+            dosageAmount: amount,
+            notes: notes?.trim() ? notes.trim() : undefined,
+          },
+          { allowShortSupply: supply === 'anyway' }
+        );
         await reloadMedications(profileId);
         bumpLogs();
         haptics.success();
@@ -118,6 +181,6 @@ export function useLogAsNeeded() {
         return null;
       }
     },
-    [checkSafety, showLogError]
+    [checkSafety, checkSupply, showLogError, onUpdateSupply]
   );
 }

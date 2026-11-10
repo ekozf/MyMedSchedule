@@ -1,80 +1,37 @@
 /**
- * The four disclaimer sections. Item texts are the legacy `disclaimer.*` keys, kept verbatim —
- * every item of the old disclaimer screen must stay visible.
+ * The four "Good to know" topics (spec §5.1), in order. Texts live in
+ * `ui.onboarding.disclaimer.pages.<key>` (title, one-sentence `summary` for the consent page,
+ * and the full paragraphs). See the locale file for which
+ * legal point of the old disclaimer each paragraph carries.
+ *
+ * @example
+ * DISCLAIMER_PAGES.map((p) => disclaimerTitle(p)) // ["Your data stays with you", …]
  */
-import {
-  Ban,
-  CircleAlert,
-  Clock,
-  Database,
-  FileCheck,
-  FileText,
-  Lock,
-  ShieldCheck,
-  Smartphone,
-  SquareCheck,
-  Stethoscope,
-  TriangleAlert,
-  User,
-  UserRound,
-  WifiOff,
-  type LucideIcon,
-} from 'lucide-react-native';
-import type { StatusTone } from '@/lib/theme';
+import i18n from '@/lib/i18n';
 
-export type DisclaimerSectionKey = 'privacy' | 'medical' | 'responsibility' | 'technical';
+export type DisclaimerPageKey = 'privacy' | 'medical' | 'technical' | 'responsibility';
 
-export interface DisclaimerSection {
-  key: DisclaimerSectionKey;
-  icon: LucideIcon;
-  tone: Exclude<StatusTone, 'default'>;
-  items: { icon: LucideIcon; textKey: string }[];
+export interface DisclaimerPage {
+  key: DisclaimerPageKey;
+  paragraphs: string[];
 }
 
-export const DISCLAIMER_SECTIONS: DisclaimerSection[] = [
-  {
-    key: 'privacy',
-    icon: ShieldCheck,
-    tone: 'accent',
-    items: [
-      { icon: Ban, textKey: 'disclaimer.dataPrivacy.noDataCollection' },
-      { icon: WifiOff, textKey: 'disclaimer.dataPrivacy.fullyLocal' },
-      { icon: Lock, textKey: 'disclaimer.dataPrivacy.secureStorage' },
-      { icon: FileText, textKey: 'disclaimer.dataPrivacy.exportUnencrypted' },
-      { icon: Database, textKey: 'disclaimer.dataPrivacy.dataLoss' },
-    ],
-  },
-  {
-    key: 'medical',
-    icon: Stethoscope,
-    tone: 'warning',
-    items: [
-      { icon: Stethoscope, textKey: 'disclaimer.medical.notAdvising' },
-      { icon: Ban, textKey: 'disclaimer.medical.noInstructions' },
-      { icon: CircleAlert, textKey: 'disclaimer.medical.noInteractionCheck' },
-      { icon: Ban, textKey: 'disclaimer.medical.notResponsible' },
-      { icon: FileCheck, textKey: 'disclaimer.medical.digitalVersion' },
-    ],
-  },
-  {
-    key: 'responsibility',
-    icon: UserRound,
-    tone: 'success',
-    items: [
-      { icon: CircleAlert, textKey: 'disclaimer.userResponsibility.inputErrors' },
-      { icon: SquareCheck, textKey: 'disclaimer.userResponsibility.yourResponsibility' },
-      { icon: User, textKey: 'disclaimer.userResponsibility.yourChoice' },
-      { icon: CircleAlert, textKey: 'disclaimer.userResponsibility.reminderTool' },
-    ],
-  },
-  {
-    key: 'technical',
-    icon: Smartphone,
-    tone: 'accent',
-    items: [
-      { icon: Clock, textKey: 'disclaimer.technical.timeZones' },
-      { icon: Smartphone, textKey: 'disclaimer.technical.batteryOptimization' },
-      { icon: TriangleAlert, textKey: 'disclaimer.technical.clockChanges' },
-    ],
-  },
+export const DISCLAIMER_PAGES: DisclaimerPage[] = [
+  { key: 'privacy', paragraphs: ['p1', 'p2', 'p3'] },
+  { key: 'medical', paragraphs: ['p1', 'p2', 'p3'] },
+  { key: 'technical', paragraphs: ['p1', 'p2'] },
+  { key: 'responsibility', paragraphs: ['p1', 'p2', 'p3'] },
 ];
+
+export function disclaimerTitle(page: DisclaimerPage): string {
+  return i18n.t(`ui.onboarding.disclaimer.pages.${page.key}.title`);
+}
+
+/** One plain sentence for the consent page. */
+export function disclaimerSummary(page: DisclaimerPage): string {
+  return i18n.t(`ui.onboarding.disclaimer.pages.${page.key}.summary`);
+}
+
+export function disclaimerParagraphs(page: DisclaimerPage): string[] {
+  return page.paragraphs.map((p) => i18n.t(`ui.onboarding.disclaimer.pages.${page.key}.${p}`));
+}

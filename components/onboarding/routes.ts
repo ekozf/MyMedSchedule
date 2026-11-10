@@ -1,13 +1,13 @@
 /**
- * Routes used by onboarding / lock. `welcome` and `/dev/onboarding` are new files that the typed
- * route list (`.expo/types/router.d.ts`) only learns about on the next `expo start`, so they are
- * cast here, in one place.
+ * Routes used by onboarding / lock. Cast in one place because the generated typed route list
+ * (`.expo/types/router.d.ts`) can lag behind new files until the next `expo start`.
  */
 import type { Href } from 'expo-router';
 
 export const ONBOARDING_ROUTES = {
-  welcome: '/(onboarding)/welcome' as unknown as Href,
+  welcome: '/(onboarding)/welcome' as Href,
   disclaimer: '/(onboarding)/disclaimer' as Href,
+  disclaimerFullText: '/(onboarding)/disclaimer?viewOnly=true&fullText=true' as Href,
   authSetup: '/(onboarding)/auth-setup' as Href,
   createProfile: '/(onboarding)/create-profile' as Href,
   lock: '/(auth)/lock' as Href,

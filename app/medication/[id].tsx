@@ -1,25 +1,23 @@
 /**
- * Medicine detail (docs/DESIGN.md §4.3). Loads the medicine + its logs on focus (so returning
+ * Medicine page (docs/DESIGN.md §5.3), full page without the tab bar. Loads the medicine + its logs on focus (so returning
  * from edit, the supply sheet or the as-needed sheet shows fresh data) and owns the actions:
  * update supply, stop/resume, delete, open Journal, log an as-needed dose.
  */
 import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import {
-  CircleAlert,
-  CirclePause,
-  CirclePlay,
-  PackageCheck,
-  SearchX,
-  Trash2,
-} from 'lucide-react-native';
+import { isSameDay } from 'date-fns';
 import i18n from '@/lib/i18n';
 import { useStore } from '@/store';
-import { getIntakeLogsByMedication, getMedicationById } from '@/lib/db/operations';
-import { formatDose } from '@/lib/ui/format';
 import {
-  Button,
+  getIntakeLogsByMedication,
+  getLatestInventoryAdjustment,
+  getMedicationById,
+  type InventoryAdjustment,
+} from '@/lib/db/operations';
+import { formatDose, useTimeFormat } from '@/lib/ui/format';
+import { undoIntakeLog } from '@/lib/ui/dose-actions';
+import {
   EmptyState,
   NavHeader,
   Screen,
@@ -31,7 +29,13 @@ import {
 import { MedicineDetailContent } from '@/components/medicines/MedicineDetailContent';
 import { SupplySheet } from '@/components/medicines/SupplySheet';
 import { findLastTaken } from '@/components/medicines/medicine-info';
-import { removeMedicine, saveSupply, setMedicineActive } from '@/components/medicines/actions';
+import {
+  removeMedicine,
+  saveSupply,
+  setMedicineActive,
+  useLogAsNeeded,
+} from '@/components/medicines/actions';
+import { AsNeededDoseSheet } from '@/components/today/AsNeededDoseSheet';
 import type { IntakeLog, Medication } from '@/types';
 
 export default function MedicineDetailScreen() {
@@ -47,10 +51,21 @@ export default function MedicineDetailScreen() {
   });
 
   const [medication, setMedication] = React.useState<Medication | null>(null);
-  const [lastTaken, setLastTaken] = React.useState<IntakeLog | null>(null);
+  const [logs, setLogs] = React.useState<IntakeLog[]>([]);
+  const [lastChange, setLastChange] = React.useState<InventoryAdjustment | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [supplyOpen, setSupplyOpen] = React.useState(false);
+  const [prnOpen, setPrnOpen] = React.useState(false);
+  // What to open once the as-needed sheet has finished closing.
+  const afterPrn = React.useRef<'pastDose' | 'supply' | null>(null);
+  // "Update supply first": close the as-needed sheet, then show the supply sheet.
+  const onUpdateSupplyFirst = React.useCallback(() => {
+    afterPrn.current = 'supply';
+    setPrnOpen(false);
+  }, []);
+  const logAsNeeded = useLogAsNeeded({ onUpdateSupply: onUpdateSupplyFirst });
+  const { formatTime } = useTimeFormat();
 
   const load = React.useCallback(async () => {
     if (!id) {
@@ -58,9 +73,15 @@ export default function MedicineDetailScreen() {
       return;
     }
     try {
-      const [med, logs] = await Promise.all([getMedicationById(id), getIntakeLogsByMedication(id)]);
+      const [med, logs, change] = await Promise.all([
+        getMedicationById(id),
+        getIntakeLogsByMedication(id),
+        // "Last change" is a nicety: never let it break loading the page.
+        getLatestInventoryAdjustment(id).catch(() => null),
+      ]);
       setMedication(med);
-      setLastTaken(findLastTaken(logs));
+      setLogs(logs);
+      setLastChange(change);
     } catch (error) {
       console.error('Failed to load medication:', error);
       setMedication(null);
@@ -85,13 +106,52 @@ export default function MedicineDetailScreen() {
     if (storeStamp !== 0) load();
   }, [storeStamp, load]);
 
+  const lastTaken = React.useMemo(() => findLastTaken(logs), [logs]);
+  const todayLogs = React.useMemo(() => {
+    const now = new Date();
+    return logs.filter((l) => isSameDay(new Date(l.actualTime), now));
+  }, [logs]);
+
+  // --- as-needed sheet (same sheet as Today) --------------------------------------------------
+  const onPrnDismissed = () => {
+    const next = afterPrn.current;
+    afterPrn.current = null;
+    if (next === 'supply') setSupplyOpen(true);
+    else if (next === 'pastDose' && medication) {
+      router.push({ pathname: '/log/past', params: { medicationId: medication.id } });
+    }
+  };
+  const onPrnLogged = (m: Medication, log: IntakeLog, amount: number) => {
+    setPrnOpen(false);
+    load();
+    toast.show({
+      title: i18n.t('ui.today.asNeededSheet.logged', { name: m.name }),
+      message: i18n.t('ui.today.asNeededSheet.loggedDetail', {
+        amount: formatDose(amount, m.dosageUnit),
+        time: formatTime(new Date(log.actualTime)),
+      }),
+      action: {
+        label: i18n.t('ui.common.undo'),
+        onPress: async () => {
+          try {
+            await undoIntakeLog(log);
+            if (profileId) await useStore.getState().loadMedications(profileId);
+            await load();
+            toast.show({ title: i18n.t('ui.today.asNeededSheet.undone') });
+          } catch (error) {
+            console.error('Failed to undo as-needed dose:', error);
+            toast.show({ title: i18n.t('ui.safety.couldNotDelete') });
+          }
+        },
+      },
+    });
+  };
+
   const showError = (message: string) =>
     confirm({
       title: i18n.t('ui.common.somethingWentWrong'),
       message,
-      confirmLabel: i18n.t('ui.common.ok'),
-      cancelLabel: i18n.t('ui.common.close'),
-      icon: CircleAlert,
+      confirmLabel: i18n.t('ui.common.close'),
     });
 
   const applyActive = async (med: Medication, active: boolean) => {
@@ -109,8 +169,6 @@ export default function MedicineDetailScreen() {
             title: i18n.t('ui.medicines.confirm.stopTitle', { name: med.name }),
             message: i18n.t('ui.medicines.confirm.stopMessage'),
             confirmLabel: i18n.t('ui.medicines.detail.stop'),
-            tone: 'warning',
-            icon: CirclePause,
           }
         : {
             title: i18n.t('ui.medicines.confirm.resumeTitle', { name: med.name }),
@@ -120,7 +178,6 @@ export default function MedicineDetailScreen() {
                 : 'ui.medicines.confirm.resumeMessage'
             ),
             confirmLabel: i18n.t('ui.medicines.detail.resume'),
-            icon: CirclePlay,
           }
     );
     if (!ok) return;
@@ -132,7 +189,6 @@ export default function MedicineDetailScreen() {
           ? {
               title: i18n.t('ui.medicines.toast.stopped', { name: med.name }),
               message: i18n.t('ui.medicines.toast.stoppedMessage'),
-              icon: CirclePause,
               action: {
                 label: i18n.t('ui.common.undo'),
                 onPress: () => {
@@ -142,10 +198,7 @@ export default function MedicineDetailScreen() {
                 },
               },
             }
-          : {
-              title: i18n.t('ui.medicines.toast.resumed', { name: med.name }),
-              tone: 'success',
-            }
+          : { title: i18n.t('ui.medicines.toast.resumed', { name: med.name }) }
       );
     } catch (error) {
       console.error('Failed to update medication:', error);
@@ -163,7 +216,6 @@ export default function MedicineDetailScreen() {
       message: i18n.t('ui.medicines.confirm.deleteMessage'),
       confirmLabel: i18n.t('ui.medicines.detail.delete'),
       tone: 'danger',
-      icon: Trash2,
     });
     if (!ok) return;
     setBusy(true);
@@ -178,17 +230,23 @@ export default function MedicineDetailScreen() {
     }
   };
 
+  const openSection = (section: 'supply' | 'note' | 'limits') => {
+    if (!medication) return;
+    router.push({
+      pathname: '/medication/edit/[id]/[section]',
+      params: { id: medication.id, section },
+    });
+  };
+
   const header = (
     <NavHeader
-      right={
-        medication ? (
-          <Button
-            label={i18n.t('ui.common.edit')}
-            variant="plain"
-            size="md"
-            onPress={() => router.push(`/medication/edit/${medication.id}`)}
-          />
-        ) : null
+      rightAction={
+        medication
+          ? {
+              label: i18n.t('ui.common.edit'),
+              onPress: () => router.push(`/medication/edit/${medication.id}`),
+            }
+          : undefined
       }
     />
   );
@@ -211,8 +269,6 @@ export default function MedicineDetailScreen() {
       <Screen header={header} scroll={false}>
         <View style={{ flex: 1, justifyContent: 'center' }}>
           <EmptyState
-            icon={SearchX}
-            tone="default"
             title={i18n.t('ui.medicines.detail.notFoundTitle')}
             message={i18n.t('ui.medicines.detail.notFound')}
             action={{ label: i18n.t('ui.medicines.detail.goBack'), onPress: goBackOrHome }}
@@ -227,11 +283,15 @@ export default function MedicineDetailScreen() {
       <MedicineDetailContent
         medication={medication}
         lastTaken={lastTaken}
+        logs={logs}
         busy={busy}
-        onLogDose={() =>
-          router.push({ pathname: '/log/as-needed', params: { medicationId: medication.id } })
-        }
+        onLogDose={() => setPrnOpen(true)}
         onUpdateSupply={() => setSupplyOpen(true)}
+        onStartTracking={() => setSupplyOpen(true)}
+        lastChange={lastChange}
+        onEditRefill={() => openSection('supply')}
+        onAddNote={() => openSection('note')}
+        onAddLimits={() => openSection('limits')}
         onSeeJournal={() =>
           router.push({ pathname: '/(tabs)/history', params: { medicationId: medication.id } })
         }
@@ -242,7 +302,7 @@ export default function MedicineDetailScreen() {
         visible={supplyOpen}
         medication={medication}
         onClose={() => setSupplyOpen(false)}
-        onSave={(newCount) => saveSupply(medication, newCount, profileId)}
+        onSave={(newCount, change) => saveSupply(medication, newCount, profileId, change)}
         onSaved={(newCount) => {
           load();
           toast.show({
@@ -250,10 +310,24 @@ export default function MedicineDetailScreen() {
             message: i18n.t('ui.medicines.toast.supplyNow', {
               amount: formatDose(newCount, medication.dosageUnit),
             }),
-            tone: 'success',
-            icon: PackageCheck,
           });
         }}
+      />
+      <AsNeededDoseSheet
+        visible={prnOpen}
+        onClose={() => setPrnOpen(false)}
+        onDismissed={onPrnDismissed}
+        medication={medication}
+        todayLogs={todayLogs}
+        lastLog={lastTaken}
+        onLog={logAsNeeded}
+        handlesShortSupply
+        onLogged={onPrnLogged}
+        onOtherTime={() => {
+          afterPrn.current = 'pastDose';
+          setPrnOpen(false);
+        }}
+        onUpdateSupply={onUpdateSupplyFirst}
       />
     </Screen>
   );

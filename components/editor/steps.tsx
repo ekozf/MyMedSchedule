@@ -1,271 +1,300 @@
 /**
- * Section editors shared by the guided add flow (`variant="guided"`: big question header) and the
- * edit page (`variant="inline"`: no header, the page shows section titles).
+ * Controls of add-medicine steps 1 to 3 (docs/DESIGN.md §5.4), shared by the guided flow and the
+ * edit pages (both wrap them in `StepScreen` with the question).
  *
  * @example
- * <NameStep form={form} update={update} variant="guided" onSubmit={next} />
- * <ScheduleDetailsStep form={form} update={update} minStartDate={startOfDay(new Date())} />
+ * <NameSection form={form} update={update} autoFocus onSubmit={next} />
+ * <DoseSection form={form} update={update} />
+ * <ScheduleSection form={form} update={update} minStartDate={today} />
  */
 import * as React from 'react';
 import { View, type TextInput } from 'react-native';
 import i18n from '@/lib/i18n';
 import { formatDose, formatUnit } from '@/lib/ui/format';
-import type { ScheduleType } from '@/types';
-import { Chip, Stepper, Text, TextField } from '@/components/ds';
+import type { DosageUnit, ScheduleType } from '@/types';
 import {
-  DOSAGE_UNITS,
+  Button,
+  Chip,
+  ChipRow,
+  ListGroup,
+  ListRow,
+  OptionRow,
+  Stepper,
+  TextField,
+} from '@/components/ds';
+import {
+  COMMON_CHOICES,
+  COMMON_UNITS,
+  OTHER_CHOICES,
+  OTHER_UNITS,
   NAME_MAX,
+  STRENGTH_MAX,
+  choiceFor,
   doseStep,
-  normalizeConfig,
+  typeForChoice,
+  type ScheduleChoice,
   type MedicineForm,
-  type ScheduleConfigMap,
   type StepIssue,
 } from './form-model';
 import type { MedicineFormUpdater } from './useMedicineForm';
-import { EditorCard, FieldLabel, IssueHint, StepHeader } from './parts';
-import { PhotoPicker } from './PhotoPicker';
-import { ScheduleTypeCards } from './ScheduleTypeCards';
-import { EveryXHoursEditor, MultipleDailyEditor, OnceDailyEditor } from './schedule/TimeEditors';
-import { EveryXDaysEditor, SpecificWeekdaysEditor, XthWeekdayEditor } from './schedule/DayEditors';
-import { CycleEditor, PrnInfoCard, TaperingEditor } from './schedule/PlanEditors';
+import { FieldLabel, IssueHint, SummaryCard } from './parts';
+import { PhotoRow } from './PhotoPicker';
+import { WhenEditor } from './schedule/ScheduleEditors';
 
-export interface StepProps {
+export interface SectionProps {
   form: MedicineForm;
   update: MedicineFormUpdater;
-  /** 'guided' shows the question header (add flow). Default 'guided'. */
-  variant?: 'guided' | 'inline';
 }
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`ui.editor.${key}`, opts);
 
-// ---------------------------------------------------------------------------------------------
-
-export function NameStep({
+/** Step 1: name field, the optional strength field ("500 mg") and the photo row. */
+export function NameSection({
   form,
   update,
-  variant = 'guided',
   onSubmit,
   autoFocus,
   issue,
-}: StepProps & { onSubmit?: () => void; autoFocus?: boolean; issue?: StepIssue | null }) {
-  const inputRef = React.useRef<TextInput>(null);
-  const guided = variant === 'guided';
-  const field = (
-    <TextField
-      ref={inputRef}
-      size={guided ? 'lg' : 'md'}
-      label={guided ? undefined : t('name.label')}
-      accessibilityLabel={t('name.label')}
-      value={form.name}
-      onChangeText={(name) => update.set({ name })}
-      placeholder={t('name.placeholder')}
-      autoFocus={autoFocus}
-      autoCapitalize="words"
-      autoCorrect={false}
-      maxLength={NAME_MAX}
-      returnKeyType={onSubmit ? 'next' : 'done'}
-      onSubmitEditing={onSubmit}
-      submitBehavior={onSubmit ? 'submit' : 'blurAndSubmit'}
-    />
-  );
-
-  if (!guided) {
-    return (
-      <EditorCard>
-        <View style={{ alignItems: 'center' }}>
-          <PhotoPicker
-            uri={form.imageUri}
-            name={form.name}
-            size={96}
-            onChange={(imageUri) => update.set({ imageUri })}
-          />
-        </View>
-        {field}
-        <IssueHint issue={issue} />
-      </EditorCard>
-    );
-  }
-
-  return (
-    <View>
-      <StepHeader title={t('name.title')} helper={t('name.helper')} />
-      {field}
-      <View style={{ marginTop: 32 }}>
-        <PhotoPicker
-          uri={form.imageUri}
-          name={form.name}
-          onChange={(imageUri) => update.set({ imageUri })}
-        />
-      </View>
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------------------------
-
-export function DoseStep({ form, update, variant = 'guided' }: StepProps) {
-  const s = doseStep(form.dosageUnit);
-  const amount = form.dosageAmount;
-  return (
-    <View style={{ gap: 16 }}>
-      {variant === 'guided' ? (
-        <StepHeader title={t('dose.title')} helper={t('dose.helper')} />
-      ) : null}
-      <EditorCard>
-        <Stepper
-          value={amount}
-          onChange={(dosageAmount) => update.set({ dosageAmount })}
-          min={s.min}
-          max={100000}
-          step={s.step}
-          allowDecimal
-          unit={formatUnit(amount, form.dosageUnit)}
-          accessibilityLabel={t('dose.amountLabel')}
-        />
-        <FieldLabel>{t('dose.unitLabel')}</FieldLabel>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {DOSAGE_UNITS.map((unit) => (
-            <Chip
-              key={unit}
-              label={i18n.t(`ui.common.unitNames.${unit}`)}
-              selected={form.dosageUnit === unit}
-              check
-              onPress={() => update.set({ dosageUnit: unit })}
-            />
-          ))}
-        </View>
-      </EditorCard>
-      {amount > 0 ? (
-        <Text
-          variant="title3"
-          align="center"
-          tone="accent"
-          accessibilityLiveRegion="polite"
-          style={{ marginTop: 4 }}>
-          {t('dose.sentence', { dose: formatDose(amount, form.dosageUnit) })}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-// ---------------------------------------------------------------------------------------------
-
-export function ScheduleTypeStep({
-  form,
-  onSelect,
-}: {
-  form: MedicineForm;
-  onSelect: (type: ScheduleType) => void;
+  showLabel = false,
+}: SectionProps & {
+  onSubmit?: () => void;
+  autoFocus?: boolean;
+  issue?: StepIssue | null;
+  /** Show "Medicine name" above the field (edit page). */
+  showLabel?: boolean;
 }) {
+  const inputRef = React.useRef<TextInput>(null);
+  const strengthRef = React.useRef<TextInput>(null);
   return (
-    <View>
-      <StepHeader title={t('type.title')} helper={t('type.helper')} />
-      <ScheduleTypeCards value={form.scheduleType} onSelect={onSelect} />
+    <View style={{ gap: 20 }}>
+      <View style={{ gap: 8 }}>
+        <TextField
+          ref={inputRef}
+          label={showLabel ? t('name.label') : undefined}
+          accessibilityLabel={t('name.label')}
+          value={form.name}
+          onChangeText={(name) => update.set({ name })}
+          placeholder={t('name.placeholder')}
+          autoFocus={autoFocus}
+          autoCapitalize="words"
+          autoCorrect={false}
+          maxLength={NAME_MAX}
+          returnKeyType="next"
+          onSubmitEditing={() => strengthRef.current?.focus()}
+          submitBehavior="submit"
+        />
+        <IssueHint issue={issue === 'strengthTooLong' ? null : issue} />
+      </View>
+      <View style={{ gap: 8 }}>
+        <TextField
+          ref={strengthRef}
+          label={t('name.strengthLabel')}
+          value={form.strength}
+          onChangeText={(strength) => update.set({ strength })}
+          placeholder={t('name.strengthPlaceholder')}
+          autoCapitalize="none"
+          autoCorrect={false}
+          maxLength={STRENGTH_MAX}
+          returnKeyType={onSubmit ? 'next' : 'done'}
+          onSubmitEditing={onSubmit}
+          submitBehavior={onSubmit ? 'submit' : 'blurAndSubmit'}
+        />
+        <IssueHint issue={issue === 'strengthTooLong' ? issue : null} />
+      </View>
+      <PhotoRow uri={form.imageUri} onChange={(imageUri) => update.set({ imageUri })} />
     </View>
   );
 }
 
-// ---------------------------------------------------------------------------------------------
-
-export function ScheduleDetailsStep({
+/**
+ * Step 2: amount stepper, unit chips and "1 pill each time". With `collapseUnit` (edit page) the
+ * rarely changed unit shows as a row "Measured in · Pills ›" that opens the chips in place, and the
+ * "1 pill each time" sentence is left out (it only repeats the stepper).
+ */
+export function DoseSection({
   form,
   update,
-  variant = 'guided',
-  minStartDate,
-  issue,
-}: StepProps & {
-  /** Earliest selectable start date (add: today). */
-  minStartDate?: Date;
-  issue?: StepIssue | null;
-}) {
-  const { scheduleType: type, scheduleConfig: config } = form;
-
-  // Editors always work on a complete config: fill in anything missing (legacy data) on mount.
-  React.useEffect(() => {
-    const normalized = normalizeConfig(type, config, { dosageAmount: form.dosageAmount });
-    if (JSON.stringify(normalized) !== JSON.stringify(config)) update.setConfig(normalized);
-    // Only when the type changes / on mount; later edits come from the editors themselves.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [type]);
-
-  const editor = renderEditor(type, form, update, minStartDate);
-
+  collapseUnit = false,
+}: SectionProps & { collapseUnit?: boolean }) {
+  const s = doseStep(form.dosageUnit);
+  const amount = form.dosageAmount;
+  const [unitOpen, setUnitOpen] = React.useState(false);
+  const unitName = i18n.t(`ui.common.unitNames.${form.dosageUnit}`);
+  const chips = (
+    <UnitChips
+      value={form.dosageUnit}
+      onChange={(dosageUnit) => {
+        update.set({ dosageUnit });
+        if (collapseUnit) setUnitOpen(false);
+      }}
+    />
+  );
   return (
-    <View style={{ gap: 12 }}>
-      {variant === 'guided' ? (
-        <StepHeader
-          title={t('when.title')}
-          helper={type === 'prn' ? undefined : t('when.helper')}
+    <View style={{ gap: 20 }}>
+      <Stepper
+        value={amount}
+        onChange={(dosageAmount) => update.set({ dosageAmount })}
+        min={s.min}
+        max={100000}
+        step={s.step}
+        allowDecimal
+        editable
+        unit={formatUnit(amount, form.dosageUnit)}
+        accessibilityLabel={t('dose.amountLabel')}
+      />
+      {collapseUnit ? (
+        <View style={{ gap: 12 }}>
+          <ListGroup>
+            <ListRow
+              title={t('dose.unitLabel')}
+              value={unitName}
+              accessory={unitOpen ? 'none' : 'chevron'}
+              accessibilityLabel={`${t('dose.unitLabel')}, ${unitName}`}
+              accessibilityHint={unitOpen ? undefined : t('dose.unitHint')}
+              onPress={() => setUnitOpen((o) => !o)}
+            />
+          </ListGroup>
+          {unitOpen ? chips : null}
+        </View>
+      ) : (
+        <View style={{ gap: 8 }}>
+          <FieldLabel>{t('dose.unitLabel')}</FieldLabel>
+          {chips}
+        </View>
+      )}
+      {/* The edit page shows the stepper and unit together already; no echo sentence. */}
+      {amount > 0 && !collapseUnit ? (
+        <SummaryCard
+          emphasis
+          text={t('dose.sentence', { dose: formatDose(amount, form.dosageUnit) })}
         />
       ) : null}
-      {editor}
-      <IssueHint issue={issue} />
     </View>
   );
 }
 
-function renderEditor(
-  type: ScheduleType,
-  form: MedicineForm,
-  update: MedicineFormUpdater,
-  minStartDate?: Date
-): React.ReactNode {
-  const config = form.scheduleConfig as unknown;
-  const set = (c: unknown) => update.setConfig(c as MedicineForm['scheduleConfig']);
-  switch (type) {
-    case 'once_daily':
-      return <OnceDailyEditor config={config as ScheduleConfigMap['once_daily']} onChange={set} />;
-    case 'multiple_daily':
-      return (
-        <MultipleDailyEditor
-          config={config as ScheduleConfigMap['multiple_daily']}
-          onChange={set}
-          dosageAmount={form.dosageAmount}
-          dosageUnit={form.dosageUnit}
+/**
+ * "Measured in" chips: the four common units (Pills, Millilitres, Puffs, Drops) and "More…", which
+ * shows the other four in place. Starts open when the current unit is one of those. Laid out three
+ * per row (3 + 2, or 3 + 3 + 2 when open) so "More…" never sits alone on a line.
+ */
+const UNIT_CHIP_STYLE = { width: '31%', paddingHorizontal: 8 } as const;
+
+export function UnitChips({
+  value,
+  onChange,
+}: {
+  value: DosageUnit;
+  onChange: (unit: DosageUnit) => void;
+}) {
+  const [more, setMore] = React.useState(() => !COMMON_UNITS.includes(value));
+  const units = more ? [...COMMON_UNITS, ...OTHER_UNITS] : COMMON_UNITS;
+  return (
+    <View accessibilityRole="radiogroup">
+      <ChipRow>
+        {units.map((unit) => (
+          <Chip
+            key={unit}
+            label={i18n.t(`ui.common.unitNames.${unit}`)}
+            selected={value === unit}
+            accessibilityRole="radio"
+            style={UNIT_CHIP_STYLE}
+            onPress={() => {
+              if (value !== unit) onChange(unit);
+            }}
+          />
+        ))}
+        {more ? null : (
+          <Chip
+            label={t('dose.moreUnits')}
+            accessibilityLabel={t('dose.moreUnitsA11y')}
+            style={UNIT_CHIP_STYLE}
+            onPress={() => setMore(true)}
+          />
+        )}
+      </ChipRow>
+    </View>
+  );
+}
+
+/**
+ * Schedule choice, frequency first: "Every day" (once or more a day: one time card by default,
+ * "+ Add another time"), "On certain days of the week" and "Only when needed", then the secondary
+ * button "Other schedules" that shows the other five in place (starts open when one of them is
+ * chosen). "Every day" stands for both stored daily types. `renderSelected` renders the chosen
+ * option's settings directly under its card.
+ */
+export function TypeSection({
+  value,
+  onSelect,
+  renderSelected,
+}: {
+  value: ScheduleType;
+  onSelect: (type: ScheduleType) => void;
+  renderSelected?: (type: ScheduleType) => React.ReactNode;
+}) {
+  const current = choiceFor(value);
+  const [expanded, setExpanded] = React.useState(() => OTHER_CHOICES.includes(current));
+  const row = (choice: ScheduleChoice) => {
+    const selected = current === choice;
+    const extra = selected && renderSelected ? renderSelected(value) : null;
+    return (
+      <React.Fragment key={choice}>
+        <OptionRow
+          title={t(`type.${choice}.title`)}
+          description={t(`type.${choice}.example`)}
+          selected={selected}
+          onPress={() => onSelect(typeForChoice(choice, value))}
         />
-      );
-    case 'every_x_days':
-      return (
-        <EveryXDaysEditor
-          config={config as ScheduleConfigMap['every_x_days']}
-          onChange={set}
-          minStartDate={minStartDate}
+        {extra ? <View style={{ paddingTop: 10, paddingBottom: 16 }}>{extra}</View> : null}
+      </React.Fragment>
+    );
+  };
+  return (
+    <View style={{ gap: 10 }}>
+      <View accessibilityRole="radiogroup" style={{ gap: 10 }}>
+        {COMMON_CHOICES.map(row)}
+      </View>
+      {expanded ? (
+        <View accessibilityRole="radiogroup" style={{ gap: 10, marginTop: 10 }}>
+          <FieldLabel>{t('screens.otherSchedules')}</FieldLabel>
+          {OTHER_CHOICES.map(row)}
+        </View>
+      ) : (
+        <Button
+          variant="secondary"
+          label={t('screens.otherSchedules')}
+          onPress={() => setExpanded(true)}
+          style={{ marginTop: 4 }}
         />
-      );
-    case 'specific_weekdays':
-      return (
-        <SpecificWeekdaysEditor
-          config={config as ScheduleConfigMap['specific_weekdays']}
-          onChange={set}
-        />
-      );
-    case 'xth_weekday':
-      return (
-        <XthWeekdayEditor config={config as ScheduleConfigMap['xth_weekday']} onChange={set} />
-      );
-    case 'cycle':
-      return (
-        <CycleEditor
-          config={config as ScheduleConfigMap['cycle']}
-          onChange={set}
-          minStartDate={minStartDate}
-        />
-      );
-    case 'every_x_hours':
-      return (
-        <EveryXHoursEditor config={config as ScheduleConfigMap['every_x_hours']} onChange={set} />
-      );
-    case 'tapering':
-      return (
-        <TaperingEditor
-          config={config as ScheduleConfigMap['tapering']}
-          onChange={set}
-          dosageUnit={form.dosageUnit}
-          minStartDate={minStartDate}
-        />
-      );
-    case 'prn':
-      return <PrnInfoCard />;
-  }
+      )}
+    </View>
+  );
+}
+
+/**
+ * Step 3 "When do you take it?": the type choice with the chosen type's settings (time cards,
+ * days, interval, cycle, lowering…, each ending with its live summary) right under its card.
+ * As-needed medicines have nothing more to set.
+ */
+export function ScheduleSection({
+  form,
+  update,
+  minStartDate,
+  issue,
+}: SectionProps & { minStartDate: Date; issue?: StepIssue | null }) {
+  return (
+    <TypeSection
+      value={form.scheduleType}
+      onSelect={(type) => update.setScheduleType(type)}
+      renderSelected={(type) =>
+        type === 'prn' ? null : (
+          <View style={{ gap: 8 }}>
+            <WhenEditor form={form} update={update} minStartDate={minStartDate} />
+            <IssueHint issue={issue} />
+          </View>
+        )
+      }
+    />
+  );
 }

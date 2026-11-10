@@ -1,20 +1,30 @@
 /**
- * Circular icon-only button. `accessibilityLabel` is required.
+ * Round icon-only button: 48 on `field` by default (header back/close, calendar). Always ≥ 48
+ * touch target. `accessibilityLabel` is required.
  *
  * @example
  * <IconButton icon={ChevronLeft} accessibilityLabel="Go back" onPress={router.back} />
- * <IconButton icon={Plus} variant="filled" size="lg" accessibilityLabel="Add" onPress={add} />
- * <IconButton icon={CalendarDays} variant="tinted" tone="accent" … />
+ * <IconButton icon={X} size="sm" accessibilityLabel="Close" onPress={close} />  // 44 sheet close
+ * <IconButton icon={Plus} variant="bg" size="lg" tone="accent" … />            // 64 stepper key
  */
 import * as React from 'react';
-import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { type StyleProp, type ViewStyle } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { BlurView } from 'expo-blur';
-import { statusColors, useTheme } from '@/lib/theme';
+import { useTheme, withAlpha } from '@/lib/theme';
 import { PressableScale, type PressableScaleProps } from './PressableScale';
 import { Icon } from './Icon';
 
-export type IconButtonVariant = 'glass' | 'tinted' | 'filled' | 'plain';
+export type IconButtonVariant =
+  /** `field` fill (default). */
+  | 'field'
+  /** `bg` fill (on a `field` card). */
+  | 'bg'
+  /** Accent fill. */
+  | 'accent'
+  /** No fill. */
+  | 'plain';
+
+/** sm 44 · md 48 · lg 64. */
 export type IconButtonSize = 'sm' | 'md' | 'lg';
 
 export interface IconButtonProps extends Omit<PressableScaleProps, 'style' | 'children'> {
@@ -22,36 +32,53 @@ export interface IconButtonProps extends Omit<PressableScaleProps, 'style' | 'ch
   accessibilityLabel: string;
   variant?: IconButtonVariant;
   size?: IconButtonSize;
-  /** Colour family for tinted/filled/plain. Default 'accent'. */
-  tone?: 'accent' | 'success' | 'warning' | 'danger' | 'default';
+  /** Glyph colour (ignored for `accent`). Default 'default' (ink). */
+  tone?: 'default' | 'accent' | 'danger' | 'secondary' | 'success' | 'warning';
+  /**
+   * How a disabled button looks. `fade` (default): 45% opacity. `solid`: `line2` fill with an
+   * `ink` glyph at 60%, at least 3:1 in both themes (Stepper − / + at their limits).
+   */
+  disabledLook?: 'fade' | 'solid';
   style?: StyleProp<ViewStyle>;
 }
 
-const DIAMETER: Record<IconButtonSize, number> = { sm: 36, md: 44, lg: 56 };
-const ICON_SIZE: Record<IconButtonSize, number> = { sm: 18, md: 22, lg: 26 };
+const DIAMETER: Record<IconButtonSize, number> = { sm: 44, md: 48, lg: 64 };
+const ICON_SIZE: Record<IconButtonSize, number> = { sm: 22, md: 24, lg: 28 };
 
 export function IconButton({
   icon,
-  variant = 'glass',
+  variant = 'field',
   size = 'md',
-  tone = 'accent',
+  tone = 'default',
   style,
   disabled,
+  disabledLook = 'fade',
   ...rest
 }: IconButtonProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const d = DIAMETER[size];
-  const sc =
-    tone === 'default' ? { fg: colors.ink, bg: colors.surfaceSunken } : statusColors(colors, tone);
+  const v = variant;
 
-  let bg = 'transparent';
-  let fg = variant === 'glass' ? colors.ink : sc.fg;
-  if (variant === 'tinted') bg = sc.bg;
-  if (variant === 'filled') {
-    bg = tone === 'default' ? colors.ink : sc.fg;
-    fg = tone === 'default' ? colors.surfaceSolid : colors.onAccent;
-  }
-  if (variant === 'glass') bg = colors.surface;
+  const bg =
+    v === 'field'
+      ? colors.field
+      : v === 'bg'
+        ? colors.bg
+        : v === 'accent'
+          ? colors.accent
+          : 'transparent';
+  const fg =
+    v === 'accent'
+      ? colors.onAccent
+      : tone === 'accent'
+        ? colors.accent
+        : tone === 'danger'
+          ? colors.danger
+          : tone === 'secondary'
+            ? colors.ink2
+            : colors.ink;
+
+  const solidOff = !!disabled && disabledLook === 'solid';
 
   const hitSlop = Math.max(0, Math.ceil((48 - d) / 2));
 
@@ -67,26 +94,18 @@ export function IconButton({
           borderRadius: d / 2,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: variant === 'glass' && Platform.OS === 'ios' ? 'transparent' : bg,
-          borderWidth: variant === 'glass' ? StyleSheet.hairlineWidth * 2 : 0,
-          borderColor: colors.stroke,
-          opacity: disabled ? 0.45 : 1,
-          overflow: 'hidden',
+          backgroundColor: solidOff ? colors.line2 : bg,
+          opacity: disabled && !solidOff ? 0.45 : 1,
         },
         style,
       ]}
       {...rest}>
-      {variant === 'glass' && Platform.OS === 'ios' ? (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <BlurView
-            intensity={30}
-            tint={isDark ? 'dark' : 'light'}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: bg }]} />
-        </View>
-      ) : null}
-      <Icon as={icon} size={ICON_SIZE[size]} color={fg} />
+      <Icon
+        as={icon}
+        size={ICON_SIZE[size]}
+        color={solidOff ? withAlpha(colors.ink, 0.6) : fg}
+        strokeWidth={size === 'lg' ? 2.5 : 2}
+      />
     </PressableScale>
   );
 }

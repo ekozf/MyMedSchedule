@@ -1,18 +1,19 @@
 /**
- * Lock screen. PIN: PinPad (auto-submit at 6 digits, Unlock key from 4), 30 s cool-down after 5
- * wrong tries. Biometric: auto-prompt on mount with a "Use PIN instead" fallback when a PIN is
+ * Lock screen. PIN: PinPad that submits itself once the stored PIN length is reached (older
+ * installs without a stored length: "Open" button from 4, auto-submit at 6), 30 s cool-down after 5
+ * wrong tries. A wrong PIN shakes the dots, shows them in red for 600 ms, then clears them. Biometric: auto-prompt on mount with a "Use PIN instead" fallback when a PIN is
  * stored. Biometric lock but the phone no longer has biometrics and there is no PIN: unlock with
  * the phone's own passcode instead (retry button stays). No lock: straight to Today (as before).
  */
 import * as React from 'react';
 import { router } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { KeyRound } from 'lucide-react-native';
 import { useStore } from '@/store';
 import {
   authenticate,
   getAuthMethod,
   getBiometricType,
+  getPINLength,
   hasPIN,
   isDeviceSupportsBiometric,
   verifyPIN,
@@ -20,9 +21,11 @@ import {
 import i18n from '@/lib/i18n';
 import {
   LockView,
+  PIN_ERROR_FLASH_MS,
   ONBOARDING_ROUTES,
   biometricInfo,
   isBiometricCancel,
+  passcodeInfo,
   registerPinFailure,
   registerPinSuccess,
   useCooldownSeconds,
@@ -33,12 +36,6 @@ const t = (key: string, opts?: Record<string, unknown>) =>
   i18n.t(`ui.onboarding.lock.${key}`, opts);
 
 type Mode = 'loading' | 'pin' | 'biometric';
-
-/** The "biometric" button, relabelled for the phone passcode. */
-const passcodeInfo = (): BiometricInfo => ({
-  label: i18n.t('ui.onboarding.biometric.passcode'),
-  icon: KeyRound,
-});
 
 export default function LockScreen() {
   const setAuthenticated = useStore((s) => s.setAuthenticated);
@@ -54,6 +51,7 @@ export default function LockScreen() {
   const [message, setMessage] = React.useState<string | null>(null);
 
   const [pin, setPin] = React.useState('');
+  const [pinLength, setPinLength] = React.useState<number | null>(null);
   const [pinError, setPinError] = React.useState(false);
   const [verifying, setVerifying] = React.useState(false);
   const clearTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,6 +170,14 @@ export default function LockScreen() {
         return;
       }
       if (stored === 'pin') {
+        let length: number | null = null;
+        try {
+          length = await getPINLength();
+        } catch (error) {
+          console.warn('Failed to read PIN length:', error);
+        }
+        if (!alive) return;
+        setPinLength(length);
         setMethod('pin');
         setPinAvailable(true);
         setMode('pin');
@@ -181,14 +187,16 @@ export default function LockScreen() {
       let pinStored = false;
       let supported = true;
       try {
-        const [types, has, ok] = await Promise.all([
+        const [types, has, ok, length] = await Promise.all([
           getBiometricType(),
           hasPIN(),
           isDeviceSupportsBiometric(),
+          getPINLength().catch(() => null),
         ]);
         info = biometricInfo(types);
         pinStored = has;
         supported = ok;
+        if (alive) setPinLength(has ? length : null);
       } catch (error) {
         console.error('Failed to read biometric state:', error);
       }
@@ -219,10 +227,13 @@ export default function LockScreen() {
       return;
     }
     const cooling = registerPinFailure();
-    setPinError(true); // PinPad shakes + error haptic
+    setPinError(true); // PinPad shakes the dots (not under Reduce Motion), red, error haptic
     setMessage(cooling ? null : t('wrongPin'));
     if (clearTimer.current) clearTimeout(clearTimer.current);
-    clearTimer.current = setTimeout(() => setPin(''), 450);
+    clearTimer.current = setTimeout(() => {
+      setPin('');
+      setPinError(false); // the message stays until the next key
+    }, PIN_ERROR_FLASH_MS);
   };
 
   const onPinChange = (raw: string) => {
@@ -235,7 +246,8 @@ export default function LockScreen() {
     }
     setPin(value);
     if (message) setMessage(null);
-    if (value.length === 6) submitPin(value);
+    // Known length: the PinPad submits on its own. Unknown (older install): 6 digits submit.
+    if (!pinLength && value.length === 6) submitPin(value);
   };
 
   const firstName = activeProfile?.name ?? null;
@@ -244,6 +256,7 @@ export default function LockScreen() {
     <LockView
       mode={mode}
       name={firstName}
+      avatarUri={activeProfile?.avatarUri}
       biometric={biometric}
       biometricBusy={biometricBusy}
       onBiometric={
@@ -266,6 +279,7 @@ export default function LockScreen() {
           : undefined
       }
       pin={pin}
+      pinLength={pinLength}
       onPinChange={onPinChange}
       onPinSubmit={submitPin}
       pinError={pinError}

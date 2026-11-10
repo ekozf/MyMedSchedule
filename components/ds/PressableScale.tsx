@@ -1,12 +1,13 @@
 /**
- * Pressable with a soft spring "press-in" scale (0.97) and optional haptic.
- * Falls back to an opacity dip when Reduce Motion is on.
+ * Pressable with a soft spring "press-in" scale (0.98) and optional haptic (off by default:
+ * the design keeps haptics for take / skip / undo). Falls back to an opacity dip when Reduce
+ * Motion is on.
  *
  * @example
  * <PressableScale onPress={open} accessibilityLabel="Open Metformin" style={styles.row}>
  *   …
  * </PressableScale>
- * <PressableScale haptic="tap" onPress={select}>…</PressableScale>
+ * <PressableScale haptic="light" onPress={take}>…</PressableScale>
  */
 import * as React from 'react';
 import {
@@ -37,9 +38,9 @@ export interface PressableScaleProps extends Omit<PressableProps, 'style' | 'chi
   style?: StyleProp<ViewStyle>;
   /** NativeWind classes (resolved into `style`). */
   className?: string;
-  /** Scale while pressed. Default 0.97. */
+  /** Scale while pressed. Default 0.98. */
   activeScale?: number;
-  /** Haptic fired on press. Default 'light'. */
+  /** Haptic fired on press. Default 'none'. */
   haptic?: PressHaptic;
   ref?: React.Ref<View>;
 }
@@ -47,8 +48,8 @@ export interface PressableScaleProps extends Omit<PressableProps, 'style' | 'chi
 function PressableScaleImpl({
   children,
   style,
-  activeScale = 0.97,
-  haptic = 'light',
+  activeScale = 0.98,
+  haptic = 'none',
   onPressIn,
   onPressOut,
   onPress,

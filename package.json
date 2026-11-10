@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "expo start -c",
     "android": "expo start -c --android",
+    "build:apk": "bash scripts/build-android-apk.sh",
     "ios": "expo start -c --ios",
     "web": "expo start -c --web",
     "clean": "rm -rf .expo node_modules",
@@ -13,6 +14,7 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
+    "@expo-google-fonts/atkinson-hyperlegible-next": "0.4.1",
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-navigation/native": "^7.0.0",
     "clsx": "^2.1.1",
@@ -20,15 +22,14 @@
     "drizzle-orm": "^0.45.1",
     "expo": "~54.0.29",
     "expo-background-task": "~1.0.10",
-    "expo-blur": "~15.0.8",
     "expo-constants": "~18.0.12",
     "expo-crypto": "~15.0.8",
     "expo-device": "~8.0.10",
     "expo-document-picker": "~14.0.8",
     "expo-file-system": "~19.0.21",
+    "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
     "expo-image-picker": "~17.0.10",
-    "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.10",
     "expo-local-authentication": "~17.0.8",
     "expo-localization": "~17.0.8",

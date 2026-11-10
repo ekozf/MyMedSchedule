@@ -1,46 +1,46 @@
 /**
- * Inline status message: icon + text (never colour alone), announced politely to screen readers.
- * Reserves its height when `reserve` is set so layouts don't jump when a message appears.
+ * One-line status message under a form or PIN pad ("That's not it. Try again."). The words carry
+ * the meaning; colour only supports it. Announced politely to screen readers. With `reserve` it
+ * keeps its height when empty so the layout doesn't jump.
  *
  * @example
- * <StatusLine tone="danger" icon={CircleAlert} text="That's not right. Try again." />
+ * <StatusLine text={message} reserve />
+ * <StatusLine text="Times must go in order" tone="danger" />
  */
 import * as React from 'react';
 import { View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import type { LucideIcon } from 'lucide-react-native';
-import { Icon, Text, statusColors, useTheme, type StatusTone } from '@/components/ds';
+import { Text, type TextTone } from '@/components/ds';
 
 export interface StatusLineProps {
   text?: string | null;
-  icon: LucideIcon;
-  tone?: StatusTone;
-  /** Keep a one-line gap when empty. */
+  /** Default 'danger'. */
+  tone?: TextTone;
   reserve?: boolean;
+  align?: 'center' | 'left';
+  /** A mistake the person must act on: 17/600 and announced right away (assertive). */
+  strong?: boolean;
 }
 
-export function StatusLine({ text, icon, tone = 'danger', reserve = false }: StatusLineProps) {
-  const { colors } = useTheme();
+export function StatusLine({
+  text,
+  tone = 'danger',
+  reserve = false,
+  align = 'center',
+  strong = false,
+}: StatusLineProps) {
   if (!text) return reserve ? <View style={{ minHeight: 22 }} /> : null;
-  const fg = statusColors(colors, tone).fg;
   return (
-    <Animated.View
-      key={text}
-      entering={FadeIn.duration(200)}
-      accessibilityLiveRegion="polite"
+    <View
+      accessibilityLiveRegion={strong ? 'assertive' : 'polite'}
       accessibilityRole="alert"
-      style={{
-        minHeight: 22,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingHorizontal: 8,
-      }}>
-      <Icon as={icon} size={18} color={fg} />
-      <Text variant="subhead" color={fg} align="center" style={{ flexShrink: 1 }}>
+      style={{ minHeight: 22, paddingHorizontal: align === 'center' ? 8 : 0 }}>
+      <Text
+        variant={strong ? 'callout' : 'footnote'}
+        weight={strong ? '600' : undefined}
+        tone={tone}
+        align={align}>
         {text}
       </Text>
-    </Animated.View>
+    </View>
   );
 }

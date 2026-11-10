@@ -1,101 +1,95 @@
 /**
- * Edit medicine: one grouped page using the same section editors as the guided add flow.
- * Save in the header and as a sticky button; discard confirm when leaving with changes.
- * Used by `app/medication/edit/[id].tsx`.
+ * Edit medicine: a summary list, not a long form. "Edit Metformin", then grouped rows — Medicine
+ * (Name and photo, Strength, Amount), Schedule (type + times), Supply (Supply, Refill reminder),
+ * Extras (Note, Limits, Reminder sound). Each row opens its page (`/medication/edit/[id]/[section]`,
+ * a `SectionPage` with its own Save); the list reloads when you come back. "Reminder sound" is a
+ * switch right in the list (a page holding one switch would be a detour); it saves straight away.
+ *
+ * Safety kept from the previous build: every save goes through `saveEditedMedicine` with the form
+ * as it was loaded, so the schedule and the supply count are only written when they changed (see
+ * `toUpdateInput`) — saving doesn't reset the schedule start, a moved dose or doses logged while
+ * the page was open; an unchanged past start date stays valid.
+ *
+ * Used by `app/medication/edit/[id]/index.tsx` and `app/medication/edit/[id]/[section].tsx`.
  */
 import * as React from 'react';
 import { View } from 'react-native';
-import { useNavigation } from 'expo-router';
+import { router, useFocusEffect, useNavigation } from 'expo-router';
 import { usePreventRemove } from '@react-navigation/native';
 import { startOfDay } from 'date-fns';
-import {
-  CalendarClock,
-  ChevronRight,
-  CircleHelp,
-  Package,
-  Pill,
-  Sparkles,
-  Tag,
-  Trash2,
-} from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import { getMedicationById } from '@/lib/db/operations';
+import { formatDose, useTimeFormat } from '@/lib/ui/format';
 import { useStore } from '@/store';
-import type { ScheduleType } from '@/types';
 import {
-  Button,
   EmptyState,
-  Icon,
+  ListGroup,
+  ListRow,
+  MedIcon,
   NavHeader,
-  PressableScale,
   Screen,
-  SectionHeader,
-  Sheet,
   Text,
   goBackOrHome,
-  haptics,
-  radii,
   useConfirm,
   useTheme,
   useToast,
-  withAlpha,
 } from '@/components/ds';
 import {
   formFromMedication,
+  formsEqual,
   getStartDate,
   isStartDateUnchanged,
-  validateAll,
+  tracksSupply,
   type MedicineForm,
-  type StepId,
+  type SectionId,
 } from './form-model';
-import { useMedicineForm } from './useMedicineForm';
-import { IssueHint } from './parts';
-import { DoseStep, NameStep, ScheduleDetailsStep } from './steps';
-import { SupplyStep } from './SupplyStep';
-import { ExtrasStep } from './ExtrasStep';
-import { ScheduleTypeCards, SCHEDULE_TYPE_ICONS } from './ScheduleTypeCards';
-import { scheduleTypeTitle } from './describe';
+import { describeSchedule, limitsSummary, refillValue, scheduleTypeTitle } from './describe';
+import { SectionPage } from './SectionPage';
 import { saveEditedMedicine } from './save';
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`ui.editor.${key}`, opts);
 
 type LoadState = 'loading' | 'ready' | 'notFound' | 'error';
 
-/** Loads the medicine, then renders the grouped editor. */
-export function EditMedicineScreen({ id }: { id: string | undefined }) {
+/** Loads the medicine as a form; `reload` re-reads it (on focus for the list). */
+function useMedicineFormLoader(id: string | undefined, { onFocus }: { onFocus: boolean }) {
   const [state, setState] = React.useState<LoadState>('loading');
-  const [initial, setInitial] = React.useState<MedicineForm | null>(null);
+  const [form, setForm] = React.useState<MedicineForm | null>(null);
+  const loaded = React.useRef(false);
 
-  React.useEffect(() => {
-    let alive = true;
+  const reload = React.useCallback(async () => {
     if (!id) {
       setState('notFound');
       return;
     }
-    setState('loading');
-    getMedicationById(id)
-      .then((med) => {
-        if (!alive) return;
-        if (!med) {
-          setState('notFound');
-          return;
-        }
-        setInitial(formFromMedication(med));
-        setState('ready');
-      })
-      .catch((error) => {
-        console.error('Failed to load medication:', error);
-        if (alive) setState('error');
-      });
-    return () => {
-      alive = false;
-    };
+    try {
+      const med = await getMedicationById(id);
+      if (!med) {
+        setState('notFound');
+        return;
+      }
+      setForm(formFromMedication(med));
+      setState('ready');
+    } catch (error) {
+      console.error('Failed to load medication:', error);
+      // Keep what is on screen when a refresh fails.
+      if (!loaded.current) setState('error');
+    } finally {
+      loaded.current = true;
+    }
   }, [id]);
 
-  if (state === 'ready' && initial && id) {
-    return <EditMedicineForm id={id} initial={initial} />;
-  }
+  useFocusEffect(
+    React.useCallback(() => {
+      if (onFocus || !loaded.current) void reload();
+    }, [onFocus, reload])
+  );
 
+  return { state, form, setForm, reload };
+}
+
+/** Loading / not found / couldn't load. */
+function LoadFallback({ state }: { state: LoadState }) {
   return (
     <Screen header={<NavHeader title={t('edit.title')} />} scroll={false}>
       <View style={{ flex: 1, justifyContent: 'center' }}>
@@ -105,7 +99,6 @@ export function EditMedicineScreen({ id }: { id: string | undefined }) {
           </Text>
         ) : (
           <EmptyState
-            icon={CircleHelp}
             title={t(state === 'notFound' ? 'edit.notFoundTitle' : 'edit.loadErrorTitle')}
             message={state === 'notFound' ? t('edit.notFoundMessage') : undefined}
             action={{
@@ -120,81 +113,185 @@ export function EditMedicineScreen({ id }: { id: string | undefined }) {
   );
 }
 
-/** Compact "How often" row that opens the schedule-type sheet. */
-function ScheduleTypeRow({ type, onPress }: { type: ScheduleType; onPress: () => void }) {
+/** Shows the medicine's settings as a list; each row opens its page. */
+export function EditMedicineScreen({ id }: { id: string | undefined }) {
+  const { state, form, setForm } = useMedicineFormLoader(id, { onFocus: true });
+  const { formatTimeString } = useTimeFormat();
   const { colors } = useTheme();
-  const title = scheduleTypeTitle(type);
+  const confirm = useConfirm();
+  const [savingSound, setSavingSound] = React.useState(false);
+
+  if (state !== 'ready' || !form || !id) return <LoadFallback state={state} />;
+
+  const open = (section: SectionId) =>
+    router.push({ pathname: '/medication/edit/[id]/[section]', params: { id, section } });
+
+  const notSet = t('review.notSet');
+  const strength = form.strength.trim();
+  const notes = form.notes.trim();
+  const limits = limitsSummary(form);
+  const isPrn = form.scheduleType === 'prn';
+  const tracked = tracksSupply(form);
+  const schedule = isPrn
+    ? undefined
+    : describeSchedule(form.scheduleType, form.scheduleConfig, formatTimeString, form.dosageUnit);
+
+  const setSound = async (bypassDnd: boolean) => {
+    const profile = useStore.getState().activeProfile;
+    if (!profile || savingSound) return;
+    const before = form;
+    const next = { ...form, bypassDnd };
+    setForm(next);
+    setSavingSound(true);
+    try {
+      await saveEditedMedicine(id, next, before, profile.id);
+    } catch (error) {
+      console.error('Failed to update medication:', error);
+      setForm(before);
+      await confirm({
+        title: t('save.errorTitle'),
+        message: i18n.t('ui.safety.couldNotSave'),
+        confirmLabel: i18n.t('ui.common.close'),
+      });
+    } finally {
+      setSavingSound(false);
+    }
+  };
+
   return (
-    <PressableScale
-      onPress={onPress}
-      haptic="light"
-      accessibilityRole="button"
-      accessibilityLabel={t('edit.changeTypeA11y', { type: title })}
-      style={{
-        minHeight: 72,
-        borderRadius: radii.row,
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.stroke,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-      }}>
-      <View
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: 14,
-          backgroundColor: withAlpha(colors.accent, 0.12),
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        <Icon as={SCHEDULE_TYPE_ICONS[type]} size={22} tone="accent" />
+    <Screen header={<NavHeader />}>
+      <View style={{ gap: 24 }}>
+        <Text variant="title1" accessibilityRole="header" style={{ paddingTop: 4 }}>
+          {t('screens.editTitle', { name: form.name.trim() })}
+        </Text>
+
+        <ListGroup header={t('review.medicine')}>
+          <ListRow
+            title={t('screens.sectionName')}
+            subtitle={form.name.trim()}
+            leading={
+              <MedIcon
+                name={form.name}
+                uri={form.imageUri}
+                size="sm"
+                initial
+                style={{ backgroundColor: colors.bg }}
+              />
+            }
+            onPress={() => open('name')}
+          />
+          <ListRow
+            title={t('review.strength')}
+            value={strength || notSet}
+            onPress={() => open('name')}
+          />
+          <ListRow
+            title={t('screens.sectionAmount')}
+            value={formatDose(form.dosageAmount, form.dosageUnit)}
+            onPress={() => open('dose')}
+          />
+        </ListGroup>
+
+        <ListGroup header={t('review.schedule')}>
+          <ListRow
+            title={scheduleTypeTitle(form.scheduleType)}
+            subtitle={schedule}
+            accessibilityLabel={[
+              t('screens.sectionSchedule'),
+              scheduleTypeTitle(form.scheduleType),
+              schedule,
+            ]
+              .filter(Boolean)
+              .join(', ')}
+            onPress={() => open('schedule')}
+          />
+        </ListGroup>
+
+        <ListGroup header={t('review.supply')}>
+          <ListRow
+            title={t('screens.sectionSupply')}
+            value={
+              tracked ? formatDose(form.inventoryCount, form.dosageUnit) : t('review.notTracked')
+            }
+            onPress={() => open('supply')}
+          />
+          <ListRow
+            title={t('review.refill')}
+            value={refillValue(form)}
+            onPress={() => open('supply')}
+          />
+        </ListGroup>
+
+        <ListGroup header={t('review.extras')}>
+          <ListRow
+            title={t('edit.noteTitle')}
+            subtitle={notes || undefined}
+            value={notes ? undefined : notSet}
+            onPress={() => open('note')}
+          />
+          <ListRow
+            title={t('edit.limits')}
+            subtitle={limits ?? undefined}
+            value={limits ? undefined : notSet}
+            onPress={() => open('limits')}
+          />
+          <ListRow
+            title={t('extras.sound')}
+            subtitle={t('extras.dnd')}
+            switchValue={form.bypassDnd}
+            disabled={savingSound}
+            onSwitchChange={(v) => void setSound(v)}
+          />
+        </ListGroup>
       </View>
-      <View style={{ flex: 1 }}>
-        <Text variant="headline">{title}</Text>
-      </View>
-      <Text variant="body" tone="accent" weight="600">
-        {t('edit.change')}
-      </Text>
-      <Icon as={ChevronRight} size={20} tone="tertiary" />
-    </PressableScale>
+    </Screen>
   );
 }
 
-export function EditMedicineForm({ id, initial }: { id: string; initial: MedicineForm }) {
-  const { form, update, isDirty } = useMedicineForm(initial);
+/** One page behind the edit list, saved on its own. */
+export function EditSectionScreen({ id, section }: { id: string | undefined; section: SectionId }) {
+  const { state, form: initial } = useMedicineFormLoader(id, { onFocus: false });
+  if (state !== 'ready' || !initial || !id) return <LoadFallback state={state} />;
+  return <EditSection id={id} section={section} initial={initial} />;
+}
+
+function EditSection({
+  id,
+  section,
+  initial,
+}: {
+  id: string;
+  section: SectionId;
+  initial: MedicineForm;
+}) {
   const confirm = useConfirm();
   const toast = useToast();
   const navigation = useNavigation();
+  const [dirty, setDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [leaving, setLeaving] = React.useState(false);
   const savingRef = React.useRef(false);
-  const [typeSheet, setTypeSheet] = React.useState(false);
-  const pendingType = React.useRef<ScheduleType | null>(null);
-
-  // Keep an existing (past) start date valid as long as the user didn't change it.
-  const allowPastStartDate = isStartDateUnchanged(
-    form.scheduleType,
-    form.scheduleConfig,
-    initial.scheduleType,
-    initial.scheduleConfig
-  );
-  const validation = validateAll(form, { allowPastStartDate });
-  const issueFor = (step: StepId) =>
-    !validation.result.ok && validation.step === step ? validation.result.issue : null;
 
   const minStartDate = React.useMemo(() => {
     const today = startOfDay(new Date());
     const stored = getStartDate(initial.scheduleType, initial.scheduleConfig);
-    if (stored && form.scheduleType === initial.scheduleType) {
+    if (stored) {
       const d = startOfDay(new Date(stored));
       if (!Number.isNaN(d.getTime()) && d < today) return d;
     }
     return today;
-  }, [form.scheduleType, initial.scheduleType, initial.scheduleConfig]);
+  }, [initial.scheduleType, initial.scheduleConfig]);
+
+  const allowPastStartDate = React.useCallback(
+    (draft: MedicineForm) =>
+      isStartDateUnchanged(
+        draft.scheduleType,
+        draft.scheduleConfig,
+        initial.scheduleType,
+        initial.scheduleConfig
+      ),
+    [initial.scheduleType, initial.scheduleConfig]
+  );
 
   React.useEffect(() => {
     if (!leaving) return;
@@ -202,29 +299,24 @@ export function EditMedicineForm({ id, initial }: { id: string; initial: Medicin
     return () => clearTimeout(tid);
   }, [leaving]);
 
-  usePreventRemove(isDirty && !leaving, ({ data }) => {
+  usePreventRemove(dirty && !leaving, ({ data }) => {
     if (savingRef.current) return;
     confirm({
       title: t('edit.discardTitle'),
-      message: t('edit.discardMessage', { name: initial.name }),
+      message: t('edit.discardMessage', { name: initial.name.trim() }),
       confirmLabel: t('edit.discardConfirm'),
       cancelLabel: t('flow.keepEditing'),
       tone: 'danger',
-      icon: Trash2,
     }).then((ok) => {
       if (ok) navigation.dispatch(data.action);
     });
   });
 
-  const save = async () => {
+  const save = async (draft: MedicineForm) => {
     if (savingRef.current) return;
-    if (!validation.result.ok) {
-      haptics.warning();
-      return;
-    }
     // Nothing changed: don't rewrite (that would reset the schedule start and any moved dose).
-    if (!isDirty) {
-      goBackOrHome();
+    if (formsEqual(draft, initial)) {
+      setLeaving(true);
       return;
     }
     const profile = useStore.getState().activeProfile;
@@ -232,128 +324,43 @@ export function EditMedicineForm({ id, initial }: { id: string; initial: Medicin
       await confirm({
         title: t('save.errorTitle'),
         message: t('save.noProfileMessage'),
-        confirmLabel: i18n.t('ui.common.ok'),
-        tone: 'warning',
+        confirmLabel: i18n.t('ui.common.close'),
       });
       return;
     }
     savingRef.current = true;
     setSaving(true);
     try {
-      await saveEditedMedicine(id, form, initial, profile.id);
-      haptics.success();
+      await saveEditedMedicine(id, draft, initial, profile.id);
       setLeaving(true);
-      setTimeout(
-        () => toast.show({ title: t('save.updated', { name: form.name.trim() }), tone: 'success' }),
-        300
-      );
+      setTimeout(() => toast.show({ title: t('save.updated', { name: draft.name.trim() }) }), 300);
     } catch (error) {
       console.error('Failed to update medication:', error);
       savingRef.current = false;
       setSaving(false);
-      haptics.error();
       const retry = await confirm({
         title: t('save.errorTitle'),
         message: t('save.errorMessage'),
         confirmLabel: i18n.t('ui.common.tryAgain'),
         cancelLabel: i18n.t('ui.common.close'),
-        tone: 'warning',
       });
-      if (retry) void save();
+      if (retry) void save(draft);
     }
   };
-
-  const onTypeSheetDismissed = async () => {
-    const next = pendingType.current;
-    pendingType.current = null;
-    if (!next || next === form.scheduleType) return;
-    if (form.scheduleType !== 'prn') {
-      const ok = await confirm({
-        title: t('edit.changeTypeTitle'),
-        message: t('edit.changeTypeMessage'),
-        confirmLabel: t('edit.changeTypeConfirm'),
-      });
-      if (!ok) return;
-    }
-    update.setScheduleType(next);
-  };
-
-  const saveDisabled = !validation.result.ok;
 
   return (
-    <Screen
-      keyboardAware
-      header={
-        <NavHeader
-          title={t('edit.title')}
-          right={
-            <Button
-              variant="plain"
-              size="sm"
-              label={i18n.t('ui.common.save')}
-              disabled={saveDisabled || saving}
-              onPress={save}
-            />
-          }
-        />
-      }
-      footer={
-        <View style={{ gap: 10 }}>
-          <IssueHint issue={validation.result.ok ? null : validation.result.issue} />
-          <Button
-            size="lg"
-            fullWidth
-            label={i18n.t('ui.common.save')}
-            loading={saving}
-            disabled={saveDisabled}
-            onPress={save}
-          />
-        </View>
-      }>
-      <SectionHeader title={t('edit.basics')} icon={Tag} style={{ marginTop: 4 }} />
-      <NameStep form={form} update={update} variant="inline" issue={issueFor('name')} />
-
-      <SectionHeader title={t('edit.dose')} icon={Pill} />
-      <DoseStep form={form} update={update} variant="inline" />
-
-      <SectionHeader title={t('edit.schedule')} icon={CalendarClock} />
-      <View style={{ gap: 12 }}>
-        <ScheduleTypeRow type={form.scheduleType} onPress={() => setTypeSheet(true)} />
-        <ScheduleDetailsStep
-          form={form}
-          update={update}
-          variant="inline"
-          minStartDate={minStartDate}
-          issue={issueFor('when')}
-        />
-      </View>
-
-      <SectionHeader title={t('edit.supply')} icon={Package} />
-      <SupplyStep form={form} update={update} variant="inline" issue={issueFor('supply')} />
-
-      <SectionHeader title={t('edit.extras')} icon={Sparkles} />
-      <ExtrasStep
-        form={form}
-        update={update}
-        variant="inline"
-        issue={issueFor('extras')}
-        canClearExpiry
-      />
-
-      <Sheet
-        visible={typeSheet}
-        onClose={() => setTypeSheet(false)}
-        onDismissed={onTypeSheetDismissed}
-        title={t('type.title')}
-        subtitle={t('type.helper')}>
-        <ScheduleTypeCards
-          value={form.scheduleType}
-          onSelect={(type) => {
-            pendingType.current = type;
-            setTypeSheet(false);
-          }}
-        />
-      </Sheet>
-    </Screen>
+    <SectionPage
+      section={section}
+      initial={initial}
+      navTitle={t('screens.editTitle', { name: initial.name.trim() })}
+      minStartDate={minStartDate}
+      allowPastStartDate={allowPastStartDate}
+      onSave={(draft) => void save(draft)}
+      // The leave guard asks first when something changed.
+      onCancel={goBackOrHome}
+      onDirtyChange={setDirty}
+      guardLeave={false}
+      saving={saving}
+    />
   );
 }

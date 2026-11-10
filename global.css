@@ -3,96 +3,51 @@
 @tailwind utilities;
 
 /*
- * "Calm" design tokens — keep in sync with lib/theme.ts (docs/DESIGN.md §2.1).
- * Opaque tokens are RGB channels (used as `rgb(var(--x) / <alpha-value>)`, so opacity
- * modifiers like `bg-accent/20` work). Translucent tokens hold full colour values.
- * The legacy shadcn names at the bottom of each block keep not-yet-rewritten screens working.
+ * "Pill Box" colour tokens — keep in sync with lib/theme.ts (docs/DESIGN.md §3.3).
+ * Values are RGB channels so opacity modifiers work (`bg-accent/20`); `--backdrop` is a full colour.
  */
 @layer base {
   :root {
-    --bg-top: 217 233 251;
-    --bg-mid: 234 243 251;
-    --bg-bottom: 225 243 234;
-    --surface: rgba(255, 255, 255, 0.78);
-    --surface-solid: 255 255 255;
-    --surface-sunken: rgba(15, 27, 45, 0.05);
-    --stroke: rgba(255, 255, 255, 0.9);
-    --separator: rgba(15, 27, 45, 0.08);
-    --ink: 15 27 45;
-    --ink-secondary: 91 107 127;
-    --ink-tertiary: 148 163 181;
-    --accent: 47 127 234;
-    --accent-soft: #e2edfd;
-    --success: 18 165 148;
-    --success-soft: #daf3ef;
-    --warning: 224 138 0;
-    --warning-soft: #fdf0d9;
-    --danger: 229 72 77;
-    --danger-soft: #fde6e6;
+    --bg: 255 255 255;
+    --field: 241 243 242;
+    --field2: 230 234 232;
+    --ink: 20 26 23;
+    --ink2: 79 89 85;
+    --line: 226 230 228;
+    --line2: 181 189 185;
+    --accent: 27 94 74;
     --on-accent: 255 255 255;
-
-    /* legacy */
-    --background: 234 243 251;
-    --foreground: 15 27 45;
-    --card: 255 255 255;
-    --card-foreground: 15 27 45;
-    --popover: 255 255 255;
-    --popover-foreground: 15 27 45;
-    --primary: 47 127 234;
-    --primary-foreground: 255 255 255;
-    --secondary: 226 237 253;
-    --secondary-foreground: 15 27 45;
-    --muted: 236 241 247;
-    --muted-foreground: 91 107 127;
-    --accent-foreground: 255 255 255;
-    --destructive: 229 72 77;
-    --destructive-foreground: 255 255 255;
-    --border: 220 228 238;
-    --input: 220 228 238;
-    --ring: 47 127 234;
-    --radius: 0.625rem;
+    --done: 215 235 221;
+    --done-ink: 23 82 57;
+    --now: 255 241 214;
+    --now-ink: 122 75 0;
+    --late: 180 83 10;
+    --danger: 164 52 42;
+    --danger-soft: 251 230 227;
+    --inverse: 20 26 23;
+    --on-inverse: 255 255 255;
+    --backdrop: rgba(20, 20, 20, 0.42);
   }
 
   .dark:root {
-    --bg-top: 10 19 34;
-    --bg-mid: 13 26 44;
-    --bg-bottom: 11 32 35;
-    --surface: rgba(255, 255, 255, 0.07);
-    --surface-solid: 21 34 53;
-    --surface-sunken: rgba(255, 255, 255, 0.05);
-    --stroke: rgba(255, 255, 255, 0.08);
-    --separator: rgba(255, 255, 255, 0.08);
-    --ink: 242 246 251;
-    --ink-secondary: 165 179 197;
-    --ink-tertiary: 107 122 143;
-    --accent: 90 162 255;
-    --accent-soft: rgba(90, 162, 255, 0.16);
-    --success: 45 212 191;
-    --success-soft: rgba(45, 212, 191, 0.16);
-    --warning: 251 191 36;
-    --warning-soft: rgba(251, 191, 36, 0.16);
-    --danger: 255 122 115;
-    --danger-soft: rgba(255, 122, 115, 0.16);
-    --on-accent: 6 18 31;
-
-    /* legacy */
-    --background: 13 26 44;
-    --foreground: 242 246 251;
-    --card: 21 34 53;
-    --card-foreground: 242 246 251;
-    --popover: 21 34 53;
-    --popover-foreground: 242 246 251;
-    --primary: 90 162 255;
-    --primary-foreground: 6 18 31;
-    --secondary: 30 44 66;
-    --secondary-foreground: 242 246 251;
-    --muted: 27 40 58;
-    --muted-foreground: 165 179 197;
-    --accent-foreground: 6 18 31;
-    --destructive: 255 122 115;
-    --destructive-foreground: 6 18 31;
-    --border: 34 50 74;
-    --input: 34 50 74;
-    --ring: 90 162 255;
+    --bg: 15 20 18;
+    --field: 25 32 29;
+    --field2: 34 43 39;
+    --ink: 238 243 240;
+    --ink2: 154 168 161;
+    --line: 47 58 53;
+    --line2: 82 96 90;
+    --accent: 126 211 178;
+    --on-accent: 15 20 18;
+    --done: 23 51 39;
+    --done-ink: 158 224 194;
+    --now: 58 42 14;
+    --now-ink: 245 192 106;
+    --late: 240 160 92;
+    --danger: 240 138 121;
+    --danger-soft: 58 26 22;
+    --inverse: 241 243 242;
+    --on-inverse: 20 26 23;
+    --backdrop: rgba(0, 0, 0, 0.6);
   }
 }

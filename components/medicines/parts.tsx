@@ -1,81 +1,17 @@
 /**
- * Small building blocks shared by the medicine detail cards.
+ * Small building blocks for the medicine screens and sheets.
  *
  * @example
- * <CardTitle icon={Package} title="Supply" />
- * <InfoLine icon={Hourglass} text="At least 6 hours between doses" />
  * <Notice tone="warning" icon={TriangleAlert} text="Only 3 doses left." />
+ * <ValueRow label="Pack size" value="60 pills" />
+ * <LinkRow label="Remind me when running low" onPress={openRefill} />
  */
 import * as React from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
-import type { LucideIcon } from 'lucide-react-native';
-import { Icon, Text, statusColors, useTheme, withAlpha } from '@/components/ds';
+import { ChevronRight, type LucideIcon } from 'lucide-react-native';
+import { Icon, PressableScale, Text, radii, useTheme } from '@/components/ds';
 
-export function CardTitle({
-  icon,
-  title,
-  tint,
-  right,
-}: {
-  icon: LucideIcon;
-  title: string;
-  tint?: string;
-  right?: React.ReactNode;
-}) {
-  const { colors } = useTheme();
-  const c = tint ?? colors.accent;
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-      <View
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 10,
-          backgroundColor: withAlpha(c, 0.14),
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-        <Icon as={icon} size={18} color={c} />
-      </View>
-      <Text variant="title3" accessibilityRole="header" style={{ flex: 1 }}>
-        {title}
-      </Text>
-      {right}
-    </View>
-  );
-}
-
-/** Icon + text row (+ optional secondary line). Status is conveyed by icon and words. */
-export function InfoLine({
-  icon,
-  text,
-  detail,
-  tone = 'secondary',
-}: {
-  icon: LucideIcon;
-  text: string;
-  detail?: string;
-  tone?: 'secondary' | 'accent' | 'success' | 'warning' | 'danger';
-}) {
-  return (
-    <View
-      accessible
-      accessibilityLabel={[text, detail].filter(Boolean).join(', ')}
-      style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, minHeight: 32 }}>
-      <Icon as={icon} size={20} tone={tone} style={{ marginTop: 1 }} />
-      <View style={{ flex: 1, gap: 1 }}>
-        <Text variant="body">{text}</Text>
-        {detail ? (
-          <Text variant="subhead" tone="secondary">
-            {detail}
-          </Text>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-/** Soft tinted message box. */
+/** Message box in words (icon + sentence). warning = `now` fill, danger = `dangerSoft`, else `field`. */
 export function Notice({
   icon,
   text,
@@ -88,7 +24,14 @@ export function Notice({
   style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
-  const sc = statusColors(colors, tone);
+  const { bg, fg } =
+    tone === 'warning'
+      ? { bg: colors.now, fg: colors.nowInk }
+      : tone === 'danger'
+        ? { bg: colors.dangerSoft, fg: colors.danger }
+        : tone === 'success'
+          ? { bg: colors.done, fg: colors.doneInk }
+          : { bg: colors.field, fg: colors.ink };
   return (
     <View
       accessible
@@ -98,21 +41,21 @@ export function Notice({
           flexDirection: 'row',
           gap: 10,
           alignItems: 'flex-start',
-          padding: 12,
-          borderRadius: 16,
-          backgroundColor: sc.bg,
+          padding: 14,
+          borderRadius: radii.tile,
+          backgroundColor: bg,
         },
         style,
       ]}>
-      <Icon as={icon} size={18} color={sc.fg} style={{ marginTop: 1 }} />
-      <Text variant="subhead" style={{ flex: 1 }}>
+      <Icon as={icon} size={20} color={fg} style={{ marginTop: 2 }} />
+      <Text variant="callout" color={fg} style={{ flex: 1 }}>
         {text}
       </Text>
     </View>
   );
 }
 
-/** Label/value row used inside cards (wraps under large text). */
+/** Label / value row inside a card (wraps under large text). */
 export function ValueRow({ label, value }: { label: string; value: string }) {
   return (
     <View
@@ -125,7 +68,7 @@ export function ValueRow({ label, value }: { label: string; value: string }) {
         alignItems: 'center',
         columnGap: 12,
         rowGap: 2,
-        minHeight: 32,
+        minHeight: 48,
       }}>
       <Text variant="body" tone="secondary">
         {label}
@@ -134,5 +77,27 @@ export function ValueRow({ label, value }: { label: string; value: string }) {
         {value}
       </Text>
     </View>
+  );
+}
+
+/** Tappable row inside a card: label and a chevron (opens an editor). */
+export function LinkRow({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <PressableScale
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 12,
+        minHeight: 48,
+      }}>
+      <Text variant="body" weight="600" style={{ flex: 1 }}>
+        {label}
+      </Text>
+      <Icon as={ChevronRight} size={22} tone="secondary" />
+    </PressableScale>
   );
 }

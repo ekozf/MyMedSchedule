@@ -1,161 +1,161 @@
 /**
- * Body of the You screen (presentational; data and actions via props so it can be previewed):
- * hero (avatar, name, "Edit profile"), profiles row, and the grouped settings lists.
+ * Settings tab body (spec §5.6, route `you`): the title "Settings", the person in use as one row
+ * (avatar 48, name, "Edit name or photo", chevron), then Reminders and privacy (reminders, app
+ * lock), Preferences (language, appearance, 24-hour time, parts of the day), People in this app
+ * (tap to switch; "Manage people" edits and removes), Your data and About.
+ * Presentational: the route passes data and callbacks.
+ *
+ * @example
+ * <YouView profile={active} profiles={profiles} languageLabel="English" is24h … />
  */
 import * as React from 'react';
 import { View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
-import { Clock, FileText, Info, Languages, Pencil, ShieldCheck } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
-import {
-  Avatar,
-  Button,
-  ListGroup,
-  ListRow,
-  PressableScale,
-  Text,
-  useTheme,
-} from '@/components/ds';
-import { ProfilesRow } from './ProfilesRow';
-import { appLockIcon, appLockLabel, type AppLockKind } from './app-lock';
+import { Avatar, ListGroup, ListRow, SectionHeader, TabHeader } from '@/components/ds';
+import type { Profile } from '@/types';
+import { PeopleRow } from './PeopleRow';
 import type { ProfileLite } from './profile-actions';
 
 export interface YouViewProps {
-  profile: ProfileLite;
+  profile: Profile;
   profiles: ProfileLite[];
   languageLabel: string;
   is24h: boolean;
-  /** Example time in the current format, e.g. "20:00" / "8:00 PM". */
+  /** "20:00" or "8:00 PM", for "Times look like …". */
   timeExample: string;
-  /** null while loading. */
-  lock: AppLockKind | null;
+  /** Parts of the day: "Midday 11:00 · Evening 16:00 · Night 21:00". */
+  partsOfDay: string;
+  /** "System" / "Light" / "Dark". */
+  appearanceLabel: string;
+  /** Reminder permission: null while loading. */
+  reminders: 'granted' | 'undetermined' | 'denied' | null;
+  /** "PIN", "Fingerprint", "Off"; null while loading. */
+  lockLabel: string | null;
   version: string;
   onEditProfile: () => void;
-  onSelectProfile: (profile: ProfileLite) => void;
-  onProfileOptions: (profile: ProfileLite) => void;
+  onSelectProfile: (p: ProfileLite) => void;
   onAddProfile: () => void;
+  onManagePeople: () => void;
   onLanguage: () => void;
   onToggle24h: (value: boolean) => void;
+  onCompartments: () => void;
+  onAppearance: () => void;
+  onReminders: () => void;
   onAppLock: () => void;
   onExport: () => void;
-  onDisclaimer: () => void;
+  onGoodToKnow: () => void;
 }
 
-export function YouView(props: YouViewProps) {
-  const { colors } = useTheme();
-  const reduceMotion = useReducedMotion();
-  const enter = (i: number) =>
-    reduceMotion ? FadeIn.duration(200) : FadeInDown.duration(280).delay(i * 40);
-  const { profile, profiles } = props;
-  const lockKind = props.lock ?? 'off';
+const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`ui.you.${key}`, opts);
 
+export function YouView({
+  profile,
+  profiles,
+  languageLabel,
+  is24h,
+  timeExample,
+  partsOfDay,
+  appearanceLabel,
+  reminders,
+  lockLabel,
+  version,
+  onEditProfile,
+  onSelectProfile,
+  onAddProfile,
+  onManagePeople,
+  onLanguage,
+  onToggle24h,
+  onCompartments,
+  onAppearance,
+  onReminders,
+  onAppLock,
+  onExport,
+  onGoodToKnow,
+}: YouViewProps) {
+  // The store's profile list can still be empty on the first render; the active profile is
+  // always known, so the People row shows the same single person from the start.
+  const people: ProfileLite[] = profiles.length > 0 ? profiles : [profile];
+  const many = people.length > 1;
+  const remindersValue =
+    reminders === null
+      ? undefined
+      : t(
+          reminders === 'granted'
+            ? 'reminders.statusOn'
+            : reminders === 'denied'
+              ? 'reminders.statusBlocked'
+              : 'reminders.statusAsk'
+        );
   return (
     <View style={{ gap: 28 }}>
-      {/* Hero */}
-      <Animated.View entering={enter(0)} style={{ alignItems: 'center', gap: 8, paddingTop: 4 }}>
-        <PressableScale
-          onPress={props.onEditProfile}
-          accessibilityRole="button"
-          accessibilityLabel={`${i18n.t('ui.you.editProfile')}, ${profile.name}`}
-          style={{ borderRadius: 999 }}>
-          <Avatar name={profile.name} uri={profile.avatarUri} size="xl" ring />
-        </PressableScale>
-        <Text variant="title1" align="center" accessibilityRole="header" style={{ marginTop: 4 }}>
-          {profile.name}
-        </Text>
-        <Button
-          label={i18n.t('ui.you.editProfile')}
-          variant="plain"
-          size="sm"
-          icon={Pencil}
-          onPress={props.onEditProfile}
-          style={{ alignSelf: 'center' }}
-        />
-      </Animated.View>
+      <View style={{ gap: 12 }}>
+        <TabHeader title={t('title')} />
+        <ListGroup>
+          <ListRow
+            leading={<Avatar name={profile.name} uri={profile.avatarUri} size={48} />}
+            title={profile.name}
+            subtitle={t('editLink')}
+            onPress={onEditProfile}
+          />
+        </ListGroup>
+      </View>
 
-      {/* Profiles */}
-      <Animated.View entering={enter(1)} style={{ gap: 8 }}>
-        <Text
-          variant="caption"
-          tone="secondary"
-          style={{ paddingHorizontal: 16 }}
-          accessibilityRole="header">
-          {i18n.t('ui.you.profiles.header')}
-        </Text>
-        <ProfilesRow
-          profiles={profiles}
+      <ListGroup header={t('remindersPrivacy.header')}>
+        <ListRow title={t('preferences.reminders')} value={remindersValue} onPress={onReminders} />
+        <ListRow title={t('privacy.appLock')} value={lockLabel ?? undefined} onPress={onAppLock} />
+      </ListGroup>
+
+      <ListGroup header={t('preferences.header')}>
+        <ListRow title={t('preferences.language')} value={languageLabel} onPress={onLanguage} />
+        <ListRow
+          title={t('preferences.appearance')}
+          value={appearanceLabel}
+          onPress={onAppearance}
+        />
+        <ListRow
+          title={t('preferences.time24')}
+          subtitle={t('preferences.time24Example', { example: timeExample })}
+          switchValue={is24h}
+          onSwitchChange={onToggle24h}
+        />
+        <ListRow
+          title={t('preferences.compartments')}
+          subtitle={partsOfDay}
+          onPress={onCompartments}
+        />
+      </ListGroup>
+
+      <View style={{ gap: 8 }}>
+        <SectionHeader title={t('people.header')} />
+        <PeopleRow
+          profiles={people}
           activeId={profile.id}
-          onPress={props.onSelectProfile}
-          onLongPress={props.onProfileOptions}
-          onAdd={props.onAddProfile}
+          onPress={onSelectProfile}
+          onAdd={onAddProfile}
         />
-        <Text variant="footnote" tone="secondary" style={{ paddingHorizontal: 16 }}>
-          {i18n.t(profiles.length > 1 ? 'ui.you.profiles.footerMany' : 'ui.you.profiles.footerOne')}
-        </Text>
-      </Animated.View>
+        {many ? (
+          <ListGroup>
+            <ListRow
+              title={t('people.manage')}
+              subtitle={t('people.manageSubtitle')}
+              onPress={onManagePeople}
+            />
+          </ListGroup>
+        ) : null}
+      </View>
 
-      <Animated.View entering={enter(2)}>
-        <ListGroup header={i18n.t('ui.you.preferences.header')}>
-          <ListRow
-            icon={Languages}
-            title={i18n.t('ui.you.preferences.language')}
-            value={props.languageLabel}
-            onPress={props.onLanguage}
-          />
-          <ListRow
-            icon={Clock}
-            iconTint={colors.success}
-            title={i18n.t('ui.you.preferences.time24')}
-            subtitle={i18n.t('ui.you.preferences.time24Example', { example: props.timeExample })}
-            switchValue={props.is24h}
-            onSwitchChange={props.onToggle24h}
-          />
-        </ListGroup>
-      </Animated.View>
+      <ListGroup header={t('data.header')}>
+        <ListRow title={t('data.export')} subtitle={t('data.exportSubtitle')} onPress={onExport} />
+      </ListGroup>
 
-      <Animated.View entering={enter(3)}>
-        <ListGroup
-          header={i18n.t('ui.you.security.header')}
-          footer={i18n.t('ui.you.security.footer')}>
-          <ListRow
-            icon={appLockIcon(lockKind)}
-            iconTint={colors.warning}
-            title={i18n.t('ui.you.security.appLock')}
-            value={props.lock ? appLockLabel(props.lock) : ' '}
-            onPress={props.onAppLock}
-          />
-        </ListGroup>
-      </Animated.View>
-
-      <Animated.View entering={enter(4)}>
-        <ListGroup header={i18n.t('ui.you.data.header')} footer={i18n.t('ui.you.data.footer')}>
-          <ListRow
-            icon={FileText}
-            title={i18n.t('ui.you.data.export')}
-            subtitle={i18n.t('ui.you.data.exportSubtitle')}
-            onPress={props.onExport}
-          />
-        </ListGroup>
-      </Animated.View>
-
-      <Animated.View entering={enter(5)}>
-        <ListGroup
-          header={i18n.t('ui.you.about.header')}
-          footer={i18n.t('settings.appDescription')}>
-          <ListRow
-            icon={ShieldCheck}
-            iconTint={colors.success}
-            title={i18n.t('ui.you.about.disclaimer')}
-            onPress={props.onDisclaimer}
-          />
-          <ListRow
-            icon={Info}
-            iconTint={colors.inkSecondary}
-            title={i18n.t('ui.you.about.version')}
-            value={props.version}
-          />
-        </ListGroup>
-      </Animated.View>
+      <ListGroup header={t('about.header')}>
+        <ListRow
+          title={t('about.goodToKnow')}
+          subtitle={t('about.goodToKnowSubtitle')}
+          onPress={onGoodToKnow}
+        />
+        <ListRow title={t('about.version')} value={version} />
+      </ListGroup>
     </View>
   );
 }

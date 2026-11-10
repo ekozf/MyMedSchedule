@@ -1,35 +1,38 @@
 /**
- * Launch state while the app loads its data: breathing app mark, name and a quiet spinner.
+ * Launch state while the app loads its data: flat `bg`, and only after a short delay the app name
+ * and a quiet spinner (a fast launch shows nothing but the background).
  *
  * @example
  * if (isLoadingAppState) return <BrandedLoading />;
  */
 import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn, useReducedMotion } from 'react-native-reanimated';
 import i18n from '@/lib/i18n';
-import { GradientBackground, Text, useTheme } from '@/components/ds';
-import { AppMark } from './AppMark';
+import { Text, useTheme } from '@/components/ds';
 
 export function BrandedLoading() {
   const { colors } = useTheme();
+  const reduceMotion = useReducedMotion();
   const appName = i18n.t('ui.onboarding.appName');
   return (
     <View
-      style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 }}
+      style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.bg,
+      }}
       accessible
       accessibilityRole="progressbar"
       accessibilityLabel={i18n.t('ui.onboarding.loading.a11y', { appName })}>
-      <GradientBackground />
-      <AppMark size={104} breathing />
-      {/* Delay the name + spinner so a fast launch shows only the calm mark. */}
       <Animated.View
-        entering={FadeIn.duration(400).delay(500)}
+        entering={FadeIn.duration(reduceMotion ? 1 : 300).delay(500)}
         style={{ alignItems: 'center', gap: 16 }}>
         <Text variant="title2" tone="secondary">
           {appName}
         </Text>
-        <ActivityIndicator color={colors.inkTertiary} />
+        <ActivityIndicator color={colors.ink2} />
       </Animated.View>
     </View>
   );

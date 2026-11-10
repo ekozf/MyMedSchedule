@@ -1,13 +1,13 @@
 /**
- * Export a PDF report (modal, single screen): what's inside, risks, acknowledgement, then
- * Save to device / Share. Replaces the old two-step warning → destination routes.
+ * Export a report (modal, spec §5.6): what's inside, before you share, the "isn't encrypted"
+ * checkbox, then Save to phone / Share. PDF generation, saving and sharing are unchanged
+ * (`lib/export/pdf`).
  */
 import * as React from 'react';
-import { UserRound } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import { useStore } from '@/store';
 import { generatePDFReport, savePDFReportLocally, sharePDFReport } from '@/lib/export/pdf';
-import { EmptyState, NavHeader, Screen, goBackOrHome, haptics, useToast } from '@/components/ds';
+import { EmptyState, NavHeader, Screen, goBackOrHome, useToast } from '@/components/ds';
 import { ModalScope, MODAL_SAFE_TOP } from '@/components/you/ModalScope';
 import { ExportActions, ExportBody, type ExportBusy } from '@/components/you/ExportView';
 import { firstName } from '@/components/you/profile-actions';
@@ -34,7 +34,6 @@ function ExportScreen() {
     return (
       <Screen safeTop={MODAL_SAFE_TOP} header={header}>
         <EmptyState
-          icon={UserRound}
           title={i18n.t('ui.you.export.noProfile')}
           message={i18n.t('ui.you.export.noProfileMessage')}
           action={{ label: i18n.t('ui.common.close'), onPress: close }}
@@ -51,9 +50,8 @@ function ExportScreen() {
       const uri = await generatePDFReport(activeProfile.id);
       if (kind === 'save') {
         const message = await savePDFReportLocally(uri, activeProfile.name);
-        haptics.success();
         // Moves to the screen underneath once this modal closes.
-        toast.show({ title: message, tone: 'success' });
+        toast.show({ title: message });
       } else {
         await sharePDFReport(uri);
       }
@@ -64,11 +62,8 @@ function ExportScreen() {
         error instanceof Error && error.message === i18n.t('export.permissionDenied');
       if (!cancelled) {
         console.error(`Failed to ${kind} PDF:`, error);
-        haptics.error();
         toast.show({
-          title: i18n.t(kind === 'save' ? 'export.saveError' : 'export.shareError'),
-          message: i18n.t('ui.you.export.tryAgain'),
-          tone: 'danger',
+          title: i18n.t(kind === 'save' ? 'ui.you.export.saveFailed' : 'ui.you.export.shareFailed'),
         });
       }
     } finally {
@@ -84,17 +79,13 @@ function ExportScreen() {
       footer={
         <ExportActions
           acknowledged={acknowledged}
+          onAcknowledgedChange={setAcknowledged}
           busy={busy}
           onSave={() => run('save')}
           onShare={() => run('share')}
         />
       }>
-      <ExportBody
-        profileName={firstName(activeProfile.name)}
-        acknowledged={acknowledged}
-        onAcknowledgedChange={setAcknowledged}
-        disabled={busy !== null}
-      />
+      <ExportBody profileName={firstName(activeProfile.name)} />
     </Screen>
   );
 }

@@ -1,141 +1,106 @@
 /**
- * Pure helpers for the Journal: filtering (same rules as the old History screen), grouping by
- * day, counts, and date/time merging for the "When?" fields.
+ * Journal text helpers (localized): day headings, the summary line, entry detail lines.
+ * The pure filtering / date logic lives in `./filtering` and is re-exported here.
  */
-import { format, isSameDay, subDays, addDays } from 'date-fns';
-import i18n from '@/lib/i18n';
-import { formatShortDate } from '@/lib/ui/format';
+import { format, isSameDay, isSameMonth, isSameYear, addDays } from 'date-fns';
+import i18n, { getCurrentLocale } from '@/lib/i18n';
+import { getDateFnsLocale } from '@/lib/i18n/date-fns';
+import { formatDose } from '@/lib/ui/format';
 import type { IntakeAction, IntakeLog, Medication } from '@/types';
+import { type JournalCounts, type RangeKey } from './filtering';
 
-export type RangeKey = '7' | '30' | '90' | 'all';
-export type ActionFilter = 'all' | IntakeAction;
+export * from './filtering';
 
-export interface JournalFilters {
-  range: RangeKey;
-  /** 'all' or a medication id. */
-  medicationId: string;
-  action: ActionFilter;
+const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+/** "Monday 9" (this month), "Saturday 31 October", "Friday 3 July 2025"; Turkish puts the day first. */
+function weekdayDate(date: Date, now: Date): string {
+  const tr = getCurrentLocale() === 'tr';
+  // Turkish reads oddly without the month ("9 Pazartesi"), so it always gets one.
+  const withMonth = tr || !isSameMonth(date, now) || !isSameYear(date, now);
+  let pattern = tr ? 'd MMMM EEEE' : withMonth ? 'EEEE d MMMM' : 'EEEE d';
+  if (!isSameYear(date, now)) pattern = tr ? 'd MMMM yyyy EEEE' : `${pattern} yyyy`;
+  return capitalize(format(date, pattern, { locale: getDateFnsLocale() }));
 }
 
-export const DEFAULT_FILTERS: JournalFilters = { range: '7', medicationId: 'all', action: 'all' };
-
-export const RANGE_KEYS: RangeKey[] = ['7', '30', '90', 'all'];
-export const ACTIONS: IntakeAction[] = ['taken', 'skipped', 'partial'];
-
-/** Range → `actualTime >= now - N days`, medicine and action match; newest first. */
-export function filterLogs(
-  logs: IntakeLog[],
-  filters: JournalFilters,
-  now: Date = new Date()
-): IntakeLog[] {
-  const cutoff = filters.range === 'all' ? null : subDays(now, Number(filters.range));
-  return logs
-    .filter(
-      (log) =>
-        (!cutoff || new Date(log.actualTime) >= cutoff) &&
-        (filters.medicationId === 'all' || log.medicationId === filters.medicationId) &&
-        (filters.action === 'all' || log.action === filters.action)
-    )
-    .sort((a, b) => new Date(b.actualTime).getTime() - new Date(a.actualTime).getTime());
+/** Day header: "Today, Monday 9", "Yesterday, Sunday 8", "Saturday 7". */
+export function dayHeading(date: Date, now: Date = new Date()): string {
+  const d = weekdayDate(date, now);
+  if (isSameDay(date, now)) return i18n.t('ui.journal.day.today', { date: d });
+  if (isSameDay(date, addDays(now, -1))) return i18n.t('ui.journal.day.yesterday', { date: d });
+  return d;
 }
 
-export interface JournalItem {
-  log: IntakeLog;
-  /** Position in the whole (filtered) list — used to stagger entering animations. */
-  index: number;
-  first: boolean;
-  last: boolean;
+/** Long date for the entry sheet subtitle and the picked-day row: "Monday 9 November". */
+export function longDate(date: Date, now: Date = new Date()): string {
+  const tr = getCurrentLocale() === 'tr';
+  let pattern = tr ? 'd MMMM EEEE' : 'EEEE d MMMM';
+  if (!isSameYear(date, now)) pattern = tr ? 'd MMMM yyyy EEEE' : `${pattern} yyyy`;
+  return capitalize(format(date, pattern, { locale: getDateFnsLocale() }));
 }
 
-export interface DaySection {
-  key: string;
-  date: Date;
-  data: JournalItem[];
+/** Right side of a day header: "2 taken", or "1 dose" when nothing was taken that day. */
+export function dayCountLabel(counts: JournalCounts): string {
+  const taken = counts.taken + counts.partial;
+  return taken > 0
+    ? i18n.t('ui.journal.summary.taken', { count: taken })
+    : i18n.t('ui.journal.day.doses', { count: counts.total });
 }
 
-/** Groups already-sorted logs into day sections (keeps order). */
-export function groupByDay(logs: IntakeLog[]): DaySection[] {
-  const sections: DaySection[] = [];
-  let current: DaySection | null = null;
-  logs.forEach((log, index) => {
-    const date = new Date(log.actualTime);
-    const key = format(date, 'yyyy-MM-dd');
-    if (!current || current.key !== key) {
-      current = { key, date, data: [] };
-      sections.push(current);
-    }
-    current.data.push({ log, index, first: current.data.length === 0, last: false });
+/** "11 doses this week · 9 taken · 1 partial · 1 skipped" (zero counts left out). */
+export function summaryText(counts: JournalCounts, range: RangeKey): string {
+  const lead = i18n.t(`ui.journal.summary.lead.${range === 'all' ? 'all' : `d${range}`}`, {
+    count: counts.total,
   });
-  for (const s of sections) s.data[s.data.length - 1].last = true;
-  return sections;
-}
-
-export interface JournalCounts {
-  total: number;
-  taken: number;
-  skipped: number;
-  partial: number;
-}
-
-export function countLogs(logs: IntakeLog[]): JournalCounts {
-  const counts: JournalCounts = { total: logs.length, taken: 0, skipped: 0, partial: 0 };
-  for (const log of logs) counts[log.action] += 1;
-  return counts;
-}
-
-/** "18 entries · 15 taken · 2 skipped · 1 partial" (zero counts left out). */
-export function summaryText(counts: JournalCounts): string {
-  const parts = [i18n.t('ui.journal.summary.entries', { count: counts.total })];
-  for (const a of ACTIONS) {
-    if (counts[a] > 0) parts.push(i18n.t(`ui.journal.summary.${a}`, { count: counts[a] }));
-  }
+  const parts = [lead];
+  if (counts.taken > 0) parts.push(i18n.t('ui.journal.summary.taken', { count: counts.taken }));
+  if (counts.partial > 0)
+    parts.push(i18n.t('ui.journal.summary.partial', { count: counts.partial }));
+  if (counts.skipped > 0)
+    parts.push(i18n.t('ui.journal.summary.skipped', { count: counts.skipped }));
   return parts.join(' · ');
 }
 
-/** Day header: "Today" / "Yesterday" / "Mon 28 Sep"; `detail` repeats the date for the first two. */
-export function dayTitle(date: Date, now: Date = new Date()): { title: string; detail?: string } {
-  if (isSameDay(date, now)) {
-    return { title: i18n.t('ui.common.today'), detail: formatShortDate(date, now) };
-  }
-  if (isSameDay(date, addDays(now, -1))) {
-    return { title: i18n.t('ui.common.yesterday'), detail: formatShortDate(date, now) };
-  }
-  return { title: formatShortDate(date, now) };
+/** Status word: Taken / Partial / Skipped. */
+export function statusLabel(action: IntakeAction): string {
+  return i18n.t(`ui.journal.actions.${action}`);
 }
 
-/** "Today" / "Yesterday" / "Mon 28 Sep" as a single label. */
-export function dayLabel(date: Date, now: Date = new Date()): string {
-  return dayTitle(date, now).title;
-}
-
-/** Label for an entry without a scheduled time. */
+/** "when needed" / "logged later" for an entry without a planned time. */
 export function unscheduledLabel(medication?: Medication): string {
-  return i18n.t(medication?.isPrn ? 'ui.journal.row.asNeeded' : 'ui.journal.row.loggedAfterwards');
+  return i18n.t(medication?.isPrn ? 'ui.journal.row.asNeeded' : 'ui.journal.row.loggedLater');
 }
 
-/** Stepper increment that suits the size of a dose (0.5 pill … 50 mg). */
-export function amountStep(standardDose: number): number {
-  if (standardDose < 5) return 0.5;
-  if (standardDose < 50) return 1;
-  if (standardDose < 500) return 10;
-  return 50;
+/**
+ * "1 pill · planned 20:00" / "when needed" / "planned 08:00 · Felt unwell" (amount only for taken
+ * and partial; a skipped dose's reason at the end).
+ */
+export function entryDetail(
+  log: IntakeLog,
+  medication: Medication | undefined,
+  formatTime: (d: Date) => string
+): string {
+  const parts: string[] = [];
+  if (log.action !== 'skipped' && log.dosageAmount > 0) {
+    parts.push(formatDose(log.dosageAmount, medication?.dosageUnit ?? 'units'));
+  }
+  parts.push(
+    log.scheduledTime
+      ? i18n.t('ui.journal.row.planned', { time: formatTime(new Date(log.scheduledTime)) })
+      : unscheduledLabel(medication)
+  );
+  // A skipped dose's note is its reason ("Felt unwell"): part of the detail line.
+  const reason = skipReason(log);
+  if (reason) parts.push(reason);
+  return parts.join(' · ');
 }
 
-/** Keeps the time of `base`, takes the calendar day of `day`. */
-export function withDay(base: Date, day: Date): Date {
-  const d = new Date(base);
-  d.setFullYear(day.getFullYear(), day.getMonth(), day.getDate());
-  return d;
+/** The reason of a skipped dose (its note), or null. */
+export function skipReason(log: IntakeLog): string | null {
+  return log.action === 'skipped' && log.notes?.trim() ? log.notes.trim() : null;
 }
 
-/** Keeps the day of `base`, takes hours and minutes of `time` (seconds cleared). */
-export function withTime(base: Date, time: Date): Date {
-  const d = new Date(base);
-  d.setHours(time.getHours(), time.getMinutes(), 0, 0);
-  return d;
-}
-
-/** A minute of tolerance so "now" picked in a time picker never counts as the future. */
-export function isInFuture(date: Date, now: Date = new Date()): boolean {
-  return date.getTime() > now.getTime() + 60_000;
+/** A note shown in quotes. */
+export function quoted(note: string): string {
+  return i18n.t('ui.journal.row.quoted', { note });
 }

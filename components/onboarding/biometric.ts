@@ -1,26 +1,37 @@
 /**
- * Human label + icon for the device's biometric method, from `getBiometricType()`.
+ * Human labels for the device's biometric method, from `getBiometricType()`.
  *
  * @example
- * const info = biometricInfo(await getBiometricType()); // { label: 'Face ID', icon: ScanFace }
+ * const info = biometricInfo(await getBiometricType());
+ * // { label: 'Fingerprint', useLabel: 'Use fingerprint' }
  */
 import { Platform } from 'react-native';
-import { Eye, Fingerprint, ScanFace, type LucideIcon } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 
 export interface BiometricInfo {
+  /** "Face ID", "Fingerprint" (used in sentences: "Use {{method}} to continue."). */
   label: string;
-  icon: LucideIcon;
+  /** Short action for the quiet PinPad key: "Use fingerprint". */
+  useLabel: string;
+}
+
+function info(key: string): BiometricInfo {
+  return {
+    label: i18n.t(`ui.onboarding.biometric.${key}`),
+    useLabel: i18n.t(`ui.onboarding.biometric.use.${key}`),
+  };
 }
 
 export function biometricInfo(types: string[]): BiometricInfo {
-  const t = (k: string) => i18n.t(`ui.onboarding.biometric.${k}`);
-  if (types.includes('face')) {
-    return { label: t(Platform.OS === 'ios' ? 'faceId' : 'faceUnlock'), icon: ScanFace };
-  }
-  if (types.includes('fingerprint')) return { label: t('fingerprint'), icon: Fingerprint };
-  if (types.includes('iris')) return { label: t('iris'), icon: Eye };
-  return { label: t('generic'), icon: Fingerprint };
+  if (types.includes('face')) return info(Platform.OS === 'ios' ? 'faceId' : 'faceUnlock');
+  if (types.includes('fingerprint')) return info('fingerprint');
+  if (types.includes('iris')) return info('iris');
+  return info('generic');
+}
+
+/** Labels for unlocking with the phone's own passcode (biometrics removed, no PIN). */
+export function passcodeInfo(): BiometricInfo {
+  return info('passcode');
 }
 
 const CANCELLED = ['user_cancel', 'system_cancel', 'app_cancel'];

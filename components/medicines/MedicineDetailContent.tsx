@@ -1,63 +1,63 @@
 /**
- * Body of the medicine detail screen (docs/DESIGN.md §4.3): hero, info tiles, "Log a dose" for
- * active as-needed medicines, Supply / Safety / Notes cards and the action lists.
+ * Body of the medicine page (docs/DESIGN.md §5.3): a compact header (64 px photo or first-letter
+ * tile, then name, "1 pill each time" and status pills left-aligned), the plain schedule line
+ * ("1 pill at 08:00 and 20:00, every day") above the `MiniTray` of its compartments with times
+ * (neutral "scheduled" tone: green means taken on Today), Last taken (with which scheduled dose it
+ * was recorded for) / Next dose (skipping doses already logged, same rule as Today), the supply
+ * card ("Not tracking supply" with "Start tracking" while untracked), Notes, Safety (when set), a
+ * quiet "Notes and dose limits" group with "Add a note" / "Add dose limits" (each row goes once
+ * set, the group when both are) and More (See in Journal, Pause / Resume this medicine, Delete
+ * medicine). Status pill only when paused ("Paused"); an active medicine shows none.
  * Presentational: the route owns data loading and actions.
  *
  * @example
  * <MedicineDetailContent
  *   medication={med}
  *   lastTaken={lastLog}
- *   onLogDose={…} onUpdateSupply={…} onSeeJournal={…} onToggleActive={…} onDelete={…}
+ *   logs={logs}
+ *   lastChange={adjustment}
+ *   onLogDose={…} onUpdateSupply={…} onStartTracking={…} onEditRefill={…}
+ *   onAddNote={…} onAddLimits={…} onSeeJournal={…} onToggleActive={…} onDelete={…}
  * />
  */
 import * as React from 'react';
 import { View } from 'react-native';
-import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
-import {
-  CalendarClock,
-  CalendarX2,
-  CircleCheck,
-  CirclePause,
-  CirclePlay,
-  Clock,
-  Hand,
-  History,
-  NotebookText,
-  PackageX,
-  Plus,
-  StickyNote,
-  Trash2,
-  TriangleAlert,
-  type LucideIcon,
-} from 'lucide-react-native';
 import i18n from '@/lib/i18n';
-import { getNextDose } from '@/lib/schedule/calculator';
 import { formatDose, useTimeFormat } from '@/lib/ui/format';
-import {
-  Button,
-  Card,
-  Icon,
-  ListGroup,
-  ListRow,
-  MedTile,
-  StatusChip,
-  Text,
-  useTheme,
-  withAlpha,
-  type StatusTone,
-} from '@/components/ds';
+import { useCompartmentBoundaries } from '@/lib/settings/compartments';
+import { Button, ListGroup, ListRow, MedIcon, MiniTray, StatusPill, Text } from '@/components/ds';
+import type { InventoryAdjustment } from '@/lib/db/operations';
 import type { IntakeLog, Medication } from '@/types';
-import { describeSchedule, formatWhen, getSupplyState, isExpired } from './medicine-info';
-import { CardTitle } from './parts';
-import { SafetyCard } from './SafetyCard';
+import {
+  formatWhen,
+  isExpired,
+  loggedForLine,
+  medicineDisplayName,
+  medicineHasLimits,
+  nextUnloggedDose,
+} from './medicine-info';
+import { configOf, scheduleLine, scheduleTimes, traySlots } from './schedule-summary';
+import { SafetyGroup } from './SafetyCard';
 import { SupplyCard } from './SupplyCard';
 
 export interface MedicineDetailContentProps {
   medication: Medication;
   /** Most recent taken/partial log (see `findLastTaken`). */
   lastTaken: IntakeLog | null;
+  /** This medicine's logs, so "Next dose" skips occurrences already taken or skipped. */
+  logs?: IntakeLog[];
   onLogDose: () => void;
   onUpdateSupply: () => void;
+  /** "Start tracking" on an untracked supply (open the supply sheet's first count). */
+  onStartTracking?: () => void;
+  /** "Remind me when running low" in the supply card (open the refill editor). */
+  onEditRefill?: () => void;
+  /** Most recent supply change by hand ("Last change" in the supply card). */
+  lastChange?: InventoryAdjustment | null;
+  /** "Add a note" (open the note editor). Row hidden when not given. */
+  onAddNote?: () => void;
+  /** "Add dose limits" (open the limits editor). Row hidden when not given. */
+  onAddLimits?: () => void;
   onSeeJournal: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
@@ -66,229 +66,143 @@ export interface MedicineDetailContentProps {
   now?: Date;
 }
 
+const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`ui.medicines.${key}`, opts);
+
 export function MedicineDetailContent({
   medication: med,
   lastTaken,
+  logs = [],
   onLogDose,
   onUpdateSupply,
+  onStartTracking,
+  onEditRefill,
+  lastChange,
+  onAddNote,
+  onAddLimits,
   onSeeJournal,
   onToggleActive,
   onDelete,
   busy = false,
   now,
 }: MedicineDetailContentProps) {
-  const { colors } = useTheme();
-  const reduceMotion = useReducedMotion();
   const { formatTime, formatTimeString } = useTimeFormat();
+  const { boundaries } = useCompartmentBoundaries();
   const at = now ?? new Date();
-
-  const supply = getSupplyState(med, at);
   const expired = isExpired(med, at);
-  const nextDose = med.isActive && !med.isPrn ? getNextDose(med, at) : null;
-
-  const chips: { key: string; label: string; icon: LucideIcon; tone: StatusTone }[] = [
-    med.isActive
-      ? {
-          key: 'active',
-          label: i18n.t('ui.medicines.status.active'),
-          icon: CircleCheck,
-          tone: 'success',
-        }
-      : {
-          key: 'stopped',
-          label: i18n.t('ui.medicines.status.stopped'),
-          icon: CirclePause,
-          tone: 'default',
-        },
-  ];
-  if (med.isPrn) {
-    chips.push({
-      key: 'prn',
-      label: i18n.t('ui.medicines.status.asNeeded'),
-      icon: Hand,
-      tone: 'accent',
-    });
-  }
-  if (expired) {
-    chips.push({
-      key: 'expired',
-      label: i18n.t('ui.medicines.status.expired'),
-      icon: CalendarX2,
-      tone: 'danger',
-    });
-  }
-  if (supply.empty) {
-    chips.push({
-      key: 'empty',
-      label: i18n.t('ui.medicines.status.noneLeft'),
-      icon: PackageX,
-      tone: 'danger',
-    });
-  } else if (supply.low) {
-    chips.push({
-      key: 'low',
-      label: i18n.t('ui.medicines.status.runningLow'),
-      icon: TriangleAlert,
-      tone: 'warning',
-    });
-  }
-
-  const tiles: { key: string; icon: LucideIcon; label: string; value: string; wide?: boolean }[] = [
-    {
-      key: 'schedule',
-      icon: CalendarClock,
-      label: i18n.t('ui.medicines.info.schedule'),
-      value: describeSchedule(med, formatTimeString),
-      wide: true,
-    },
-  ];
-  if (med.isActive && !med.isPrn) {
-    tiles.push({
-      key: 'next',
-      icon: Clock,
-      label: i18n.t('ui.medicines.info.nextDose'),
-      value: nextDose
-        ? formatWhen(nextDose.time, formatTime, at)
-        : i18n.t('ui.medicines.info.noUpcoming'),
-    });
-  }
-  tiles.push({
-    key: 'last',
-    icon: History,
-    label: i18n.t('ui.medicines.info.lastTaken'),
-    value: lastTaken
-      ? formatWhen(new Date(lastTaken.actualTime), formatTime, at)
-      : i18n.t('ui.medicines.info.neverTaken'),
-  });
-
-  const enter = (i: number) =>
-    reduceMotion ? undefined : FadeInDown.delay(Math.min(i, 8) * 30).duration(320);
+  const config = configOf(med);
+  const times = med.isPrn ? [] : scheduleTimes(med.scheduleType, config);
+  const nextDose = med.isActive && !med.isPrn ? nextUnloggedDose(med, logs, at) : null;
+  const loggedFor = lastTaken ? loggedForLine(lastTaken, formatTime, at) : null;
+  const notes = med.notes?.trim();
+  const addNote = !notes && !!onAddNote;
+  const addLimits = !medicineHasLimits(med) && !!onAddLimits;
 
   return (
-    <View style={{ gap: 14 }}>
-      {/* Hero */}
-      <Animated.View entering={enter(0)} style={{ alignItems: 'center', gap: 10, paddingTop: 4 }}>
-        <MedTile name={med.name} imageUri={med.imageUri} size="xl" />
-        <Text variant="title1" align="center" accessibilityRole="header" style={{ marginTop: 4 }}>
-          {med.name}
-        </Text>
-        <Text variant="body" tone="secondary" align="center">
-          {i18n.t('ui.medicines.detail.each', {
-            amount: formatDose(med.dosageAmount, med.dosageUnit),
-          })}
-        </Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-            gap: 6,
-            marginTop: 2,
-          }}>
-          {chips.map((c) => (
-            <StatusChip key={c.key} label={c.label} icon={c.icon} tone={c.tone} />
-          ))}
+    <View style={{ gap: 24 }}>
+      {/* Who: picture, name, amount, status */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 16, paddingTop: 4 }}>
+        <MedIcon name={med.name} uri={med.imageUri} size="lg" initial />
+        <View style={{ flex: 1, gap: 6 }}>
+          <Text variant="title1" accessibilityRole="header">
+            {medicineDisplayName(med)}
+          </Text>
+          <Text variant="body" tone="secondary">
+            {t('detail.each', { amount: formatDose(med.dosageAmount, med.dosageUnit) })}
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 2 }}>
+            {med.isActive ? null : <StatusPill label={t('page.paused')} />}
+            {med.isPrn ? <StatusPill label={t('page.whenNeeded')} /> : null}
+            {expired ? <StatusPill label={t('status.expired')} tone="danger" /> : null}
+          </View>
         </View>
-      </Animated.View>
-
-      {/* Info tiles */}
-      <Animated.View
-        entering={enter(1)}
-        style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
-        {tiles.map((tile) => (
-          <Card
-            key={tile.key}
-            blur={false}
-            radius={20}
-            style={{ flexGrow: 1, flexBasis: tile.wide ? '100%' : '46%', minWidth: 140 }}>
-            <View accessible accessibilityLabel={`${tile.label}, ${tile.value}`}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <View
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 14,
-                    backgroundColor: withAlpha(colors.accent, 0.14),
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                  <Icon as={tile.icon} size={16} tone="accent" />
-                </View>
-                <Text variant="footnote" tone="secondary" style={{ flexShrink: 1 }}>
-                  {tile.label}
-                </Text>
-              </View>
-              <Text variant="headline" style={{ marginTop: 8 }}>
-                {tile.value}
-              </Text>
-            </View>
-          </Card>
-        ))}
-      </Animated.View>
+      </View>
 
       {med.isPrn && med.isActive ? (
-        <Animated.View entering={enter(2)}>
-          <Button
-            label={i18n.t('ui.medicines.detail.logDose')}
-            icon={Plus}
-            variant="success"
-            size="lg"
-            fullWidth
-            onPress={onLogDose}
-          />
-        </Animated.View>
+        <Button label={t('detail.logDose')} onPress={onLogDose} />
       ) : null}
 
-      <Animated.View entering={enter(3)}>
-        <SupplyCard medication={med} onUpdate={onUpdateSupply} now={at} />
-      </Animated.View>
-
-      <Animated.View entering={enter(4)}>
-        <SafetyCard medication={med} now={at} />
-      </Animated.View>
-
-      {med.notes?.trim() ? (
-        <Animated.View entering={enter(5)}>
-          <Card>
-            <CardTitle icon={StickyNote} title={i18n.t('ui.medicines.notes.title')} />
-            <Text variant="body" selectable>
-              {med.notes.trim()}
-            </Text>
-          </Card>
-        </Animated.View>
-      ) : null}
-
-      <Animated.View entering={enter(6)} style={{ gap: 14, marginTop: 4 }}>
-        <ListGroup>
-          <ListRow
-            icon={NotebookText}
-            title={i18n.t('ui.medicines.detail.seeJournal')}
-            subtitle={i18n.t('ui.medicines.detail.seeJournalHint')}
-            onPress={onSeeJournal}
-          />
-          <ListRow
-            icon={med.isActive ? CirclePause : CirclePlay}
-            iconTint={med.isActive ? colors.warning : colors.success}
-            title={i18n.t(med.isActive ? 'ui.medicines.detail.stop' : 'ui.medicines.detail.resume')}
-            subtitle={i18n.t(
-              med.isActive ? 'ui.medicines.detail.stopHint' : 'ui.medicines.detail.resumeHint'
+      {/* When: the schedule in words, then the compartments it uses */}
+      {times.length ? (
+        <View style={{ gap: 10 }}>
+          <Text variant="body" weight="600">
+            {scheduleLine(
+              {
+                scheduleType: med.scheduleType,
+                scheduleConfig: config,
+                dosageAmount: med.dosageAmount,
+                dosageUnit: med.dosageUnit,
+              },
+              boundaries,
+              formatTimeString
             )}
-            accessory="none"
-            disabled={busy}
-            onPress={onToggleActive}
-          />
-        </ListGroup>
-        <ListGroup>
+          </Text>
+          <MiniTray tone="scheduled" slots={traySlots(times, boundaries, formatTimeString)} />
+        </View>
+      ) : null}
+
+      <ListGroup>
+        <ListRow
+          title={t('page.lastTaken')}
+          subtitle={loggedFor ?? undefined}
+          value={
+            lastTaken
+              ? formatWhen(new Date(lastTaken.actualTime), formatTime, at)
+              : t('page.notYet')
+          }
+        />
+        {med.isActive && !med.isPrn ? (
           <ListRow
-            icon={Trash2}
-            title={i18n.t('ui.medicines.detail.delete')}
-            destructive
-            accessory="none"
-            disabled={busy}
-            onPress={onDelete}
+            title={t('page.nextDose')}
+            value={nextDose ? formatWhen(nextDose.time, formatTime, at) : t('page.noneSoon')}
           />
+        ) : null}
+      </ListGroup>
+
+      <SupplyCard
+        medication={med}
+        onUpdate={onUpdateSupply}
+        onStartTracking={onStartTracking}
+        onEditRefill={onEditRefill}
+        lastChange={lastChange}
+        now={at}
+      />
+
+      {notes ? (
+        <ListGroup header={t('page.notes')}>
+          <View style={{ padding: 16 }}>
+            <Text variant="body" selectable>
+              {notes}
+            </Text>
+          </View>
         </ListGroup>
-      </Animated.View>
+      ) : null}
+
+      <SafetyGroup medication={med} now={at} />
+
+      {addNote || addLimits ? (
+        <ListGroup header={t('setup.title')}>
+          {addNote ? <ListRow title={t('setup.note')} onPress={onAddNote} /> : null}
+          {addLimits ? <ListRow title={t('setup.limits')} onPress={onAddLimits} /> : null}
+        </ListGroup>
+      ) : null}
+
+      <ListGroup header={t('page.more')}>
+        <ListRow title={t('detail.seeJournal')} onPress={onSeeJournal} />
+        <ListRow
+          title={t(med.isActive ? 'detail.stop' : 'detail.resume')}
+          subtitle={t(med.isActive ? 'detail.stopHint' : 'detail.resumeHint')}
+          accessory="none"
+          disabled={busy}
+          onPress={onToggleActive}
+        />
+        <ListRow
+          title={t('detail.delete')}
+          destructive
+          accessory="none"
+          disabled={busy}
+          onPress={onDelete}
+        />
+      </ListGroup>
     </View>
   );
 }

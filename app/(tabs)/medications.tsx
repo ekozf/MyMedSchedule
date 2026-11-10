@@ -1,16 +1,17 @@
 /**
- * Medicines tab (docs/DESIGN.md §4.3): every medicine as a glass card with its schedule, next dose
- * and supply; stopped medicines tucked into a collapsible section at the bottom.
+ * Medicines tab (docs/DESIGN.md §5.3): "+ Add" in the header, "Medicines" with "4 regular · 1 when
+ * needed" (title and "+ Add" on one row), the cards in Regular / When needed / Stopped sections.
+ * A search field appears once the list gets long. Empty: one sentence and "Add a medicine".
  */
 import * as React from 'react';
 import { RefreshControl, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { Pill, Plus, Search, X } from 'lucide-react-native';
+import { Search, X } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import { useStore } from '@/store';
 import {
-  Card,
   EmptyState,
+  HeaderTextAction,
   Icon,
   IconButton,
   Screen,
@@ -18,10 +19,11 @@ import {
   TextField,
   useTheme,
 } from '@/components/ds';
-import { MedicineList } from '@/components/medicines/MedicineList';
+import { MedicineList, groupMedicines } from '@/components/medicines/MedicineList';
+import { ProfileChip } from '@/components/shell/ProfileChip';
 
 /** Show the search field once the list gets long. */
-const SEARCH_THRESHOLD = 6;
+const SEARCH_THRESHOLD = 8;
 
 export default function MedicinesScreen() {
   const { colors } = useTheme();
@@ -48,7 +50,21 @@ export default function MedicinesScreen() {
     }
   }, [profileId, loadMedications]);
 
-  const activeCount = medications.filter((m) => m.isActive).length;
+  const groups = React.useMemo(() => groupMedicines(medications), [medications]);
+  const subtitle = [
+    groups.regular.length
+      ? i18n.t('ui.medicines.list.regular', { count: groups.regular.length })
+      : null,
+    groups.whenNeeded.length
+      ? i18n.t('ui.medicines.list.whenNeeded', { count: groups.whenNeeded.length })
+      : null,
+    groups.stopped.length
+      ? i18n.t('ui.medicines.list.stopped', { count: groups.stopped.length })
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const empty = medications.length === 0;
   const showSearch = medications.length > SEARCH_THRESHOLD;
   const addMedicine = () => router.push('/medication/add');
 
@@ -65,38 +81,30 @@ export default function MedicinesScreen() {
       }>
       <TabHeader
         title={i18n.t('ui.medicines.title')}
-        overline={
-          medications.length > 0
-            ? i18n.t('ui.medicines.activeCount', { count: activeCount })
-            : undefined
-        }
+        subtitle={subtitle || undefined}
+        rightInline
         right={
-          medications.length > 0 ? (
-            <IconButton
-              icon={Plus}
-              variant="tinted"
-              accessibilityLabel={i18n.t('ui.medicines.a11y.addMedicine')}
-              onPress={addMedicine}
-            />
-          ) : null
+          <>
+            <ProfileChip />
+            {empty ? null : (
+              <HeaderTextAction
+                label={i18n.t('ui.medicines.list.add')}
+                accessibilityLabel={i18n.t('ui.medicines.a11y.addMedicine')}
+                onPress={addMedicine}
+              />
+            )}
+          </>
         }
       />
 
-      {medications.length === 0 ? (
-        <Card style={{ marginTop: 8 }}>
-          <EmptyState
-            icon={Pill}
-            title={i18n.t('ui.medicines.empty.title')}
-            message={i18n.t('ui.medicines.empty.message')}
-            action={{
-              label: i18n.t('ui.medicines.empty.action'),
-              icon: Plus,
-              onPress: addMedicine,
-            }}
-          />
-        </Card>
+      {empty ? (
+        <EmptyState
+          title={i18n.t('ui.medicines.empty.title')}
+          message={i18n.t('ui.medicines.empty.message')}
+          action={{ label: i18n.t('ui.medicines.addMedicine'), onPress: addMedicine }}
+        />
       ) : (
-        <View style={{ gap: 12 }}>
+        <View style={{ gap: 16 }}>
           {showSearch ? (
             <TextField
               value={query}
@@ -105,14 +113,13 @@ export default function MedicinesScreen() {
               accessibilityLabel={i18n.t('ui.medicines.search.placeholder')}
               returnKeyType="search"
               autoCorrect={false}
-              leading={<Icon as={Search} size={20} tone="tertiary" />}
+              leading={<Icon as={Search} size={22} tone="secondary" />}
               trailing={
                 query ? (
                   <IconButton
                     icon={X}
                     size="sm"
                     variant="plain"
-                    tone="default"
                     accessibilityLabel={i18n.t('ui.medicines.search.clear')}
                     onPress={() => setQuery('')}
                   />

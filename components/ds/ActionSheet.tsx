@@ -19,7 +19,7 @@ import * as React from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
-import { useTheme } from '@/lib/theme';
+import { radii, useTheme } from '@/lib/theme';
 import { Sheet } from './Sheet';
 import { Text } from './Text';
 import { Icon } from './Icon';
@@ -121,10 +121,7 @@ export function ActionSheetProvider({ children }: { children: React.ReactNode })
         footer={
           <Button
             label={current.options.cancelLabel ?? i18n.t('ui.common.cancel')}
-            variant="plain"
-            size="lg"
-            fullWidth
-            haptic="none"
+            variant="quiet"
             onPress={() => close(null)}
           />
         }>
@@ -145,40 +142,36 @@ function ActionRows({
 }) {
   const { colors } = useTheme();
   return (
-    <View
-      style={{
-        borderRadius: 20,
-        backgroundColor: colors.surfaceSunken,
-        overflow: 'hidden',
-      }}>
-      {options.map((opt, i) => {
-        const tone = opt.destructive ? 'danger' : 'primary';
-        return (
-          <PressableScale
-            key={opt.key}
-            activeScale={0.98}
-            disabled={opt.disabled}
-            onPress={() => onSelect(opt.key)}
-            accessibilityLabel={opt.label}
-            style={{
-              minHeight: 56,
-              paddingHorizontal: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 14,
-              opacity: opt.disabled ? 0.45 : 1,
-              borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth,
-              borderTopColor: colors.separator,
-            }}>
-            {opt.icon ? (
-              <Icon as={opt.icon} tone={opt.destructive ? 'danger' : 'accent'} size={22} />
-            ) : null}
-            <Text variant="body" tone={tone} style={{ flex: 1 }}>
-              {opt.label}
-            </Text>
-          </PressableScale>
-        );
-      })}
+    <View style={{ borderRadius: radii.group, backgroundColor: colors.field, overflow: 'hidden' }}>
+      {options.map((opt, i) => (
+        <PressableScale
+          key={opt.key}
+          disabled={opt.disabled}
+          onPress={() => onSelect(opt.key)}
+          accessibilityRole="button"
+          accessibilityLabel={opt.label}
+          style={{
+            minHeight: 64,
+            paddingHorizontal: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+            opacity: opt.disabled ? 0.45 : 1,
+            borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth,
+            borderTopColor: colors.line2,
+          }}>
+          {opt.icon ? (
+            <Icon as={opt.icon} tone={opt.destructive ? 'danger' : 'primary'} size={24} />
+          ) : null}
+          <Text
+            variant="headline"
+            weight="600"
+            tone={opt.destructive ? 'danger' : 'primary'}
+            style={{ flex: 1 }}>
+            {opt.label}
+          </Text>
+        </PressableScale>
+      ))}
     </View>
   );
 }

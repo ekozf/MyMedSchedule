@@ -1,21 +1,22 @@
 /**
- * Inset grouped list (glass) + rows.
+ * Grouped list (docs/DESIGN.md §4): `field` group radius 20, rows 64 min height separated by
+ * `line2` hairlines. Row: title 19/600, optional description 15 ink2, value 17/500 ink2 with
+ * chevron, a check, or a `Switch`.
  *
  * @example
- * <ListGroup header="Preferences" footer="Used for all times in the app.">
- *   <ListRow icon={Languages} iconTint={colors.accent} title="Language" value="English" onPress={…} />
- *   <ListRow icon={Clock} title="24-hour time" switchValue={is24h} onSwitchChange={set24h} />
+ * <ListGroup header="Preferences">
+ *   <ListRow title="Language" value="English" onPress={…} />
+ *   <ListRow title="24-hour time" subtitle="Times look like 20:00" switchValue={is24h} onSwitchChange={set24h} />
  *   <ListRow title="Nederlands" accessory="check" onPress={…} />
- *   <ListRow icon={Trash2} title="Delete medicine" destructive accessory="none" onPress={…} />
+ *   <ListRow title="Delete medicine" destructive accessory="none" onPress={…} />
  * </ListGroup>
  */
 import * as React from 'react';
-import { Platform, StyleSheet, Switch, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Check, ChevronRight, type LucideIcon } from 'lucide-react-native';
-import { useTheme, withAlpha } from '@/lib/theme';
-import { haptics } from '@/lib/ui/haptics';
-import { Card } from './Card';
+import { radii, useTheme } from '@/lib/theme';
 import { PressableScale } from './PressableScale';
+import { Switch } from './Switch';
 import { Text } from './Text';
 import { Icon } from './Icon';
 
@@ -23,7 +24,7 @@ const RowIndexContext = React.createContext<number>(0);
 
 export interface ListGroupProps {
   children: React.ReactNode;
-  /** Caption above the group. */
+  /** Label above the group (16/700 ink2). */
   header?: string;
   /** Footnote below the group. */
   footer?: string;
@@ -31,27 +32,29 @@ export interface ListGroupProps {
 }
 
 export function ListGroup({ children, header, footer, style }: ListGroupProps) {
+  const { colors } = useTheme();
   const rows = React.Children.toArray(children).filter(Boolean);
   return (
     <View style={[{ gap: 8 }, style]}>
       {header ? (
         <Text
-          variant="caption"
+          variant="subhead"
+          weight="700"
           tone="secondary"
-          style={{ paddingHorizontal: 16 }}
+          style={{ paddingHorizontal: 4 }}
           accessibilityRole="header">
           {header}
         </Text>
       ) : null}
-      <Card padded={false} style={{ overflow: 'hidden' }}>
+      <View style={{ borderRadius: radii.group, backgroundColor: colors.field, overflow: 'hidden' }}>
         {rows.map((row, i) => (
           <RowIndexContext.Provider key={(row as React.ReactElement).key ?? i} value={i}>
             {row}
           </RowIndexContext.Provider>
         ))}
-      </Card>
+      </View>
       {footer ? (
-        <Text variant="footnote" tone="secondary" style={{ paddingHorizontal: 16 }}>
+        <Text variant="footnote" tone="secondary" style={{ paddingHorizontal: 4 }}>
           {footer}
         </Text>
       ) : null}
@@ -63,13 +66,13 @@ export type ListRowAccessory = 'chevron' | 'check' | 'none' | React.ReactNode;
 
 export interface ListRowProps {
   title: string;
+  /** Description under the title (15, ink2). */
   subtitle?: string;
+  /** Monochrome 24 icon before the title (no tinted tile). */
   icon?: LucideIcon;
-  /** Tile tint for the icon. Default accent (danger when destructive). */
-  iconTint?: string;
-  /** Custom leading node instead of `icon` (e.g. an Avatar or MedTile). */
+  /** Custom leading node instead of `icon` (e.g. an Avatar or MedIcon). */
   leading?: React.ReactNode;
-  /** Right-aligned secondary text. */
+  /** Right-aligned value text (17/500 ink2). */
   value?: string;
   /** Default: 'chevron' when pressable, else 'none'. */
   accessory?: ListRowAccessory;
@@ -86,7 +89,6 @@ export function ListRow({
   title,
   subtitle,
   icon,
-  iconTint,
   leading,
   value,
   accessory,
@@ -101,15 +103,11 @@ export function ListRow({
   const { colors } = useTheme();
   const index = React.useContext(RowIndexContext);
   const hasSwitch = switchValue !== undefined;
-  const tint = iconTint ?? (destructive ? colors.danger : colors.accent);
-  const hasLeading = !!(leading || icon);
-  const separatorInset = 16 + (hasLeading ? (leading ? 56 : 44) : 0);
   const resolvedAccessory: ListRowAccessory =
     accessory ?? (onPress && !hasSwitch ? 'chevron' : 'none');
 
   const toggle = () => {
     if (!onSwitchChange || disabled) return;
-    haptics.tap();
     onSwitchChange(!switchValue);
   };
   const handlePress = hasSwitch ? toggle : onPress;
@@ -121,20 +119,14 @@ export function ListRow({
         value={!!switchValue}
         onValueChange={() => toggle()}
         disabled={disabled}
-        trackColor={{
-          false: Platform.OS === 'android' ? colors.inkTertiary : undefined,
-          true: colors.success,
-        }}
-        thumbColor={Platform.OS === 'android' ? colors.surfaceSolid : undefined}
-        ios_backgroundColor={colors.surfaceSunken}
         accessibilityElementsHidden
         importantForAccessibility="no"
       />
     );
   } else if (resolvedAccessory === 'chevron') {
-    right = <Icon as={ChevronRight} size={20} tone="tertiary" />;
+    right = <Icon as={ChevronRight} size={22} tone="secondary" />;
   } else if (resolvedAccessory === 'check') {
-    right = <Icon as={Check} size={22} tone="accent" />;
+    right = <Icon as={Check} size={24} tone="accent" strokeWidth={2.5} />;
   } else if (resolvedAccessory !== 'none') {
     right = resolvedAccessory;
   }
@@ -146,39 +138,26 @@ export function ListRow({
           style={{
             position: 'absolute',
             top: 0,
-            left: separatorInset,
-            right: 0,
+            left: 16,
+            right: 16,
             height: StyleSheet.hairlineWidth,
-            backgroundColor: colors.separator,
+            backgroundColor: colors.line2,
           }}
         />
       ) : null}
-      {leading ??
-        (icon ? (
-          <View
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 9,
-              backgroundColor: withAlpha(tint, 0.14),
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-            <Icon as={icon} size={19} color={tint} />
-          </View>
-        ) : null)}
+      {leading ?? (icon ? <Icon as={icon} size={24} tone={destructive ? 'danger' : 'primary'} /> : null)}
       <View style={{ flex: 1, paddingVertical: 12 }}>
-        <Text variant="body" tone={destructive ? 'danger' : 'primary'}>
+        <Text variant="headline" weight="600" tone={destructive ? 'danger' : 'primary'}>
           {title}
         </Text>
         {subtitle ? (
-          <Text variant="subhead" tone="secondary" style={{ marginTop: 1 }}>
+          <Text variant="footnote" weight="400" tone="secondary" style={{ marginTop: 2 }}>
             {subtitle}
           </Text>
         ) : null}
       </View>
       {value ? (
-        <Text variant="body" tone="secondary" numberOfLines={1} style={{ maxWidth: '45%' }}>
+        <Text variant="callout" tone="secondary" style={{ maxWidth: '50%' }} align="right">
           {value}
         </Text>
       ) : null}
@@ -187,7 +166,7 @@ export function ListRow({
   );
 
   const rowStyle: ViewStyle = {
-    minHeight: 56,
+    minHeight: 64,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -200,8 +179,7 @@ export function ListRow({
   if (handlePress) {
     return (
       <PressableScale
-        activeScale={0.985}
-        haptic={hasSwitch ? 'none' : 'light'}
+        activeScale={0.99}
         onPress={handlePress}
         disabled={disabled}
         accessibilityRole={hasSwitch ? 'switch' : 'button'}

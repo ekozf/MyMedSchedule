@@ -1,18 +1,20 @@
 /**
- * The Journal tab UI (presentational): title + "Log a past dose" button, light filters, summary,
- * and a day-grouped timeline (SectionList, sticky day headers). Data and actions come via props so
- * the screen can be previewed with mock data (`app/dev/journal.tsx`).
+ * The Journal tab UI (presentational, DESIGN.md §5.5): title, a full-width 52-tall secondary "Log a
+ * past dose" under it, the folded "Filter" chip, and the day-grouped timeline (each day header carries its
+ * counts, "2 taken") (virtualised SectionList, newest first, sticky
+ * day headers). When the period isn't All, a quiet "Show all history" ends the list. Data and
+ * actions come in via props.
  *
  * @example
  * <JournalView logs={logs} medications={meds} loaded filters={f} onFiltersChange={setF}
- *   onOpenEntry={open} onDeleteEntry={remove} onLogPast={() => router.push('/log/past')} />
+ *   onOpenEntry={open} onLogPast={() => router.push('/log/past')} />
  */
 import * as React from 'react';
 import { RefreshControl, SectionList, View } from 'react-native';
-import { BookOpen, CalendarPlus, ListFilter } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
 import { Button, EmptyState, Screen, TabHeader, useTheme } from '@/components/ds';
 import { GUTTER, useTabBarInset } from '@/lib/ui/layout';
+import { ProfileChip } from '@/components/shell/ProfileChip';
 import type { IntakeLog, Medication } from '@/types';
 import { DayHeader } from './DayHeader';
 import { JournalControls } from './JournalControls';
@@ -22,11 +24,10 @@ import {
   countLogs,
   filterLogs,
   groupByDay,
-  summaryText,
   type DaySection,
   type JournalFilters,
   type JournalItem,
-} from './utils';
+} from './filtering';
 
 export interface JournalViewProps {
   logs: IntakeLog[];
@@ -39,9 +40,8 @@ export interface JournalViewProps {
   refreshing?: boolean;
   onRefresh?: () => void;
   onOpenEntry: (log: IntakeLog) => void;
-  onDeleteEntry: (log: IntakeLog) => void;
   onLogPast: () => void;
-  /** Fixed "now" for previews. */
+  /** Fixed "now" for previews and tests. */
   now?: Date;
 }
 
@@ -54,7 +54,6 @@ export function JournalView({
   refreshing = false,
   onRefresh,
   onOpenEntry,
-  onDeleteEntry,
   onLogPast,
   now,
 }: JournalViewProps) {
@@ -64,13 +63,16 @@ export function JournalView({
   const medsById = React.useMemo(() => new Map(medications.map((m) => [m.id, m])), [medications]);
   const filtered = React.useMemo(() => filterLogs(logs, filters, now), [logs, filters, now]);
   const sections = React.useMemo(() => groupByDay(filtered), [filtered]);
-  const summary = React.useMemo(() => summaryText(countLogs(filtered)), [filtered]);
+  const dayCounts = React.useMemo(
+    () => new Map(sections.map((s) => [s.key, countLogs(s.data.map((i) => i.log))])),
+    [sections]
+  );
 
   const hasLogs = logs.length > 0;
-  const onlyRangeFilters = filters.medicationId === 'all' && filters.action === 'all';
+  const onlyRange = filters.medicationId === 'all' && filters.action === 'all';
 
   const clearFilters = () => {
-    if (onlyRangeFilters) {
+    if (onlyRange) {
       onFiltersChange({ ...filters, range: 'all' });
       return;
     }
@@ -81,27 +83,18 @@ export function JournalView({
   };
 
   const header = (
-    <View>
-      <TabHeader
-        title={i18n.t('ui.journal.title')}
-        right={
-          <Button
-            label={i18n.t('ui.journal.logPastShort')}
-            accessibilityLabel={i18n.t('ui.journal.logPast')}
-            icon={CalendarPlus}
-            variant="secondary"
-            size="md"
-            onPress={onLogPast}
-          />
-        }
-      />
+    <View style={{ paddingBottom: 4 }}>
+      <TabHeader title={i18n.t('ui.journal.title')} right={<ProfileChip />} />
       {hasLogs ? (
-        <JournalControls
-          filters={filters}
-          onChange={onFiltersChange}
-          medications={medications}
-          summary={filtered.length > 0 ? summary : undefined}
-        />
+        <View style={{ gap: 12 }}>
+          <Button
+            variant="secondary"
+            label={i18n.t('ui.journal.logPast')}
+            onPress={onLogPast}
+            style={{ minHeight: 52 }}
+          />
+          <JournalControls filters={filters} onChange={onFiltersChange} medications={medications} />
+        </View>
       ) : null}
     </View>
   );
@@ -110,10 +103,9 @@ export function JournalView({
   if (loaded && !hasLogs) {
     empty = (
       <EmptyState
-        icon={BookOpen}
         title={i18n.t('ui.journal.empty.title')}
         message={i18n.t('ui.journal.empty.message')}
-        action={{ label: i18n.t('ui.journal.logPast'), icon: CalendarPlus, onPress: onLogPast }}
+        action={{ label: i18n.t('ui.journal.logPast'), onPress: onLogPast }}
         style={{ paddingTop: 48 }}
       />
     );
@@ -121,20 +113,16 @@ export function JournalView({
     empty = (
       <EmptyState
         compact
-        icon={ListFilter}
-        tone="default"
         title={i18n.t('ui.journal.noMatch.title')}
         message={i18n.t(
-          onlyRangeFilters ? 'ui.journal.noMatch.messageRange' : 'ui.journal.noMatch.message'
+          onlyRange ? 'ui.journal.noMatch.messageRange' : 'ui.journal.noMatch.message'
         )}
         action={{
-          label: i18n.t(
-            onlyRangeFilters ? 'ui.journal.noMatch.showAll' : 'ui.journal.noMatch.clear'
-          ),
+          label: i18n.t(onlyRange ? 'ui.journal.noMatch.showAll' : 'ui.journal.noMatch.clear'),
           variant: 'secondary',
           onPress: clearFilters,
         }}
-        style={{ paddingTop: 24 }}
+        style={{ paddingTop: 32 }}
       />
     );
   }
@@ -149,19 +137,32 @@ export function JournalView({
         sections={sections}
         keyExtractor={(item) => item.log.id}
         renderSectionHeader={({ section }) => (
-          <DayHeader date={section.date} count={section.data.length} now={now} />
+          <DayHeader
+            date={section.date}
+            counts={dayCounts.get(section.key) ?? countLogs([])}
+            now={now}
+          />
         )}
         renderItem={({ item }) => (
           <JournalEntryRow
             item={item}
             medication={medsById.get(item.log.medicationId)}
             onPress={() => onOpenEntry(item.log)}
-            onDelete={() => onDeleteEntry(item.log)}
           />
         )}
         stickySectionHeadersEnabled
         ListHeaderComponent={header}
         ListEmptyComponent={empty}
+        ListFooterComponent={
+          filters.range !== 'all' && sections.length > 0 ? (
+            <Button
+              variant="quiet"
+              label={i18n.t('ui.journal.showAllHistory')}
+              onPress={() => onFiltersChange({ ...filters, range: 'all' })}
+              style={{ marginTop: 12 }}
+            />
+          ) : null
+        }
         contentContainerStyle={{
           paddingHorizontal: GUTTER,
           paddingTop: 8,

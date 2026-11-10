@@ -6,12 +6,19 @@
  * describeSchedule('specific_weekdays', { weekdays: [1, 3, 5], time: '08:00' }, fmt)
  * // → "Every Mon, Wed and Fri at 08:00"
  */
-import { format } from 'date-fns';
+import { format, isSameYear } from 'date-fns';
 import i18n, { getCurrentLocale } from '@/lib/i18n';
 import { getDateFnsLocale } from '@/lib/i18n/date-fns';
 import { formatDose, formatShortDate } from '@/lib/ui/format';
 import type { DosageUnit, ScheduleType } from '@/types';
-import { sortTimes, type AnyScheduleConfig, type ScheduleConfigMap } from './form-model';
+import {
+  hasAmountOverride,
+  sortTimes,
+  type AnyScheduleConfig,
+  type MedicineForm,
+  type ScheduleConfigMap,
+  tracksSupply,
+} from './form-model';
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`ui.editor.${key}`, opts);
 
@@ -40,6 +47,11 @@ export function weekdayMini(d: number): string {
   return capitalize(format(weekdayDate(d), 'EEEEEE', { locale: getDateFnsLocale() }));
 }
 
+/** "9 Nov" (with the year when it isn't this year), for dated previews. */
+export function dayMonth(d: Date, now: Date = new Date()): string {
+  return format(d, isSameYear(d, now) ? 'd MMM' : 'd MMM yyyy', { locale: getDateFnsLocale() });
+}
+
 /** JS weekday numbers in the locale's week order (Mon first for nl/tr/en-GB style locales). */
 export function weekdayOrder(): number[] {
   // Same source as the design system's CalendarSheet (getWeekStartsOn), kept local so this file
@@ -62,8 +74,10 @@ export function occurrenceShort(n: number): string {
   return t(`occurrence.short.${n}`);
 }
 
+/** "Every day" for both daily types (the editor offers them as one choice). */
 export function scheduleTypeTitle(type: ScheduleType): string {
-  return t(`type.${type}.title`);
+  const choice = type === 'once_daily' || type === 'multiple_daily' ? 'daily' : type;
+  return t(`type.${choice}.title`);
 }
 
 /**
@@ -147,4 +161,111 @@ export function describeStart(type: ScheduleType, config: AnyScheduleConfig): st
         : null;
   if (typeof iso !== 'string') return null;
   return t('describe.startsOn', { date: formatShortDate(new Date(iso)) });
+}
+
+/**
+ * The "Times" row value for every-day medicines on one line ("08:00 and 20:00"); null for other
+ * types (they keep the full sentence) or more than three times (too long for one line).
+ */
+export function reviewTimesValue(
+  type: ScheduleType,
+  config: AnyScheduleConfig,
+  fmt: (time: string) => string
+): string | null {
+  if (type !== 'once_daily' && type !== 'multiple_daily') return null;
+  const c = config as { time?: string; times?: { time: string }[] };
+  const times =
+    type === 'once_daily' ? (c.time ? [c.time] : []) : sortTimes(c.times ?? []).map((x) => x.time);
+  if (!times.length || times.length > 3) return null;
+  return joinList(times.map(fmt));
+}
+
+export type UnsetExtra = 'notes' | 'limits' | 'expiry';
+
+/**
+ * Which optional extras are set, and which of notes / safety limits / expiry date are not (the
+ * last row names only those). "Safety limits" counts as unset only when neither limit is set.
+ */
+export function extrasSet(form: MedicineForm) {
+  const set = {
+    notes: form.notes.trim().length > 0,
+    maxPerDay: form.maxDailyDose !== null,
+    minHours: form.minHoursBetweenDoses !== null,
+    expiry: form.expirationDate !== null,
+    dnd: form.bypassDnd,
+  };
+  const unsetItems: UnsetExtra[] = [];
+  if (!set.notes) unsetItems.push('notes');
+  if (!set.maxPerDay && !set.minHours) unsetItems.push('limits');
+  if (!set.expiry) unsetItems.push('expiry');
+  return { ...set, anySet: Object.values(set).some(Boolean), unsetItems };
+}
+
+/** "Safety limits, expiry date" (first item capitalised). */
+export function unsetExtrasText(items: UnsetExtra[]): string {
+  const text = items.map((k) => i18n.t(`ui.editor.screens.unset.${k}`)).join(', ');
+  return text.charAt(0).toLocaleUpperCase(getCurrentLocale()) + text.slice(1);
+}
+
+/**
+ * The times of a schedule that runs every day with the same amount each time (every day, several
+ * times a day without per-time amounts, or all seven weekdays), sorted. Null otherwise.
+ */
+export function everyDayTimes(
+  type: ScheduleType,
+  config: AnyScheduleConfig,
+  usualAmount?: number
+): string[] | null {
+  switch (type) {
+    case 'once_daily':
+      return [(config as ScheduleConfigMap['once_daily']).time];
+    case 'multiple_daily': {
+      const times = sortTimes((config as ScheduleConfigMap['multiple_daily']).times ?? []);
+      if (!times.length || times.some((x) => hasAmountOverride(x.dosageAmount, usualAmount)))
+        return null;
+      return times.map((x) => x.time);
+    }
+    case 'specific_weekdays': {
+      const c = config as ScheduleConfigMap['specific_weekdays'];
+      return (c.weekdays ?? []).length === 7 ? [c.time] : null;
+    }
+    default:
+      return null;
+  }
+}
+
+/** "1 pill at 08:00 and 20:00, every day" when it runs daily with one amount, else null. */
+export function everyDayLine(
+  form: Pick<MedicineForm, 'scheduleType' | 'scheduleConfig' | 'dosageAmount' | 'dosageUnit'>,
+  fmt: (time: string) => string
+): string | null {
+  const times = everyDayTimes(form.scheduleType, form.scheduleConfig, form.dosageAmount);
+  if (!times) return null;
+  return t('screens.headerDaily', {
+    dose: formatDose(form.dosageAmount, form.dosageUnit),
+    times: joinList(times.map(fmt)),
+  });
+}
+
+/** "When 7 days are left" / "When 10 doses are left" / "Off". */
+export function refillValue(form: MedicineForm): string {
+  if (!tracksSupply(form) || form.refillReminderType === 'none') return t('review.off');
+  const count = form.refillReminderValue ?? 0;
+  return form.refillReminderType === 'days'
+    ? t('review.refillDaysLeft', { count })
+    : t('review.refillDosesLeft', { count });
+}
+
+/** "4 pills a day · 6 hours apart · Expires Fri 3 Jul", or null when no limit is set. */
+export function limitsSummary(form: MedicineForm): string | null {
+  const parts = [
+    form.maxDailyDose !== null
+      ? t('edit.perDay', { amount: formatDose(form.maxDailyDose, form.dosageUnit) })
+      : null,
+    form.minHoursBetweenDoses !== null
+      ? t('edit.apart', { hours: t('count.hours', { count: form.minHoursBetweenDoses }) })
+      : null,
+    form.expirationDate ? t('edit.expires', { date: formatShortDate(form.expirationDate) }) : null,
+  ].filter(Boolean);
+  return parts.length ? parts.join(' · ') : null;
 }

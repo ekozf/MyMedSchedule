@@ -1,8 +1,10 @@
 /**
- * Caption-style section overline with optional icon and right accessory.
+ * Section label above a group of cards: 16/700 ink2 (no all-caps), optional right accessory.
+ * Use `size="day"` for the larger 20/800 journal day header.
  *
  * @example
- * <SectionHeader icon={Sunrise} title="Morning" right={<Text variant="footnote" tone="tertiary">2 of 3</Text>} />
+ * <SectionHeader title="When needed" />
+ * <SectionHeader title="Today, Monday 9" size="day" right={<Text variant="footnote" tone="secondary">2 taken</Text>} />
  */
 import * as React from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
@@ -12,28 +14,36 @@ import { Icon } from './Icon';
 
 export interface SectionHeaderProps {
   title: string;
+  size?: 'label' | 'day';
+  /** Optional 22 px monochrome icon. */
   icon?: LucideIcon;
   right?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 
-export function SectionHeader({ title, icon, right, style }: SectionHeaderProps) {
+export function SectionHeader({ title, size = 'label', icon, right, style }: SectionHeaderProps) {
+  const day = size === 'day';
   return (
     <View
       style={[
         {
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 6,
+          gap: 8,
           paddingHorizontal: 4,
-          marginTop: 20,
-          marginBottom: 8,
+          marginTop: 24,
+          marginBottom: 10,
           minHeight: 24,
         },
         style,
       ]}>
-      {icon ? <Icon as={icon} size={16} tone="secondary" /> : null}
-      <Text variant="caption" tone="secondary" accessibilityRole="header" style={{ flex: 1 }}>
+      {icon ? <Icon as={icon} size={22} tone="secondary" /> : null}
+      <Text
+        variant={day ? 'title3' : 'subhead'}
+        weight={day ? '800' : '700'}
+        tone={day ? 'primary' : 'secondary'}
+        style={[{ flex: 1 }, day ? { fontSize: 20, lineHeight: 25 } : null]}
+        accessibilityRole="header">
         {title}
       </Text>
       {right}
