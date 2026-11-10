@@ -783,6 +783,27 @@ export async function updateIntakeLogAndReconcileInventory(params: {
   }
 }
 
+/**
+ * Whether this scheduled dose already has a log (taken, skipped or partial). Used so a reminder
+ * action that arrives twice (background task, then the in-app listener) records the dose once.
+ */
+export async function hasIntakeLogForDose(
+  medicationId: string,
+  scheduledTime: string | Date
+): Promise<boolean> {
+  const db = getDatabase();
+  const scheduledTimeStr =
+    typeof scheduledTime === 'string' ? scheduledTime : scheduledTime.toISOString();
+  const result = await db
+    .select({ id: intakeLogs.id })
+    .from(intakeLogs)
+    .where(
+      and(eq(intakeLogs.medicationId, medicationId), eq(intakeLogs.scheduledTime, scheduledTimeStr))
+    )
+    .limit(1);
+  return result.length > 0;
+}
+
 export async function getIntakeLogsByMedication(medicationId: string): Promise<IntakeLog[]> {
   const db = getDatabase();
   const result = await db

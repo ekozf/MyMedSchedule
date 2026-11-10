@@ -4,6 +4,7 @@ import {
   createIntakeLog,
   createIntakeLogAndUpdateInventory,
   getActiveProfile,
+  hasIntakeLogForDose,
   InventoryInsufficientError,
 } from '@/lib/db/operations';
 import i18n from '@/lib/i18n';
@@ -103,48 +104,106 @@ export async function setupNotificationCategories() {
   ]);
 }
 
+const REMINDER_ACTIONS = new Set(['TAKE', 'SNOOZE', 'SKIP']);
+
+/**
+ * Run a reminder button (Take / Snooze / Skip) and dismiss the reminder.
+ * On Android this runs from two places: the background task when the app was not in the
+ * foreground (lib/notifications/background-actions.ts), and the in-app listener, which may get
+ * the same press again later. Each action is safe to run twice.
+ */
+export async function handleReminderAction(
+  actionIdentifier: string,
+  notificationId: string,
+  data: any
+): Promise<void> {
+  switch (actionIdentifier) {
+    case 'TAKE':
+      await handleTakeAction(data);
+      break;
+    case 'SNOOZE':
+      await handleSnoozeAction(data);
+      break;
+    case 'SKIP':
+      await handleSkipAction(data);
+      break;
+    default:
+      return;
+  }
+  try {
+    await Notifications.dismissNotificationAsync(notificationId);
+  } catch (error) {
+    console.warn('Could not dismiss reminder:', error);
+  }
+}
+
+export interface ParsedTaskResponse {
+  actionIdentifier: string;
+  notificationId: string;
+  data: any;
+}
+
+/**
+ * Read a notification response from the background task payload. Android hands it over as raw
+ * native data: the reminder's `data` arrives as a JSON string in `content.dataString`.
+ * Returns null for anything that is not a reminder button press.
+ */
+export function parseTaskResponse(payload: any): ParsedTaskResponse | null {
+  if (!payload || typeof payload.actionIdentifier !== 'string') return null;
+  if (!REMINDER_ACTIONS.has(payload.actionIdentifier)) return null;
+  const request = payload.notification?.request;
+  if (!request || typeof request.identifier !== 'string') return null;
+  const content = request.content ?? {};
+  let data = content.data;
+  if (!data && typeof content.dataString === 'string') {
+    try {
+      data = JSON.parse(content.dataString);
+    } catch {
+      data = null;
+    }
+  }
+  if (!data || typeof data !== 'object') return null;
+  return { actionIdentifier: payload.actionIdentifier, notificationId: request.identifier, data };
+}
+
 // Handle notification responses (when user taps on notification or action button)
 export async function handleNotificationResponse(response: Notifications.NotificationResponse) {
   const { notification, actionIdentifier } = response;
   const data = notification.request.content.data;
 
-  switch (actionIdentifier) {
-    case 'TAKE':
-      await handleTakeAction(data);
-      // Dismiss the notification after handling the action
-      await Notifications.dismissNotificationAsync(notification.request.identifier);
-      break;
-    case 'SNOOZE':
-      await handleSnoozeAction(data);
-      // Dismiss the notification after handling the action
-      await Notifications.dismissNotificationAsync(notification.request.identifier);
-      break;
-    case 'SKIP':
-      await handleSkipAction(data);
-      // Dismiss the notification after handling the action
-      await Notifications.dismissNotificationAsync(notification.request.identifier);
-      break;
-    case Notifications.DEFAULT_ACTION_IDENTIFIER: {
-      // Tapped the reminder itself: land on Today with that dose's compartment open.
-      const focus = todayFocusFromData(data);
-      if (focus) {
-        openTodayFor(focus);
-        // Handled here, so Today must not pick it up again as the launch response.
-        try {
-          Notifications.clearLastNotificationResponse();
-        } catch {
-          // older native module: Today's launch check is guarded by the pending focus anyway
-        }
+  if (REMINDER_ACTIONS.has(actionIdentifier)) {
+    await handleReminderAction(actionIdentifier, notification.request.identifier, data);
+    return;
+  }
+
+  if (actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
+    // Tapped the reminder itself: land on Today with that dose's compartment open.
+    const focus = todayFocusFromData(data);
+    if (focus) {
+      openTodayFor(focus);
+      // Handled here, so Today must not pick it up again as the launch response.
+      try {
+        Notifications.clearLastNotificationResponse();
+      } catch {
+        // older native module: Today's launch check is guarded by the pending focus anyway
       }
-      break;
     }
   }
+}
+
+/** True when this dose is already logged, so a repeated press does nothing. */
+async function isDoseAlreadyLogged(data: any): Promise<boolean> {
+  if (typeof data?.medicationId !== 'string' || typeof data?.scheduledTime !== 'string') {
+    return false;
+  }
+  return hasIntakeLogForDose(data.medicationId, data.scheduledTime);
 }
 
 async function handleTakeAction(data: any) {
   try {
     const profile = await getActiveProfile();
     if (!profile) return;
+    if (await isDoseAlreadyLogged(data)) return;
 
     // "Take" is an honest record even when the supply count says 0: log it, count floors at 0.
     await createIntakeLogAndUpdateInventory(
@@ -179,7 +238,10 @@ async function handleSnoozeAction(data: any) {
     const snoozeTime = new Date();
     snoozeTime.setMinutes(snoozeTime.getMinutes() + 15);
 
+    // One snooze per dose: a fixed identifier means a repeated press replaces it instead of
+    // stacking a second reminder.
     await Notifications.scheduleNotificationAsync({
+      identifier: `snooze-${data.medicationId}-${data.scheduledTime}`,
       content: {
         title: i18n.t('notifications.snoozedTitle'),
         body: i18n.t('notifications.snoozedBody', { medication: data.medicationName }),
@@ -210,6 +272,7 @@ async function handleSkipAction(data: any) {
   try {
     const profile = await getActiveProfile();
     if (!profile) return;
+    if (await isDoseAlreadyLogged(data)) return;
 
     await createIntakeLog({
       medicationId: data.medicationId,
