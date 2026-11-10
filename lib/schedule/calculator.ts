@@ -97,6 +97,23 @@ function getMedicationScheduleStart(medication: Medication): Date {
   return startOfDay(medication.createdAt);
 }
 
+/**
+ * The exact moment a schedule began, when it is known: a medicine whose schedule was set when it
+ * was created (scheduleStartDate equals createdAt), or whose schedule was edited with
+ * `scheduleStartExact`, starts at that moment, so times earlier on that day are not generated
+ * (adding at 13:00 doesn't make 08:00 "5 hours late"). Other schedule changes start at the start of
+ * that day as before, so an edit never hides a dose already logged earlier that day. Start dates taken from a config (every few days, cycles,
+ * tapering) are already at midnight, so this changes nothing for them.
+ */
+export function getScheduleStartMoment(medication: Medication): Date | null {
+  const start = medication.scheduleStartDate;
+  if (!start || !medication.createdAt) return null;
+  const startTime = new Date(start).getTime();
+  if (Number.isNaN(startTime)) return null;
+  if (medication.scheduleStartExact) return new Date(startTime);
+  return startTime === new Date(medication.createdAt).getTime() ? new Date(startTime) : null;
+}
+
 // Helper to parse time string (HH:mm) and set it on a date
 function setTimeOnDate(date: Date, timeString: string): Date {
   // Create a new date to avoid mutating the input
@@ -122,6 +139,15 @@ export function getDosesForDate(medication: Medication, date: Date): ScheduledDo
     return doses; // Return empty array for dates before schedule start
   }
 
+  // On the first day, drop times before the moment the schedule began.
+  const startMoment = getScheduleStartMoment(medication);
+  if (startMoment && isSameDay(startMoment, targetDay)) {
+    return getDosesForScheduleDay(medication, date).filter((d) => d.time >= startMoment);
+  }
+  return getDosesForScheduleDay(medication, date);
+}
+
+function getDosesForScheduleDay(medication: Medication, date: Date): ScheduledDose[] {
   try {
     const config: ScheduleConfig = JSON.parse(medication.scheduleConfig);
 

@@ -115,6 +115,8 @@ This project is built with modern React Native technologies and best-in-class li
 
 ### UI & Styling
 
+The UI spec ("Pill Box" design) is [docs/DESIGN.md](docs/DESIGN.md); component reference in [components/ds/README.md](components/ds/README.md).
+
 - **[NativeWind](https://www.nativewind.dev/)** - Tailwind CSS for React Native, providing utility-first styling
 - **[React Native Reusables](https://reactnativereusables.com)** - Beautiful, accessible UI components bringing shadcn/ui to React Native
 - **[Lucide React Native](https://lucide.dev/)** - Beautiful and consistent icon library
@@ -204,6 +206,10 @@ After starting the development server, you can open the app on:
 > **Note**: Some features like notifications and biometric authentication require a physical device and cannot be fully tested in simulators or Expo Go.
 
 ### Building for Production
+
+For a standalone Android APK you can transfer directly to a phone, run
+`bun run build:apk`. See [Android testing instructions](docs/android-testing.md)
+for the local setup, output path, and installation steps.
 
 To create production builds:
 

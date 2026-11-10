@@ -1,5 +1,8 @@
 const { hairlineWidth } = require('nativewind/theme');
 
+const c = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+
+/** "Pill Box" tokens (docs/DESIGN.md §3) — keep in sync with lib/theme.ts and global.css. */
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: 'class',
@@ -8,61 +11,58 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
-        primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))',
-        },
-        secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))',
-        },
-        destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))',
-        },
-        muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))',
-        },
-        accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
-        },
-        popover: {
-          DEFAULT: 'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))',
-        },
-        card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))',
-        },
+        bg: c('bg'),
+        field: c('field'),
+        field2: c('field2'),
+        ink: c('ink'),
+        ink2: c('ink2'),
+        line: c('line'),
+        line2: c('line2'),
+        accent: c('accent'),
+        'on-accent': c('on-accent'),
+        done: c('done'),
+        'done-ink': c('done-ink'),
+        now: c('now'),
+        'now-ink': c('now-ink'),
+        late: c('late'),
+        danger: c('danger'),
+        'danger-soft': c('danger-soft'),
+        inverse: c('inverse'),
+        'on-inverse': c('on-inverse'),
+        backdrop: 'var(--backdrop)',
+      },
+      fontFamily: {
+        regular: ['AtkinsonHyperlegibleNext_400Regular'],
+        medium: ['AtkinsonHyperlegibleNext_500Medium'],
+        semibold: ['AtkinsonHyperlegibleNext_600SemiBold'],
+        bold: ['AtkinsonHyperlegibleNext_700Bold'],
+        extrabold: ['AtkinsonHyperlegibleNext_800ExtraBold'],
+      },
+      fontSize: {
+        display: ['46px', { lineHeight: '48px' }],
+        title1: ['34px', { lineHeight: '38px' }],
+        title2: ['28px', { lineHeight: '32px' }],
+        title3: ['22px', { lineHeight: '27px' }],
+        headline: ['19px', { lineHeight: '25px' }],
+        body: ['18px', { lineHeight: '25px' }],
+        callout: ['17px', { lineHeight: '23px' }],
+        subhead: ['16px', { lineHeight: '22px' }],
+        footnote: ['15px', { lineHeight: '20px' }],
+        caption: ['13px', { lineHeight: '18px' }],
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        card: '22px',
+        group: '20px',
+        field: '18px',
+        button: '16px',
+        tile: '14px',
+        sheet: '28px',
+      },
+      spacing: {
+        gutter: '20px',
       },
       borderWidth: {
         hairline: hairlineWidth(),
-      },
-      keyframes: {
-        'accordion-down': {
-          from: { height: '0' },
-          to: { height: 'var(--radix-accordion-content-height)' },
-        },
-        'accordion-up': {
-          from: { height: 'var(--radix-accordion-content-height)' },
-          to: { height: '0' },
-        },
-      },
-      animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out',
       },
     },
   },

@@ -95,8 +95,8 @@ describe('Schedule Validation', () => {
 
     it('should accept valid 24-hour times', () => {
       const times = ['00:00', '08:30', '12:00', '18:45', '23:59'];
-      
-      times.forEach(time => {
+
+      times.forEach((time) => {
         const config = {
           daysOn: 21,
           daysOff: 7,
@@ -127,11 +127,7 @@ describe('Schedule Validation', () => {
   describe('Multiple Daily Validation', () => {
     it('should validate correct configuration', () => {
       const config = {
-        times: [
-          { time: '08:00' },
-          { time: '14:00' },
-          { time: '20:00' },
-        ],
+        times: [{ time: '08:00' }, { time: '14:00' }, { time: '20:00' }],
       };
       const result = validateScheduleConfig('multiple_daily', config);
       expect(result.success).toBe(true);
@@ -294,6 +290,61 @@ describe('Schedule Validation', () => {
       };
       const result = validateScheduleConfig('tapering', config);
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe('allowPastStartDate option', () => {
+    const past = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const everyXDays = { intervalDays: 2, startDate: past, time: '08:00' };
+    const cycle = { daysOn: 21, daysOff: 7, cycleStartDate: past, time: '20:00' };
+    const tapering = {
+      startDose: 4,
+      decrementAmount: 1,
+      decrementIntervalDays: 7,
+      startDate: past,
+      time: '09:00',
+    };
+
+    it('rejects a past start date by default (backward compatible)', () => {
+      expect(validateScheduleConfig('every_x_days', everyXDays).error).toBe(
+        'Start date cannot be in the past'
+      );
+      expect(validateScheduleConfig('cycle', cycle).error).toBe(
+        'Cycle start date cannot be in the past'
+      );
+      expect(validateScheduleConfig('tapering', tapering).success).toBe(false);
+      expect(
+        validateScheduleConfig('every_x_days', everyXDays, { allowPastStartDate: false }).success
+      ).toBe(false);
+      expect(validateScheduleConfig('cycle', cycle, {}).success).toBe(false);
+    });
+
+    it('accepts a past start date when allowed', () => {
+      const opts = { allowPastStartDate: true };
+      expect(validateScheduleConfig('every_x_days', everyXDays, opts)).toEqual({ success: true });
+      expect(validateScheduleConfig('cycle', cycle, opts)).toEqual({ success: true });
+      expect(validateScheduleConfig('tapering', tapering, opts)).toEqual({ success: true });
+    });
+
+    it('still enforces every other rule when allowed', () => {
+      const opts = { allowPastStartDate: true };
+      expect(
+        validateScheduleConfig('every_x_days', { ...everyXDays, intervalDays: 0 }, opts).success
+      ).toBe(false);
+      expect(
+        validateScheduleConfig('every_x_days', { ...everyXDays, startDate: 'not a date' }, opts)
+          .success
+      ).toBe(false);
+      expect(validateScheduleConfig('cycle', { ...cycle, time: '25:00' }, opts).success).toBe(
+        false
+      );
+      expect(validateScheduleConfig('cycle', { ...cycle, daysOn: 0 }, opts).success).toBe(false);
+      expect(
+        validateScheduleConfig('tapering', { ...tapering, decrementAmount: 0 }, opts).success
+      ).toBe(false);
+      expect(validateScheduleConfig('once_daily', { time: 'x' }, opts).success).toBe(false);
+      expect(validateScheduleConfig('unknown', {}, opts).error).toBe('Invalid schedule type');
     });
   });
 });

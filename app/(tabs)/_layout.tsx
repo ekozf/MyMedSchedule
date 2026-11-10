@@ -1,46 +1,26 @@
 import { Tabs } from 'expo-router';
-import { HomeIcon, PillIcon, ClockIcon, SettingsIcon } from 'lucide-react-native';
-import { useColorScheme } from 'nativewind';
 import i18n from '@/lib/i18n';
+import { useTheme } from '@/lib/theme';
+import { TabBar } from '@/components/shell/TabBar';
+import { SupplyNudgeHost } from '@/components/medicines/SupplyNudge';
 
 export default function TabLayout() {
-  const { colorScheme } = useColorScheme();
-  const iconColor = colorScheme === 'dark' ? '#fff' : '#000';
-
+  const { colors } = useTheme();
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#3b82f6',
-        headerShown: false,
-      }}>
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: i18n.t('tabs.dashboard'),
-          tabBarIcon: ({ color }) => <HomeIcon size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="medications"
-        options={{
-          title: i18n.t('tabs.medications'),
-          tabBarIcon: ({ color }) => <PillIcon size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: i18n.t('tabs.history'),
-          tabBarIcon: ({ color }) => <ClockIcon size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: i18n.t('tabs.settings'),
-          tabBarIcon: ({ color }) => <SettingsIcon size={24} color={color} />,
-        }}
-      />
-    </Tabs>
+    <>
+      <Tabs
+        tabBar={(props) => <TabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+          sceneStyle: { backgroundColor: colors.bg },
+        }}>
+        <Tabs.Screen name="dashboard" options={{ title: i18n.t('ui.shell.tabs.today') }} />
+        <Tabs.Screen name="medications" options={{ title: i18n.t('ui.shell.tabs.medicines') }} />
+        <Tabs.Screen name="history" options={{ title: i18n.t('ui.shell.tabs.journal') }} />
+        <Tabs.Screen name="you" options={{ title: i18n.t('ui.shell.tabs.you') }} />
+      </Tabs>
+      {/* "Count my supply" after adding a medicine (the add flow returns to these screens). */}
+      <SupplyNudgeHost />
+    </>
   );
 }

@@ -217,11 +217,30 @@ export const medicationSchema = medicationBasicSchema
     isPrn: z.boolean().optional(),
   });
 
+// Relaxed variants that accept a start date in the past. Used when editing an existing medication
+// whose (unchanged) start date has already passed; every other rule stays identical.
+const everyXDaysConfigSchemaAllowPast = everyXDaysConfigSchema.extend({
+  startDate: z.string().datetime('Please select a valid start date'),
+});
+const cycleConfigSchemaAllowPast = cycleConfigSchema.extend({
+  cycleStartDate: z.string().datetime('Please select a valid start date for the medication cycle'),
+});
+const taperingConfigSchemaAllowPast = taperingConfigSchema.extend({
+  startDate: z.string().datetime('Please select a valid start date'),
+});
+
+export interface ValidateScheduleConfigOptions {
+  /** Accept a start date before today (edit screen, start date unchanged). Default false. */
+  allowPastStartDate?: boolean;
+}
+
 // Validate schedule config based on type
 export function validateScheduleConfig(
   scheduleType: string,
-  config: any
+  config: any,
+  options?: ValidateScheduleConfigOptions
 ): { success: boolean; error?: string } {
+  const allowPast = options?.allowPastStartDate === true;
   try {
     switch (scheduleType) {
       case 'once_daily':
@@ -231,7 +250,7 @@ export function validateScheduleConfig(
         multipleDailyConfigSchema.parse(config);
         break;
       case 'every_x_days':
-        everyXDaysConfigSchema.parse(config);
+        (allowPast ? everyXDaysConfigSchemaAllowPast : everyXDaysConfigSchema).parse(config);
         break;
       case 'specific_weekdays':
         specificWeekdaysConfigSchema.parse(config);
@@ -240,13 +259,13 @@ export function validateScheduleConfig(
         xthWeekdayConfigSchema.parse(config);
         break;
       case 'cycle':
-        cycleConfigSchema.parse(config);
+        (allowPast ? cycleConfigSchemaAllowPast : cycleConfigSchema).parse(config);
         break;
       case 'every_x_hours':
         everyXHoursConfigSchema.parse(config);
         break;
       case 'tapering':
-        taperingConfigSchema.parse(config);
+        (allowPast ? taperingConfigSchemaAllowPast : taperingConfigSchema).parse(config);
         break;
       case 'prn':
         prnConfigSchema.parse(config);

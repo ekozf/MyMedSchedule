@@ -51,6 +51,7 @@ export async function initDatabase() {
       id TEXT PRIMARY KEY,
       profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
       name TEXT NOT NULL,
+      strength TEXT,
       image_uri TEXT,
       notes TEXT,
       dosage_amount REAL NOT NULL,
@@ -58,6 +59,7 @@ export async function initDatabase() {
       schedule_type TEXT NOT NULL,
       schedule_config TEXT NOT NULL,
       inventory_count REAL DEFAULT 0,
+      track_supply INTEGER DEFAULT 1,
       package_size REAL,
       max_daily_dose REAL,
       min_hours_between_doses REAL,
@@ -68,6 +70,7 @@ export async function initDatabase() {
       is_active INTEGER DEFAULT 1,
       is_prn INTEGER DEFAULT 0,
       schedule_start_date TEXT,
+      schedule_start_exact INTEGER DEFAULT 0,
       next_dose_override_time TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -94,6 +97,17 @@ export async function initDatabase() {
       updated_at TEXT NOT NULL
     );
     
+    CREATE TABLE IF NOT EXISTS inventory_adjustments (
+      id TEXT PRIMARY KEY,
+      medication_id TEXT NOT NULL REFERENCES medications(id) ON DELETE CASCADE,
+      adjustment_type TEXT NOT NULL,
+      amount REAL NOT NULL,
+      previous_count REAL NOT NULL,
+      new_count REAL NOT NULL,
+      reason TEXT,
+      created_at TEXT NOT NULL
+    );
+    
     CREATE TABLE IF NOT EXISTS disclaimer_acknowledgments (
       id TEXT PRIMARY KEY,
       profile_id TEXT REFERENCES profiles(id) ON DELETE CASCADE,
@@ -107,20 +121,38 @@ export async function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_intake_logs_medication ON intake_logs(medication_id);
     CREATE INDEX IF NOT EXISTS idx_intake_logs_profile ON intake_logs(profile_id);
     CREATE INDEX IF NOT EXISTS idx_intake_logs_time ON intake_logs(actual_time);
+    CREATE INDEX IF NOT EXISTS idx_inventory_adjustments_medication
+      ON inventory_adjustments(medication_id, created_at);
   `);
 
   // Migration: Add new columns if they don't exist (for existing databases)
   // SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we check column existence first
   try {
-    const stmt = db.prepareSync(`PRAGMA table_info(medications)`);
-    const tableInfo = (stmt as any).allSync();
-    const columns = tableInfo.map((row: any) => row.name);
+    const tableInfo = db.getAllSync<{ name: string }>('PRAGMA table_info(medications)');
+    const columns = tableInfo.map((row) => row.name);
 
     if (!columns.includes('schedule_start_date')) {
       db.execSync(`ALTER TABLE medications ADD COLUMN schedule_start_date TEXT`);
     }
+    if (!columns.includes('schedule_start_exact')) {
+      db.execSync(`ALTER TABLE medications ADD COLUMN schedule_start_exact INTEGER DEFAULT 0`);
+    }
     if (!columns.includes('next_dose_override_time')) {
       db.execSync(`ALTER TABLE medications ADD COLUMN next_dose_override_time TEXT`);
+    }
+    if (!columns.includes('strength')) {
+      db.execSync(`ALTER TABLE medications ADD COLUMN strength TEXT`);
+    }
+    if (!columns.includes('track_supply')) {
+      // Existing medicines keep tracking (the old behaviour); the editor turns it off.
+      db.execSync(`ALTER TABLE medications ADD COLUMN track_supply INTEGER DEFAULT 1`);
+    }
+    const adjustmentInfo = db.getAllSync<{ name: string }>(
+      'PRAGMA table_info(inventory_adjustments)'
+    );
+    const adjustmentColumns = adjustmentInfo.map((row) => row.name);
+    if (adjustmentColumns.length && !adjustmentColumns.includes('reason')) {
+      db.execSync(`ALTER TABLE inventory_adjustments ADD COLUMN reason TEXT`);
     }
   } catch (error) {
     // If migration fails, columns might already exist or table doesn't exist yet - that's okay

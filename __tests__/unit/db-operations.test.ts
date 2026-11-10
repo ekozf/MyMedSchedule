@@ -137,7 +137,64 @@ describe('DB Operations - Medications', () => {
       const updateCall = mockUpdate.mock.calls[0][0];
       const setCall = mockUpdate().set.mock.calls[0][0];
       expect(setCall.scheduleStartDate).toBeDefined();
+      expect(setCall.scheduleStartExact).toBe(false);
       expect(setCall.nextDoseOverrideTime).toBeNull();
+    });
+
+    function mockUpdateDb() {
+      const existingMed = {
+        id: 'med-1',
+        scheduleType: 'multiple_daily',
+        scheduleConfig: JSON.stringify({ times: [{ time: '08:00' }, { time: '12:00' }] }),
+        scheduleStartDate: '2026-02-01T10:00:00.000Z',
+        createdAt: '2026-02-01T10:00:00.000Z',
+        updatedAt: '2026-02-01T10:00:00.000Z',
+      };
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([existingMed]),
+          }),
+        }),
+      });
+      const set = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+      mockDb.update = vi.fn().mockReturnValue({ set });
+      return set;
+    }
+
+    it("starts an edited schedule exactly now with scheduleStart 'now'", async () => {
+      const set = mockUpdateDb();
+      const before = Date.now();
+      await updateMedication('med-1', {
+        scheduleType: 'multiple_daily',
+        scheduleConfig: { times: [{ time: '08:00' }, { time: '20:00' }] },
+        scheduleStart: 'now',
+      });
+      const data = set.mock.calls[0][0];
+      expect(data.scheduleStartExact).toBe(true);
+      expect(new Date(data.scheduleStartDate).getTime()).toBeGreaterThanOrEqual(before);
+    });
+
+    it("keeps the start and a moved dose with scheduleStart 'keep'", async () => {
+      const set = mockUpdateDb();
+      await updateMedication('med-1', {
+        scheduleType: 'multiple_daily',
+        scheduleConfig: { times: [{ time: '08:00', dosageAmount: 2 }, { time: '12:00' }] },
+        scheduleStart: 'keep',
+      });
+      const data = set.mock.calls[0][0];
+      expect(data.scheduleConfig).toContain('dosageAmount');
+      expect(data).not.toHaveProperty('scheduleStartDate');
+      expect(data).not.toHaveProperty('scheduleStartExact');
+      expect(data).not.toHaveProperty('nextDoseOverrideTime');
+    });
+
+    it('does not touch the start for name or amount edits', async () => {
+      const set = mockUpdateDb();
+      await updateMedication('med-1', { name: 'Other', dosageAmount: 2 });
+      const data = set.mock.calls[0][0];
+      expect(data).not.toHaveProperty('scheduleStartDate');
+      expect(data).not.toHaveProperty('scheduleStartExact');
     });
   });
 
@@ -353,6 +410,148 @@ describe('DB Operations - Medications', () => {
 
       expect(mockDb.update).not.toHaveBeenCalled();
       expect(mockDb.insert).not.toHaveBeenCalled();
+    });
+
+    it('logs anyway and floors the supply at 0 with allowShortSupply', async () => {
+      const mockUpdateWhere = vi.fn().mockResolvedValue(undefined);
+      const mockUpdateSet = vi.fn().mockReturnValue({ where: mockUpdateWhere });
+      const mockInsertValues = vi.fn().mockResolvedValue(undefined);
+      mockDb.update = vi.fn().mockReturnValue({ set: mockUpdateSet });
+      mockDb.insert = vi.fn().mockReturnValue({ values: mockInsertValues });
+
+      const medRow = {
+        id: 'med-1',
+        profileId: 'profile-1',
+        name: 'Test Med',
+        dosageAmount: 1,
+        dosageUnit: 'pills',
+        scheduleType: 'prn',
+        scheduleConfig: '{}',
+        inventoryCount: 0,
+        bypassDnd: false,
+        isActive: true,
+        isPrn: true,
+        createdAt: new Date('2026-02-01T00:00:00').toISOString(),
+        updatedAt: new Date('2026-02-01T00:00:00').toISOString(),
+      };
+      mockDb.select = vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([medRow]),
+          }),
+        }),
+      });
+
+      const { log } = await createIntakeLogAndUpdateInventory(
+        {
+          medicationId: 'med-1',
+          profileId: 'profile-1',
+          scheduledTime: undefined,
+          actualTime: new Date(),
+          action: 'taken',
+          dosageAmount: 1,
+        },
+        { allowShortSupply: true }
+      );
+
+      expect(log.action).toBe('taken');
+      expect(mockUpdateSet).toHaveBeenCalledWith(expect.objectContaining({ inventoryCount: 0 }));
+      expect(mockInsertValues).toHaveBeenCalled();
+    });
+  });
+
+  describe('DB Operations - strength and untracked supply', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    const selectReturning = (rows: any[]) =>
+      vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue(rows) }),
+        }),
+      });
+
+    const baseRow = {
+      id: 'med-1',
+      profileId: 'profile-1',
+      name: 'Metformin',
+      dosageAmount: 1,
+      dosageUnit: 'pills',
+      scheduleType: 'prn',
+      scheduleConfig: '{}',
+      inventoryCount: 0,
+      bypassDnd: false,
+      isActive: true,
+      isPrn: true,
+      createdAt: new Date('2026-02-01T00:00:00').toISOString(),
+      updatedAt: new Date('2026-02-01T00:00:00').toISOString(),
+    };
+
+    it('creates a medicine with a trimmed strength and trackSupply', async () => {
+      const values = vi.fn().mockResolvedValue(undefined);
+      mockDb.insert = vi.fn().mockReturnValue({ values });
+      const med = await createMedication({
+        profileId: 'profile-1',
+        name: 'Metformin',
+        strength: ' 500 mg ',
+        dosageAmount: 1,
+        dosageUnit: 'pills',
+        scheduleType: 'once_daily',
+        scheduleConfig: { time: '08:00' },
+        trackSupply: false,
+      });
+      expect(values.mock.calls[0][0]).toMatchObject({ strength: '500 mg', trackSupply: false });
+      expect(med.strength).toBe('500 mg');
+      expect(med.trackSupply).toBe(false);
+    });
+
+    it('defaults trackSupply to true and reads old rows as tracked', async () => {
+      const values = vi.fn().mockResolvedValue(undefined);
+      mockDb.insert = vi.fn().mockReturnValue({ values });
+      await createMedication({
+        profileId: 'profile-1',
+        name: 'A',
+        dosageAmount: 1,
+        dosageUnit: 'pills',
+        scheduleType: 'once_daily',
+        scheduleConfig: { time: '08:00' },
+      });
+      expect(values.mock.calls[0][0].trackSupply).toBe(true);
+
+      mockDb.select = selectReturning([{ ...baseRow, trackSupply: null }]);
+      expect((await getMedicationById('med-1'))?.trackSupply).toBe(true);
+      mockDb.select = selectReturning([{ ...baseRow, trackSupply: 0 }]);
+      expect((await getMedicationById('med-1'))?.trackSupply).toBe(false);
+    });
+
+    it('updates strength (cleared with an empty value) and trackSupply', async () => {
+      mockDb.select = selectReturning([{ ...baseRow }]);
+      const set = vi.fn().mockReturnValue({ where: vi.fn().mockResolvedValue(undefined) });
+      mockDb.update = vi.fn().mockReturnValue({ set });
+      await updateMedication('med-1', { strength: '  ', trackSupply: true });
+      expect(set.mock.calls[0][0]).toMatchObject({ strength: null, trackSupply: true });
+    });
+
+    it('logs a dose without touching an untracked supply (and never throws at 0)', async () => {
+      mockDb.select = selectReturning([{ ...baseRow, trackSupply: false }]);
+      const insertValues = vi.fn().mockResolvedValue(undefined);
+      mockDb.insert = vi.fn().mockReturnValue({ values: insertValues });
+      mockDb.update = vi.fn();
+
+      const { log, updatedMedication } = await createIntakeLogAndUpdateInventory({
+        medicationId: 'med-1',
+        profileId: 'profile-1',
+        scheduledTime: undefined,
+        actualTime: new Date(),
+        action: 'taken',
+        dosageAmount: 2,
+      });
+
+      expect(log.action).toBe('taken');
+      expect(insertValues).toHaveBeenCalled();
+      expect(mockDb.update).not.toHaveBeenCalled();
+      expect(updatedMedication).toBeNull();
     });
   });
 });

@@ -1,107 +1,139 @@
-import { View, ScrollView, RefreshControl } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
-import { MedicationCard } from '@/components/medication/MedicationCard';
-import { ProfileSwitcher } from '@/components/profile/ProfileSwitcher';
-import { Link, router } from 'expo-router';
-import { PlusIcon, Pill } from 'lucide-react-native';
-import { Icon } from '@/components/ui/icon';
-import { useStore } from '@/store';
-import { useState, useEffect } from 'react';
+/**
+ * Medicines tab (docs/DESIGN.md §5.3): "+ Add" in the header, "Medicines" with "4 regular · 1 when
+ * needed" (title and "+ Add" on one row), the cards in Regular / When needed / Stopped sections.
+ * A search field appears once the list gets long. Empty: one sentence and "Add a medicine".
+ */
+import * as React from 'react';
+import { RefreshControl, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { Search, X } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useStore } from '@/store';
+import {
+  EmptyState,
+  HeaderTextAction,
+  Icon,
+  IconButton,
+  Screen,
+  TabHeader,
+  TextField,
+  useTheme,
+} from '@/components/ds';
+import { MedicineList, groupMedicines } from '@/components/medicines/MedicineList';
+import { ProfileChip } from '@/components/shell/ProfileChip';
 
-export default function MedicationsScreen() {
-  const insets = useSafeAreaInsets();
-  const { medications, activeProfile, loadMedications } = useStore();
-  const [refreshing, setRefreshing] = useState(false);
+/** Show the search field once the list gets long. */
+const SEARCH_THRESHOLD = 8;
 
-  const sortedMedications = [...medications].sort((a, b) => {
-    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
-    return a.name.localeCompare(b.name);
-  });
+export default function MedicinesScreen() {
+  const { colors } = useTheme();
+  const medications = useStore((s) => s.medications);
+  const profileId = useStore((s) => s.activeProfile?.id);
+  const loadMedications = useStore((s) => s.loadMedications);
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [query, setQuery] = React.useState('');
 
-  useEffect(() => {
-    if (activeProfile) {
-      loadMedications(activeProfile.id);
-    }
-  }, [activeProfile]);
+  // Reload on focus (e.g. back from add/edit) and whenever the active profile changes.
+  useFocusEffect(
+    React.useCallback(() => {
+      if (profileId) loadMedications(profileId);
+    }, [profileId, loadMedications])
+  );
 
-  const onRefresh = async () => {
-    if (!activeProfile) return;
-
+  const onRefresh = React.useCallback(async () => {
+    if (!profileId) return;
     setRefreshing(true);
     try {
-      await loadMedications(activeProfile.id);
+      await loadMedications(profileId);
     } finally {
       setRefreshing(false);
     }
-  };
+  }, [profileId, loadMedications]);
 
-  const handleMedicationPress = (medicationId: string) => {
-    router.push(`/medication/${medicationId}`);
-  };
+  const groups = React.useMemo(() => groupMedicines(medications), [medications]);
+  const subtitle = [
+    groups.regular.length
+      ? i18n.t('ui.medicines.list.regular', { count: groups.regular.length })
+      : null,
+    groups.whenNeeded.length
+      ? i18n.t('ui.medicines.list.whenNeeded', { count: groups.whenNeeded.length })
+      : null,
+    groups.stopped.length
+      ? i18n.t('ui.medicines.list.stopped', { count: groups.stopped.length })
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const empty = medications.length === 0;
+  const showSearch = medications.length > SEARCH_THRESHOLD;
+  const addMedicine = () => router.push('/medication/add');
 
   return (
-    <View className="flex-1 bg-background">
-      {/* Header with Profile Switcher */}
-      <View className="border-b border-border px-4 pb-2" style={{ paddingTop: insets.top + 16 }}>
-        <ProfileSwitcher />
-      </View>
-
-      <ScrollView
-        className="flex-1 p-4"
-        contentContainerStyle={{ paddingBottom: insets.bottom + 96 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
-        {medications.length === 0 ? (
-          <View className="mt-20 items-center justify-center">
-            <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-muted">
-              <Pill size={40} className="text-muted-foreground" />
-            </View>
-            <Text className="mb-2 text-lg font-semibold text-foreground">
-              {i18n.t('medications.noMedications')}
-            </Text>
-            <Text className="mb-6 text-center text-sm text-muted-foreground">
-              {i18n.t('medications.startAddingPrompt')}
-            </Text>
-            <Link href="/medication/add" asChild>
-              <Button>
-                <PlusIcon size={20} className="mr-2 text-primary-foreground" />
-                <Text className="font-semibold text-primary-foreground">
-                  {i18n.t('medications.addNew')}
-                </Text>
-              </Button>
-            </Link>
-          </View>
-        ) : (
+    <Screen
+      bottomInset="tabBar"
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.accent}
+          colors={[colors.accent]}
+        />
+      }>
+      <TabHeader
+        title={i18n.t('ui.medicines.title')}
+        subtitle={subtitle || undefined}
+        rightInline
+        right={
           <>
-            <Text className="mb-4 text-sm text-muted-foreground">
-              {medications.length}{' '}
-              {medications.length === 1
-                ? i18n.t('medications.medicationSingular')
-                : i18n.t('medications.medicationPlural')}
-            </Text>
-            {sortedMedications.map((medication) => (
-              <MedicationCard
-                key={medication.id}
-                medication={medication}
-                onPress={() => handleMedicationPress(medication.id)}
+            <ProfileChip />
+            {empty ? null : (
+              <HeaderTextAction
+                label={i18n.t('ui.medicines.list.add')}
+                accessibilityLabel={i18n.t('ui.medicines.a11y.addMedicine')}
+                onPress={addMedicine}
               />
-            ))}
+            )}
           </>
-        )}
-      </ScrollView>
+        }
+      />
 
-      {/* Floating action button */}
-      {medications.length > 0 && (
-        <View className="absolute bottom-6 right-6">
-          <Link href="/medication/add" asChild>
-            <Button size="lg" className="h-14 w-14 rounded-full shadow-lg">
-              <Icon as={PlusIcon} className="text-primary-foreground" size={24} />
-            </Button>
-          </Link>
+      {empty ? (
+        <EmptyState
+          title={i18n.t('ui.medicines.empty.title')}
+          message={i18n.t('ui.medicines.empty.message')}
+          action={{ label: i18n.t('ui.medicines.addMedicine'), onPress: addMedicine }}
+        />
+      ) : (
+        <View style={{ gap: 16 }}>
+          {showSearch ? (
+            <TextField
+              value={query}
+              onChangeText={setQuery}
+              placeholder={i18n.t('ui.medicines.search.placeholder')}
+              accessibilityLabel={i18n.t('ui.medicines.search.placeholder')}
+              returnKeyType="search"
+              autoCorrect={false}
+              leading={<Icon as={Search} size={22} tone="secondary" />}
+              trailing={
+                query ? (
+                  <IconButton
+                    icon={X}
+                    size="sm"
+                    variant="plain"
+                    accessibilityLabel={i18n.t('ui.medicines.search.clear')}
+                    onPress={() => setQuery('')}
+                  />
+                ) : null
+              }
+            />
+          ) : null}
+          <MedicineList
+            medications={medications}
+            query={showSearch ? query : ''}
+            onOpen={(m) => router.push(`/medication/${m.id}`)}
+          />
         </View>
       )}
-    </View>
+    </Screen>
   );
 }

@@ -4,11 +4,14 @@ import * as SecureStore from 'expo-secure-store';
 import en from './locales/en';
 import tr from './locales/tr';
 import nl from './locales/nl';
+import { uiEn, uiNl, uiTr } from './locales/ui';
 
+// Redesign strings live under the `ui` namespace: i18n.t('ui.<fragment>.<key>')
+// (see lib/i18n/locales/ui/index.ts). nl/tr are pre-merged over English.
 const i18n = new I18n({
-  en,
-  tr,
-  nl,
+  en: { ...en, ui: uiEn },
+  tr: { ...tr, ui: uiTr },
+  nl: { ...nl, ui: uiNl },
 });
 
 // We'll set the locale after loading saved preference
@@ -17,24 +20,17 @@ i18n.defaultLocale = 'en';
 
 const LANGUAGE_STORAGE_KEY = 'user_language';
 
-// Enable pluralization
-i18n.pluralization.register('en', ((count: number) => {
-  if (count === 0) return 'zero';
-  if (count === 1) return 'one';
-  return 'other';
-}) as any);
+// Enable pluralization. A pluralizer returns the candidate keys in priority order, so a count of 0
+// uses `zero` when a translation defines it and falls back to `other` otherwise.
+const zeroOneOther = ((_i18n: unknown, count: number) => {
+  if (count === 0) return ['zero', 'other'];
+  if (count === 1) return ['one', 'other'];
+  return ['other'];
+}) as any;
 
-i18n.pluralization.register('tr', ((count: number) => {
-  if (count === 0) return 'zero';
-  if (count === 1) return 'one';
-  return 'other';
-}) as any);
-
-i18n.pluralization.register('nl', ((count: number) => {
-  if (count === 0) return 'zero';
-  if (count === 1) return 'one';
-  return 'other';
-}) as any);
+i18n.pluralization.register('en', zeroOneOther);
+i18n.pluralization.register('tr', zeroOneOther);
+i18n.pluralization.register('nl', zeroOneOther);
 
 // Helper function to change locale and notify listeners
 let localeChangeListeners: Array<() => void> = [];

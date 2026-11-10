@@ -2,7 +2,13 @@ import { eq, and, desc, asc } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
 import { startOfDay } from 'date-fns';
 import { getDatabase } from './index';
-import { profiles, medications, intakeLogs, disclaimerAcknowledgments } from './schema';
+import {
+  profiles,
+  medications,
+  intakeLogs,
+  inventoryAdjustments,
+  disclaimerAcknowledgments,
+} from './schema';
 import type { Profile, ProfileSettings, Medication, IntakeLog } from '@/types';
 
 export class InventoryInsufficientError extends Error {
@@ -208,6 +214,7 @@ export async function setActiveProfile(id: string): Promise<boolean> {
 export interface CreateMedicationInput {
   profileId: string;
   name: string;
+  strength?: string;
   imageUri?: string;
   notes?: string;
   dosageAmount: number;
@@ -215,6 +222,8 @@ export interface CreateMedicationInput {
   scheduleType: string;
   scheduleConfig: any; // Will be stringified
   inventoryCount?: number;
+  /** Default true. */
+  trackSupply?: boolean;
   packageSize?: number;
   maxDailyDose?: number;
   minHoursBetweenDoses?: number;
@@ -227,6 +236,8 @@ export interface CreateMedicationInput {
 
 export interface UpdateMedicationInput {
   name?: string;
+  /** `null` or `''` removes it. */
+  strength?: string | null;
   imageUri?: string;
   notes?: string;
   dosageAmount?: number;
@@ -234,15 +245,63 @@ export interface UpdateMedicationInput {
   scheduleType?: string;
   scheduleConfig?: any;
   inventoryCount?: number;
+  trackSupply?: boolean;
   packageSize?: number;
   maxDailyDose?: number;
   minHoursBetweenDoses?: number;
-  expirationDate?: Date;
+  /** `null` removes a stored expiration date. */
+  expirationDate?: Date | null;
   refillReminderType?: 'days' | 'doses' | null;
   refillReminderValue?: number | null;
   bypassDnd?: boolean;
   isActive?: boolean;
   isPrn?: boolean;
+  /**
+   * How a schedule change (scheduleType / scheduleConfig) moves the schedule start:
+   * - 'now': the new schedule starts at this moment; times earlier today are not generated.
+   * - 'keep': only amounts changed; the start and a moved next dose stay as they were.
+   * - default: the start of today (doses logged earlier today keep showing).
+   */
+  scheduleStart?: 'now' | 'keep';
+}
+
+function cleanStrength(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+type MedicationRow = typeof medications.$inferSelect;
+
+function rowToMedication(med: MedicationRow): Medication {
+  return {
+    id: med.id,
+    profileId: med.profileId,
+    name: med.name,
+    strength: med.strength || undefined,
+    imageUri: med.imageUri || undefined,
+    notes: med.notes || undefined,
+    dosageAmount: med.dosageAmount,
+    dosageUnit: med.dosageUnit as any,
+    scheduleType: med.scheduleType as any,
+    scheduleConfig: med.scheduleConfig,
+    inventoryCount: med.inventoryCount ?? 0,
+    // SQLite stores 0/1; rows written before the column existed read as tracked.
+    trackSupply: med.trackSupply == null ? true : Boolean(med.trackSupply),
+    packageSize: med.packageSize || undefined,
+    maxDailyDose: med.maxDailyDose || undefined,
+    minHoursBetweenDoses: med.minHoursBetweenDoses || undefined,
+    expirationDate: med.expirationDate ? new Date(med.expirationDate) : undefined,
+    refillReminderType: med.refillReminderType as any,
+    refillReminderValue: med.refillReminderValue || undefined,
+    bypassDnd: med.bypassDnd ?? false,
+    isActive: med.isActive ?? true,
+    isPrn: med.isPrn ?? false,
+    scheduleStartDate: med.scheduleStartDate ? new Date(med.scheduleStartDate) : undefined,
+    scheduleStartExact: Boolean(med.scheduleStartExact),
+    nextDoseOverrideTime: med.nextDoseOverrideTime ? new Date(med.nextDoseOverrideTime) : undefined,
+    createdAt: new Date(med.createdAt),
+    updatedAt: new Date(med.updatedAt),
+  };
 }
 
 // Helper to calculate scheduleStartDate from schedule config
@@ -284,6 +343,7 @@ export async function createMedication(input: CreateMedicationInput): Promise<Me
     id,
     profileId: input.profileId,
     name: input.name,
+    strength: cleanStrength(input.strength) ?? null,
     imageUri: input.imageUri,
     notes: input.notes,
     dosageAmount: input.dosageAmount,
@@ -291,6 +351,7 @@ export async function createMedication(input: CreateMedicationInput): Promise<Me
     scheduleType: input.scheduleType,
     scheduleConfig: JSON.stringify(input.scheduleConfig),
     inventoryCount: input.inventoryCount ?? 0,
+    trackSupply: input.trackSupply ?? true,
     packageSize: input.packageSize,
     maxDailyDose: input.maxDailyDose,
     minHoursBetweenDoses: input.minHoursBetweenDoses,
@@ -312,6 +373,7 @@ export async function createMedication(input: CreateMedicationInput): Promise<Me
     id,
     profileId: input.profileId,
     name: input.name,
+    strength: cleanStrength(input.strength),
     imageUri: input.imageUri,
     notes: input.notes,
     dosageAmount: input.dosageAmount,
@@ -319,6 +381,7 @@ export async function createMedication(input: CreateMedicationInput): Promise<Me
     scheduleType: input.scheduleType as any,
     scheduleConfig: JSON.stringify(input.scheduleConfig),
     inventoryCount: input.inventoryCount ?? 0,
+    trackSupply: input.trackSupply ?? true,
     packageSize: input.packageSize,
     maxDailyDose: input.maxDailyDose,
     minHoursBetweenDoses: input.minHoursBetweenDoses,
@@ -341,32 +404,7 @@ export async function getMedicationById(id: string): Promise<Medication | null> 
 
   if (result.length === 0) return null;
 
-  const med = result[0];
-  return {
-    id: med.id,
-    profileId: med.profileId,
-    name: med.name,
-    imageUri: med.imageUri || undefined,
-    notes: med.notes || undefined,
-    dosageAmount: med.dosageAmount,
-    dosageUnit: med.dosageUnit as any,
-    scheduleType: med.scheduleType as any,
-    scheduleConfig: med.scheduleConfig,
-    inventoryCount: med.inventoryCount ?? 0,
-    packageSize: med.packageSize || undefined,
-    maxDailyDose: med.maxDailyDose || undefined,
-    minHoursBetweenDoses: med.minHoursBetweenDoses || undefined,
-    expirationDate: med.expirationDate ? new Date(med.expirationDate) : undefined,
-    refillReminderType: med.refillReminderType as any,
-    refillReminderValue: med.refillReminderValue || undefined,
-    bypassDnd: med.bypassDnd ?? false,
-    isActive: med.isActive ?? true,
-    isPrn: med.isPrn ?? false,
-    scheduleStartDate: med.scheduleStartDate ? new Date(med.scheduleStartDate) : undefined,
-    nextDoseOverrideTime: med.nextDoseOverrideTime ? new Date(med.nextDoseOverrideTime) : undefined,
-    createdAt: new Date(med.createdAt),
-    updatedAt: new Date(med.updatedAt),
-  };
+  return rowToMedication(result[0]);
 }
 
 export async function getMedicationsByProfile(
@@ -386,31 +424,7 @@ export async function getMedicationsByProfile(
 
   const result = await query.orderBy(asc(medications.name));
 
-  return result.map((med) => ({
-    id: med.id,
-    profileId: med.profileId,
-    name: med.name,
-    imageUri: med.imageUri || undefined,
-    notes: med.notes || undefined,
-    dosageAmount: med.dosageAmount,
-    dosageUnit: med.dosageUnit as any,
-    scheduleType: med.scheduleType as any,
-    scheduleConfig: med.scheduleConfig,
-    inventoryCount: med.inventoryCount ?? 0,
-    packageSize: med.packageSize || undefined,
-    maxDailyDose: med.maxDailyDose || undefined,
-    minHoursBetweenDoses: med.minHoursBetweenDoses || undefined,
-    expirationDate: med.expirationDate ? new Date(med.expirationDate) : undefined,
-    refillReminderType: med.refillReminderType as any,
-    refillReminderValue: med.refillReminderValue || undefined,
-    bypassDnd: med.bypassDnd ?? false,
-    isActive: med.isActive ?? true,
-    isPrn: med.isPrn ?? false,
-    scheduleStartDate: med.scheduleStartDate ? new Date(med.scheduleStartDate) : undefined,
-    nextDoseOverrideTime: med.nextDoseOverrideTime ? new Date(med.nextDoseOverrideTime) : undefined,
-    createdAt: new Date(med.createdAt),
-    updatedAt: new Date(med.updatedAt),
-  }));
+  return result.map(rowToMedication);
 }
 
 export async function updateMedication(
@@ -432,6 +446,8 @@ export async function updateMedication(
   const scheduleChanged = input.scheduleType !== undefined || input.scheduleConfig !== undefined;
 
   if (input.name !== undefined) updateData.name = input.name;
+  if (input.strength !== undefined) updateData.strength = cleanStrength(input.strength) ?? null;
+  if (input.trackSupply !== undefined) updateData.trackSupply = input.trackSupply;
   if (input.imageUri !== undefined) updateData.imageUri = input.imageUri;
   if (input.notes !== undefined) updateData.notes = input.notes;
   if (input.dosageAmount !== undefined) updateData.dosageAmount = input.dosageAmount;
@@ -445,7 +461,7 @@ export async function updateMedication(
   if (input.minHoursBetweenDoses !== undefined)
     updateData.minHoursBetweenDoses = input.minHoursBetweenDoses;
   if (input.expirationDate !== undefined)
-    updateData.expirationDate = input.expirationDate?.toISOString();
+    updateData.expirationDate = input.expirationDate ? input.expirationDate.toISOString() : null;
   if (input.refillReminderType !== undefined)
     updateData.refillReminderType = input.refillReminderType;
   if (input.refillReminderValue !== undefined)
@@ -455,7 +471,7 @@ export async function updateMedication(
   if (input.isPrn !== undefined) updateData.isPrn = input.isPrn;
 
   // If schedule changed, reset scheduleStartDate and clear override
-  if (scheduleChanged) {
+  if (scheduleChanged && input.scheduleStart !== 'keep') {
     const newScheduleType = input.scheduleType ?? existing.scheduleType;
     const newScheduleConfig = input.scheduleConfig ?? JSON.parse(existing.scheduleConfig);
     updateData.scheduleStartDate = calculateScheduleStartDate(
@@ -463,6 +479,8 @@ export async function updateMedication(
       newScheduleConfig,
       now
     );
+    // Config start dates (every few days, cycles, tapering) are at midnight; exact changes nothing.
+    updateData.scheduleStartExact = input.scheduleStart === 'now';
     updateData.nextDoseOverrideTime = null; // Clear stale override
   }
 
@@ -473,6 +491,8 @@ export async function updateMedication(
 
 export async function deleteMedication(id: string): Promise<boolean> {
   const db = getDatabase();
+  // Foreign keys aren't enforced, so remove the supply history explicitly.
+  await db.delete(inventoryAdjustments).where(eq(inventoryAdjustments.medicationId, id));
   await db.delete(medications).where(eq(medications.id, id));
   return true;
 }
@@ -587,24 +607,38 @@ export async function createIntakeLog(input: CreateIntakeLogInput): Promise<Inta
   };
 }
 
+export interface InventoryOptions {
+  /**
+   * Log even when the supply count is lower than the amount (the person said "Log anyway"):
+   * the count floors at 0 instead of throwing `InventoryInsufficientError`.
+   */
+  allowShortSupply?: boolean;
+}
+
 /**
  * Creates an intake log and (when applicable) decrements inventory.
- * This enforces that inventory cannot go below zero, i.e. you cannot log more than you have.
+ * Inventory never goes below zero. By default logging more than the supply count throws
+ * `InventoryInsufficientError`; with `allowShortSupply` the count floors at 0 instead.
  */
 export async function createIntakeLogAndUpdateInventory(
-  input: CreateIntakeLogInput
+  input: CreateIntakeLogInput,
+  options: InventoryOptions = {}
 ): Promise<{ log: IntakeLog; updatedMedication: Medication | null }> {
   const medication = await getMedicationById(input.medicationId);
   if (!medication) {
     throw new Error(`Medication not found: ${input.medicationId}`);
   }
 
-  const decrementAmount = isInventoryDecrementAction(input.action) ? input.dosageAmount : 0;
-  assertSufficientInventory({
-    medicationId: medication.id,
-    inventoryCount: medication.inventoryCount ?? 0,
-    decrementAmount,
-  });
+  // An untracked supply is never decremented (and so never "short").
+  const decrementAmount =
+    medication.trackSupply && isInventoryDecrementAction(input.action) ? input.dosageAmount : 0;
+  if (!options.allowShortSupply) {
+    assertSufficientInventory({
+      medicationId: medication.id,
+      inventoryCount: medication.inventoryCount ?? 0,
+      decrementAmount,
+    });
+  }
 
   const db: any = getDatabase();
   const nowISO = new Date().toISOString();
@@ -698,6 +732,8 @@ export async function updateIntakeLogAndReconcileInventory(params: {
   nextAction: 'taken' | 'skipped' | 'partial';
   nextDosageAmount: number;
   nextNotes?: string;
+  /** See `InventoryOptions.allowShortSupply`. */
+  allowShortSupply?: boolean;
 }): Promise<void> {
   const { existingLog, medication, nextAction, nextDosageAmount, nextNotes } = params;
 
@@ -705,12 +741,13 @@ export async function updateIntakeLogAndReconcileInventory(params: {
     ? existingLog.dosageAmount
     : 0;
   const newDecrement = isInventoryDecrementAction(nextAction) ? nextDosageAmount : 0;
-  const delta = oldDecrement - newDecrement; // positive restores, negative consumes more
+  // Untracked supply: edits never move the count.
+  const delta = medication.trackSupply === false ? 0 : oldDecrement - newDecrement; // positive restores, negative consumes more
 
   const currentInventory = medication.inventoryCount ?? 0;
   const nextInventory = currentInventory + delta;
 
-  if (delta < 0) {
+  if (delta < 0 && !params.allowShortSupply) {
     assertSufficientInventory({
       medicationId: medication.id,
       inventoryCount: currentInventory,
@@ -876,19 +913,16 @@ export async function createInventoryAdjustment(
   const now = new Date().toISOString();
   const id = generateUUID();
 
-  const adjustmentData = {
+  await db.insert(inventoryAdjustments).values({
     id,
     medicationId: input.medicationId,
     adjustmentType: input.adjustmentType,
     amount: input.amount,
     previousCount: input.previousCount,
     newCount: input.newCount,
-    reason: input.reason,
+    reason: input.reason ?? null,
     createdAt: now,
-  };
-
-  // TODO: Uncomment when inventoryAdjustments table is implemented
-  // await db.insert(inventoryAdjustments).values(adjustmentData);
+  });
 
   return {
     id,
@@ -902,13 +936,44 @@ export async function createInventoryAdjustment(
   };
 }
 
+function mapAdjustment(row: typeof inventoryAdjustments.$inferSelect): InventoryAdjustment {
+  return {
+    id: row.id,
+    medicationId: row.medicationId,
+    adjustmentType: row.adjustmentType as InventoryAdjustment['adjustmentType'],
+    amount: row.amount,
+    previousCount: row.previousCount,
+    newCount: row.newCount,
+    reason: row.reason ?? undefined,
+    createdAt: new Date(row.createdAt),
+  };
+}
+
+/** A medicine's supply changes, newest first. */
 export async function getInventoryAdjustmentsByMedication(
   medicationId: string
 ): Promise<InventoryAdjustment[]> {
   const db = getDatabase();
-  // Note: inventory_adjustments table would need to be added to schema
-  // For now, this is a placeholder implementation
-  return [];
+  const rows = await db
+    .select()
+    .from(inventoryAdjustments)
+    .where(eq(inventoryAdjustments.medicationId, medicationId))
+    .orderBy(desc(inventoryAdjustments.createdAt));
+  return rows.map(mapAdjustment);
+}
+
+/** The most recent supply change of a medicine, or null. */
+export async function getLatestInventoryAdjustment(
+  medicationId: string
+): Promise<InventoryAdjustment | null> {
+  const db = getDatabase();
+  const rows = await db
+    .select()
+    .from(inventoryAdjustments)
+    .where(eq(inventoryAdjustments.medicationId, medicationId))
+    .orderBy(desc(inventoryAdjustments.createdAt))
+    .limit(1);
+  return rows.length ? mapAdjustment(rows[0]) : null;
 }
 
 // ============================================================================
