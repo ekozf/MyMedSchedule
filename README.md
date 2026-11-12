@@ -207,6 +207,9 @@ After starting the development server, you can open the app on:
 
 ### Building for Production
 
+Signed APKs are published on [GitHub Releases](https://github.com/ekozf/MyMedSchedule/releases/latest)
+by a manual workflow. See [CI and releases](docs/releases.md).
+
 For a standalone Android APK you can transfer directly to a phone, run
 `bun run build:apk`. See [Android testing instructions](docs/android-testing.md)
 for the local setup, output path, and installation steps.
