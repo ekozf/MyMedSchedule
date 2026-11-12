@@ -92,8 +92,9 @@ android {
         applicationId 'com.anonymous.mymedschedule'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        // CI passes the release version as -PappVersionCode / -PappVersionName.
+        versionCode((findProperty('appVersionCode') ?: '1').toInteger())
+        versionName(findProperty('appVersionName') ?: '1.0.0')
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
@@ -104,6 +105,16 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        // Used when the release workflow provides a keystore through env vars.
+        // Without it, release builds fall back to the local testing key.
+        if (System.getenv('ANDROID_KEYSTORE_PATH')) {
+            release {
+                storeFile file(System.getenv('ANDROID_KEYSTORE_PATH'))
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
     }
     buildTypes {
         debug {
@@ -112,7 +123,7 @@ android {
         release {
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.findByName('release') ?: signingConfigs.debug
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
