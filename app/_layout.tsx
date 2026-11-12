@@ -27,6 +27,7 @@ import {
 } from '@/lib/notifications';
 import { ensureNext3DoseNotificationsForAllActiveMedications } from '@/lib/notifications/scheduler';
 import { registerNext3UpkeepTask } from '@/lib/notifications/upkeep';
+import { registerNotificationActionTask } from '@/lib/notifications/background-actions';
 import { initializeLocale } from '@/lib/i18n';
 import { applyAppearance } from '@/lib/settings/appearance';
 import { useLocaleVersion } from '@/lib/ui/use-locale';
@@ -80,6 +81,7 @@ export default function RootLayout() {
         // Setup notifications
         setupNotificationHandler();
         await setupNotificationCategories();
+        await registerNotificationActionTask();
 
         // Best-effort upkeep: top up next-3 at app start
         await ensureNext3DoseNotificationsForAllActiveMedications();
