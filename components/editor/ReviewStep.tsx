@@ -1,8 +1,8 @@
 /**
  * Step 4 of 4 "Does this look right?" (docs/DESIGN.md §5.4): a compact summary first — header
  * card (photo or first letter, name + strength, "1 pill at 08:00 and 20:00, every day"), the
- * medicine's `MiniTray` (neutral "scheduled" tone), and groups Schedule / Medicine / Supply /
- * Notes and dose limits whose rows jump back to their step (supply and the notes / limits open as
+ * medicine's `MiniTray` (neutral "scheduled" tone), and groups Schedule / Medicine / Supply and
+ * expiry (with the expiry date row) / Notes and dose limits whose rows jump back to their step (supply and the notes / limits open as
  * their own pages with a Save). Row labels match the wizard questions ("Amount each time", "You
  * have now", "Times"). Under the header: "First reminder: today at 20:00", worked out from the
  * schedule (a new schedule starts when it's saved). The tray has the caption "Shown on Today as".
@@ -26,6 +26,7 @@ import { tracksSupply, type MedicineForm, type StepId, type StepIssue } from './
 import {
   describeSchedule,
   describeStart,
+  expiryValue,
   limitsSummary,
   reviewTimesValue,
   scheduleTypeTitle,
@@ -95,6 +96,11 @@ export function ReviewSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.scheduleType, form.scheduleConfig, form.dosageAmount, formatTimeString]);
 
+  // The expiry date is set on the extras page (it sits with the supply here: it's on the box).
+  const expiryRow = (
+    <ListRow title={t('expiry')} value={expiryValue(form)} onPress={() => onEdit('extras')} />
+  );
+
   const refill =
     form.refillReminderType === 'none'
       ? t('off')
@@ -162,7 +168,7 @@ export function ReviewSection({
       </ListGroup>
 
       {tracked ? (
-        <ListGroup header={t('supply')}>
+        <ListGroup header={t('supplyExpiry')}>
           <ListRow
             title={t('inStock')}
             value={formatDose(form.inventoryCount, unit)}
@@ -174,10 +180,12 @@ export function ReviewSection({
             onPress={() => onEdit('supply')}
           />
           <ListRow title={t('refill')} value={refill} onPress={() => onEdit('supply')} />
+          {expiryRow}
         </ListGroup>
       ) : (
-        <ListGroup>
+        <ListGroup header={t('supplyExpiry')}>
           <ListRow title={t('supply')} value={t('notTracked')} onPress={() => onEdit('supply')} />
+          {expiryRow}
         </ListGroup>
       )}
 

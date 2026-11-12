@@ -1,6 +1,7 @@
 /**
  * Big (120) profile avatar with a camera badge. Tap → action sheet (Take photo / Choose from library /
  * Remove photo) with camera / library permission requests and friendly "allow access" prompts.
+ * The picked photo is copied into the app's private photos folder (lib/media/photos.ts).
  *
  * @example
  * <AvatarPicker name={name} uri={avatarUri} onChange={setAvatarUri} />
@@ -10,6 +11,8 @@ import { Linking, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, Images, Trash2, UserRound } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
+import { withAutoLockSuspended } from '@/lib/auth/auto-lock';
+import { keepPickedPhoto } from '@/lib/media/photos';
 import {
   AVATAR_SIZES,
   Avatar,
@@ -60,8 +63,10 @@ export function AvatarPicker({ name, uri, onChange, disabled }: AvatarPickerProp
         await askForAccess('camera');
         return;
       }
-      const result = await ImagePicker.launchCameraAsync(PICKER_OPTIONS);
-      if (!result.canceled && result.assets[0]) onChange(result.assets[0].uri);
+      const result = await withAutoLockSuspended(() =>
+        ImagePicker.launchCameraAsync(PICKER_OPTIONS)
+      );
+      if (!result.canceled && result.assets[0]) onChange(await keepPickedPhoto(result.assets[0].uri));
     } catch (error) {
       console.error('Error taking photo:', error);
       toast.show({ title: i18n.t('ui.you.form.photo.failed') });
@@ -75,11 +80,13 @@ export function AvatarPicker({ name, uri, onChange, disabled }: AvatarPickerProp
         await askForAccess('library');
         return;
       }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        ...PICKER_OPTIONS,
-      });
-      if (!result.canceled && result.assets[0]) onChange(result.assets[0].uri);
+      const result = await withAutoLockSuspended(() =>
+        ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          ...PICKER_OPTIONS,
+        })
+      );
+      if (!result.canceled && result.assets[0]) onChange(await keepPickedPhoto(result.assets[0].uri));
     } catch (error) {
       console.error('Error picking image:', error);
       toast.show({ title: i18n.t('ui.you.form.photo.failed') });

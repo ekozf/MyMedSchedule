@@ -113,9 +113,15 @@ describe('Auth', () => {
   });
 
   describe('setPIN', () => {
-    it('should store PIN when valid', async () => {
+    it('stores a salted hash, never the PIN itself', async () => {
       await setPIN('1234');
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('user_pin', '1234');
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+        'user_pin_hash',
+        expect.stringMatching(/^sha256i\$\d+\$[0-9a-f]{32}\$[0-9a-f]{64}$/)
+      );
+      const values = vi.mocked(SecureStore.setItemAsync).mock.calls.map((c) => c[1]);
+      expect(values).not.toContain('1234');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('user_pin');
     });
 
     it('should throw error when PIN is too short', async () => {
@@ -156,9 +162,9 @@ describe('Auth', () => {
   });
 
   describe('PIN length', () => {
-    it('stores the length (not the PIN) next to the PIN', async () => {
+    it('stores the length (not the PIN) next to the hash', async () => {
       await setPIN('12345');
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('user_pin', '12345');
+      expect(SecureStore.setItemAsync).not.toHaveBeenCalledWith('user_pin', '12345');
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith('user_pin_length', '5');
     });
 
@@ -275,7 +281,7 @@ describe('Auth', () => {
     it('should set PIN and auth method when valid', async () => {
       const result = await setupPINAuth('1234');
       expect(result.success).toBe(true);
-      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('user_pin', '1234');
+      expect(SecureStore.setItemAsync).toHaveBeenCalledWith('user_pin_hash', expect.any(String));
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith('auth_method', 'pin');
     });
 

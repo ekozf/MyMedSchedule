@@ -1,7 +1,7 @@
 /**
  * Edit medicine: a summary list, not a long form. "Edit Metformin", then grouped rows — Medicine
- * (Name and photo, Strength, Amount), Schedule (type + times), Supply (Supply, Refill reminder),
- * Extras (Note, Limits, Reminder sound). Each row opens its page (`/medication/edit/[id]/[section]`,
+ * (Name and photo, Strength, Amount), Schedule (type + times), Supply and expiry (Supply, Refill
+ * reminder, Expiry date), Extras (Note, Dose limits, Reminder sound). Each row opens its page (`/medication/edit/[id]/[section]`,
  * a `SectionPage` with its own Save); the list reloads when you come back. "Reminder sound" is a
  * switch right in the list (a page holding one switch would be a detour); it saves straight away.
  *
@@ -43,7 +43,13 @@ import {
   type MedicineForm,
   type SectionId,
 } from './form-model';
-import { describeSchedule, limitsSummary, refillValue, scheduleTypeTitle } from './describe';
+import {
+  describeSchedule,
+  expiryValue,
+  limitsSummary,
+  refillValue,
+  scheduleTypeTitle,
+} from './describe';
 import { SectionPage } from './SectionPage';
 import { saveEditedMedicine } from './save';
 
@@ -207,7 +213,7 @@ export function EditMedicineScreen({ id }: { id: string | undefined }) {
           />
         </ListGroup>
 
-        <ListGroup header={t('review.supply')}>
+        <ListGroup header={t('review.supplyExpiry')}>
           <ListRow
             title={t('screens.sectionSupply')}
             value={
@@ -219,6 +225,11 @@ export function EditMedicineScreen({ id }: { id: string | undefined }) {
             title={t('review.refill')}
             value={refillValue(form)}
             onPress={() => open('supply')}
+          />
+          <ListRow
+            title={t('review.expiry')}
+            value={expiryValue(form)}
+            onPress={() => open('expiry')}
           />
         </ListGroup>
 

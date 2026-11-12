@@ -699,7 +699,8 @@ export type SectionId =
   | 'refill'
   | 'extras'
   | 'note'
-  | 'limits';
+  | 'limits'
+  | 'expiry';
 
 export const SECTION_IDS: SectionId[] = [
   'name',
@@ -710,15 +711,19 @@ export const SECTION_IDS: SectionId[] = [
   'extras',
   'note',
   'limits',
+  'expiry',
 ];
 
 export function isSectionId(value: unknown): value is SectionId {
   return typeof value === 'string' && (SECTION_IDS as string[]).includes(value);
 }
 
-/** The validation step behind a page (Note and Limits are parts of the extras, Refill of supply). */
+/**
+ * The validation step behind a page (Note, Limits and Expiry date are parts of the extras, Refill
+ * of supply).
+ */
 export function sectionStep(section: SectionId): Exclude<StepId, 'review'> {
-  if (section === 'note' || section === 'limits') return 'extras';
+  if (section === 'note' || section === 'limits' || section === 'expiry') return 'extras';
   if (section === 'refill') return 'supply';
   return section;
 }

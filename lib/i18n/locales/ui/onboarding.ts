@@ -7,10 +7,15 @@ import { defineFragment } from './define';
  *
  * `disclaimer.pages` is the legal copy of the old disclaimer (legacy `disclaimer.*` keys), split
  * one topic per page and tightened. Every point of the old text is still in it:
- * privacy: no data collection, fully local / no cloud or backup, encrypted on device, export is
- * unencrypted, loss of phone or app = data gone. medical: no advice or diagnosis, no instructions,
- * no interaction / overdose check, not responsible, digital version of a paper diary.
- * technical: phone time and time zones, battery optimisation, manual clock changes.
+ * privacy: no internet, no data collection, fully local / no cloud or backup (phone backup off too),
+ * encrypted on device with a key in the phone's secure storage (not tied to the PIN: the app lock
+ * keeps people out of the app, the encryption protects the stored data), export is unencrypted,
+ * loss of phone or app = data gone. medical: no advice or diagnosis, no instructions, no
+ * interaction / overdose check, own dose limits only warn (never block, not checked medically,
+ * not our responsibility), not responsible, digital version of a paper diary.
+ * technical: phone time and time zones, Android 12+ "Alarms & reminders", battery optimisation,
+ * manual clock changes, not the only reminder for critical medicines.
+ * `changes`: what changed in the current DISCLAIMER_VERSION ("We updated this" page).
  * responsibility ("Check your entries"): reminder tool, your entries are your own choice, entry
  * mistakes are not checked by the app, no guarantees, exported reports are unencrypted.
  */
@@ -47,28 +52,43 @@ export default defineFragment({
       readFull: 'Read the full text',
       agree: 'I understand and agree',
       continue: 'Continue',
+      updatedTitle: 'We updated this',
+      updatedBody: "Please read it and agree again. Here's what changed:",
+      changes: {
+        privacy:
+          'How your data is protected: the encryption works on its own, separate from your app lock.',
+        limits:
+          "Dose limits you set only bring up a warning. They never stop you, and the app can't tell whether they're medically right.",
+        alarms:
+          'On Android, reminders only arrive on time if "Alarms & reminders" is allowed for the app.',
+      },
       pages: {
         privacy: {
           title: 'Your data stays on this phone',
           summary:
-            'Nothing is collected or backed up. If you lose the phone or delete the app, your data is gone.',
-          p1: "We don't collect any data. Nothing at all. The app works only on this phone: there is no account, no cloud and no online backup.",
-          p2: 'What you enter is stored encrypted on this phone. Nobody else can read it without your phone, and your PIN if you set one.',
-          p3: "A report you export is not encrypted. Keeping it safe is up to you. If you lose your phone or delete the app, your data is gone for good and we can't get it back. Export a report now and then if you want a copy on paper.",
+            'Nothing is collected, sent or backed up. If you lose the phone or delete the app, your data is gone.',
+          p1: "The app doesn't use the internet and we don't collect any data. Nothing at all. There is no account, no cloud and no online backup, and your phone's own backup leaves the app's data out too.",
+          p2: "What you enter is stored encrypted on this phone, with a key kept in the phone's secure storage. That protects the data stored on the phone. The app lock (PIN or fingerprint) does something else: it keeps other people out of the app.",
+          p3: "The encryption isn't tied to your PIN. Anyone who can unlock your phone and the app can see what's in it.",
+          p4: "A report you export is not encrypted. Keeping it safe is up to you. If you lose your phone or delete the app, your data is gone for good and we can't get it back. Export a report now and then if you want a copy on paper.",
         },
         medical: {
           title: 'A reminder, not a doctor',
           summary:
-            "It doesn't give medical advice or check your medicines for interactions or overdose.",
+            "It doesn't give medical advice or check for overdose or interactions. Limits you set yourself only bring up a warning.",
           p1: "This app doesn't give medical advice and doesn't diagnose anything. It is a digital version of the paper calendar or diary you would otherwise use to keep track of your medicines.",
           p2: "It doesn't tell you what to take or when. It only reminds you of what you decided to put in yourself. It doesn't check for interactions between medicines or for overdose risks.",
-          p3: "We are not responsible for any medicine you do or don't take.",
+          p3: 'You can set your own limits for a medicine, such as a maximum per day or a minimum time between doses. The app only compares what you log with the numbers you entered and shows a warning. It never stops you.',
+          p4: "The app doesn't know whether those limits are medically right. They are yours to choose, ideally with your doctor or pharmacist. We are not responsible for them, or for any medicine you do or don't take.",
         },
         technical: {
           title: 'Reminders depend on your phone',
-          summary: "Your phone's clock and battery settings can delay or stop a reminder.",
+          summary:
+            "Your phone's clock and battery settings can delay or stop a reminder. Don't rely on the app alone for critical medicines.",
           p1: "Reminders follow your phone's clock. If you travel to another time zone, they follow the time on your phone. Changing the time or date by hand can make reminders come early, late or not at all.",
-          p2: 'Battery-saving settings on Android and iPhone can delay or block reminders. Allowing this app in your battery settings is up to you.',
+          p2: 'On Android 12 and newer, reminders only arrive on time if "Alarms & reminders" is allowed for this app. Without it, Android may show them several minutes late.',
+          p3: 'Battery-saving settings on Android and iPhone can still delay or block reminders. Allowing this app in your battery settings is up to you.',
+          p4: "If taking a medicine on time is critical, don't rely on this app as your only reminder.",
         },
         responsibility: {
           title: 'Check your entries',
@@ -220,29 +240,43 @@ export default defineFragment({
       readFull: 'Lees de volledige tekst',
       agree: 'Ik begrijp het en ga akkoord',
       continue: 'Doorgaan',
+      updatedTitle: 'We hebben dit aangepast',
+      updatedBody: 'Lees het en ga opnieuw akkoord. Dit is er veranderd:',
+      changes: {
+        privacy:
+          'Hoe je gegevens beschermd zijn: de versleuteling werkt op zichzelf, los van je app-vergrendeling.',
+        limits:
+          'Dosislimieten die je zelf instelt, geven alleen een waarschuwing. Ze houden je nooit tegen en de app weet niet of ze medisch kloppen.',
+        alarms:
+          'Op Android komen herinneringen alleen op tijd als "Wekkers en herinneringen" voor de app is toegestaan.',
+      },
       pages: {
         privacy: {
           title: 'Je gegevens blijven op deze telefoon',
           summary:
-            'Er wordt niets verzameld of geback-upt. Raak je de telefoon kwijt of verwijder je de app, dan zijn je gegevens weg.',
-          p1: 'We verzamelen geen gegevens. Helemaal niets. De app werkt alleen op deze telefoon: er is geen account, geen cloud en geen online back-up.',
-          p2: 'Wat je invoert wordt versleuteld op deze telefoon bewaard. Niemand anders kan het lezen zonder je telefoon, en je pincode als je er een hebt ingesteld.',
-          p3: 'Een rapport dat je exporteert is niet versleuteld. Het veilig bewaren is jouw verantwoordelijkheid. Raak je je telefoon kwijt of verwijder je de app, dan zijn je gegevens voorgoed weg en kunnen wij ze niet terughalen. Exporteer af en toe een rapport als je een kopie op papier wilt.',
+            'Er wordt niets verzameld, verstuurd of geback-upt. Raak je de telefoon kwijt of verwijder je de app, dan zijn je gegevens weg.',
+          p1: 'De app gebruikt geen internet en we verzamelen geen gegevens. Helemaal niets. Er is geen account, geen cloud en geen online back-up, en ook de back-up van je telefoon neemt de gegevens van de app niet mee.',
+          p2: 'Wat je invoert wordt versleuteld op deze telefoon bewaard, met een sleutel in de beveiligde opslag van je telefoon. Dat beschermt de gegevens die op de telefoon staan. De app-vergrendeling (pincode of vingerafdruk) doet iets anders: die houdt andere mensen uit de app.',
+          p3: 'De versleuteling hangt niet af van je pincode. Wie je telefoon en de app kan ontgrendelen, kan zien wat erin staat.',
+          p4: 'Een rapport dat je exporteert is niet versleuteld. Het veilig bewaren is jouw verantwoordelijkheid. Raak je je telefoon kwijt of verwijder je de app, dan zijn je gegevens voorgoed weg en kunnen wij ze niet terughalen. Exporteer af en toe een rapport als je een kopie op papier wilt.',
         },
         medical: {
           title: 'Een herinnering, geen dokter',
           summary:
-            'De app geeft geen medisch advies en controleert je medicijnen niet op wisselwerkingen of overdosis.',
+            'De app geeft geen medisch advies en controleert niet op overdosis of wisselwerkingen. Limieten die je zelf instelt, geven alleen een waarschuwing.',
           p1: 'Deze app geeft geen medisch advies en stelt geen diagnoses. Het is een digitale versie van de papieren kalender of het dagboek waarmee je anders je medicijnen bijhoudt.',
           p2: 'De app vertelt je niet wat of wanneer je iets moet innemen. Hij herinnert je alleen aan wat je er zelf in hebt gezet. Er wordt niet gecontroleerd op wisselwerkingen tussen medicijnen of op het risico van een overdosis.',
-          p3: 'Wij zijn niet verantwoordelijk voor medicijnen die je wel of niet inneemt.',
+          p3: 'Je kunt zelf limieten instellen voor een medicijn, zoals een maximum per dag of een minimale tijd tussen twee innames. De app vergelijkt alleen wat je registreert met de getallen die jij hebt ingevuld en toont dan een waarschuwing. Hij houdt je nooit tegen.',
+          p4: 'De app weet niet of die limieten medisch kloppen. Je kiest ze zelf, het liefst samen met je arts of apotheker. Wij zijn niet verantwoordelijk voor die limieten, of voor medicijnen die je wel of niet inneemt.',
         },
         technical: {
           title: 'Herinneringen hangen af van je telefoon',
           summary:
-            'De klok en batterij-instellingen van je telefoon kunnen een herinnering vertragen of tegenhouden.',
+            'De klok en batterij-instellingen van je telefoon kunnen een herinnering vertragen of tegenhouden. Vertrouw voor belangrijke medicijnen niet alleen op de app.',
           p1: 'Herinneringen volgen de klok van je telefoon. Reis je naar een andere tijdzone, dan volgen ze de tijd op je telefoon. Als je de tijd of datum zelf verandert, kunnen herinneringen te vroeg, te laat of helemaal niet komen.',
-          p2: 'Instellingen om batterij te sparen op Android en iPhone kunnen herinneringen vertragen of tegenhouden. Deze app toestaan in je batterij-instellingen is jouw verantwoordelijkheid.',
+          p2: 'Op Android 12 en nieuwer komen herinneringen alleen op tijd als "Wekkers en herinneringen" voor deze app is toegestaan. Zonder die toestemming kan Android ze enkele minuten te laat tonen.',
+          p3: 'Instellingen om batterij te sparen op Android en iPhone kunnen herinneringen dan nog steeds vertragen of tegenhouden. Deze app toestaan in je batterij-instellingen is jouw verantwoordelijkheid.',
+          p4: 'Moet je een medicijn echt op tijd innemen, gebruik deze app dan niet als je enige herinnering.',
         },
         responsibility: {
           title: 'Controleer wat je invoert',
@@ -393,29 +427,43 @@ export default defineFragment({
       readFull: 'Metnin tamamını okuyun',
       agree: 'Anladım ve kabul ediyorum',
       continue: 'Devam',
+      updatedTitle: 'Bu metni güncelledik',
+      updatedBody: 'Lütfen okuyun ve yeniden kabul edin. Değişenler şunlar:',
+      changes: {
+        privacy:
+          'Verilerinizin nasıl korunduğu: şifreleme, uygulama kilidinizden ayrı olarak kendi başına çalışır.',
+        limits:
+          'Kendi belirlediğiniz doz sınırları yalnızca bir uyarı gösterir. Sizi asla engellemez ve uygulama bu sınırların tıbben doğru olup olmadığını bilemez.',
+        alarms:
+          'Android’de hatırlatmalar yalnızca uygulamaya "Alarmlar ve hatırlatıcılar" izni verildiyse zamanında gelir.',
+      },
       pages: {
         privacy: {
           title: 'Verileriniz bu telefonda kalır',
           summary:
-            'Hiçbir şey toplanmaz veya yedeklenmez. Telefonu kaybederseniz veya uygulamayı silerseniz verileriniz gider.',
-          p1: 'Hiçbir veri toplamıyoruz. Kesinlikle hiçbir şey. Uygulama yalnızca bu telefonda çalışır: hesap, bulut veya çevrimiçi yedekleme yoktur.',
-          p2: 'Girdikleriniz bu telefonda şifreli olarak saklanır. Telefonunuz ve ayarladıysanız PIN kodunuz olmadan kimse okuyamaz.',
-          p3: 'Dışa aktardığınız rapor şifreli değildir. Onu güvende tutmak sizin sorumluluğunuzdadır. Telefonunuzu kaybederseniz veya uygulamayı silerseniz verileriniz kalıcı olarak gider ve biz geri getiremeyiz. Kâğıt üzerinde bir kopya isterseniz ara sıra bir rapor dışa aktarın.',
+            'Hiçbir şey toplanmaz, gönderilmez veya yedeklenmez. Telefonu kaybederseniz veya uygulamayı silerseniz verileriniz gider.',
+          p1: 'Uygulama internet kullanmaz ve hiçbir veri toplamıyoruz. Kesinlikle hiçbir şey. Hesap, bulut veya çevrimiçi yedekleme yoktur; telefonunuzun kendi yedeği de uygulamanın verilerini dışarıda bırakır.',
+          p2: 'Girdikleriniz bu telefonda şifreli olarak saklanır; şifreleme anahtarı telefonunuzun güvenli depolama alanında tutulur. Bu, telefonda kayıtlı verileri korur. Uygulama kilidi (PIN veya parmak izi) ise başka bir işe yarar: başkalarının uygulamaya girmesini engeller.',
+          p3: 'Şifreleme PIN kodunuza bağlı değildir. Telefonunuzun ve uygulamanın kilidini açabilen herkes içindekileri görebilir.',
+          p4: 'Dışa aktardığınız rapor şifreli değildir. Onu güvende tutmak sizin sorumluluğunuzdadır. Telefonunuzu kaybederseniz veya uygulamayı silerseniz verileriniz kalıcı olarak gider ve biz geri getiremeyiz. Kâğıt üzerinde bir kopya isterseniz ara sıra bir rapor dışa aktarın.',
         },
         medical: {
           title: 'Bir hatırlatıcı, doktor değil',
           summary:
-            'Tıbbi tavsiye vermez; ilaçlarınızı etkileşim veya aşırı doz açısından kontrol etmez.',
+            'Tıbbi tavsiye vermez; aşırı doz veya etkileşim kontrolü yapmaz. Kendi belirlediğiniz sınırlar yalnızca uyarı gösterir.',
           p1: 'Bu uygulama tıbbi tavsiye vermez ve teşhis koymaz. İlaçlarınızı takip etmek için kullanacağınız kağıt takvimin veya günlüğün dijital bir versiyonudur.',
           p2: 'Size neyi ne zaman alacağınızı söylemez. Yalnızca kendi girmeye karar verdiklerinizi hatırlatır. İlaçlar arasındaki etkileşimleri veya aşırı doz risklerini kontrol etmez.',
-          p3: 'Aldığınız veya almadığınız hiçbir ilaçtan sorumlu değiliz.',
+          p3: 'Bir ilaç için kendi sınırlarınızı belirleyebilirsiniz; örneğin günde en fazla ne kadar alınacağı veya iki doz arasında en az ne kadar süre olması gerektiği. Uygulama yalnızca kaydettiklerinizi sizin girdiğiniz sayılarla karşılaştırır ve bir uyarı gösterir. Sizi asla engellemez.',
+          p4: 'Uygulama bu sınırların tıbben doğru olup olmadığını bilemez. Onları siz belirlersiniz, en iyisi doktorunuz veya eczacınızla birlikte. Bu sınırlardan veya aldığınız ya da almadığınız hiçbir ilaçtan sorumlu değiliz.',
         },
         technical: {
           title: 'Hatırlatmalar telefonunuza bağlıdır',
           summary:
-            'Telefonunuzun saati ve pil ayarları bir hatırlatmayı geciktirebilir veya engelleyebilir.',
+            'Telefonunuzun saati ve pil ayarları bir hatırlatmayı geciktirebilir veya engelleyebilir. Kritik ilaçlar için yalnızca uygulamaya güvenmeyin.',
           p1: 'Hatırlatmalar telefonunuzun saatini izler. Başka bir saat dilimine giderseniz telefonunuzdaki saati izlerler. Saati veya tarihi elle değiştirmek hatırlatmaların erken, geç ya da hiç gelmemesine neden olabilir.',
-          p2: 'Android ve iPhone’daki pil tasarrufu ayarları hatırlatmaları geciktirebilir veya engelleyebilir. Bu uygulamaya pil ayarlarında izin vermek sizin sorumluluğunuzdadır.',
+          p2: 'Android 12 ve sonrasında hatırlatmalar yalnızca bu uygulamaya "Alarmlar ve hatırlatıcılar" izni verildiyse zamanında gelir. Bu izin olmadan Android onları birkaç dakika geç gösterebilir.',
+          p3: 'Android ve iPhone’daki pil tasarrufu ayarları yine de hatırlatmaları geciktirebilir veya engelleyebilir. Bu uygulamaya pil ayarlarında izin vermek sizin sorumluluğunuzdadır.',
+          p4: 'Bir ilacı zamanında almanız kritikse bu uygulamayı tek hatırlatıcınız olarak kullanmayın.',
         },
         responsibility: {
           title: 'Girdilerinizi kontrol edin',

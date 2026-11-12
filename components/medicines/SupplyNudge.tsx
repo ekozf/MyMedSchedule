@@ -25,6 +25,7 @@ import {
   onPermissionAskEnd,
 } from '@/lib/notifications/permissions';
 import { reminderPrompt } from '@/lib/notifications/use-permission';
+import { exactAlarmSheet } from '@/lib/notifications/exact-alarm-prompt';
 import { useStore } from '@/store';
 import { Button, Sheet, Text, useToast } from '@/components/ds';
 import { saveSupply } from './actions';
@@ -109,6 +110,11 @@ export function SupplyNudgeHost() {
       await wait(AFTER_CLOSE_MS);
       if (await reminderPromptPending()) {
         await waitForReminderPrompt();
+        await wait(AFTER_PROMPT_MS);
+      }
+      // The one-time "Let reminders arrive on time" sheet may follow the phone's dialog.
+      if (exactAlarmSheet.open) {
+        await exactAlarmSheet.whenClosed();
         await wait(AFTER_PROMPT_MS);
       }
       if (!alive) return;

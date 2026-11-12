@@ -207,27 +207,23 @@ After starting the development server, you can open the app on:
 
 ### Building for Production
 
-Signed APKs are published on [GitHub Releases](https://github.com/ekozf/MyMedSchedule/releases/latest)
-by a manual workflow. See [CI and releases](docs/releases.md).
+Signed Android App Bundles (`.aab`, for Google Play) and APKs (for direct
+install) are published on [GitHub Releases](https://github.com/ekozf/MyMedSchedule/releases/latest)
+by a manual workflow. See [CI and releases](docs/releases.md), which also covers
+the Google Play upload and Play App Signing.
+
+The Android application ID is `be.emirkaan.mymedschedule`.
 
 For a standalone Android APK you can transfer directly to a phone, run
-`bun run build:apk`. See [Android testing instructions](docs/android-testing.md)
+`bun run build:apk`. Without release keystore env vars it produces a test APK
+signed with the local debug key. See [Android testing instructions](docs/android-testing.md)
 for the local setup, output path, and installation steps.
 
-To create production builds:
+The native `android/` folder is committed and is not regenerated in CI, so any
+change to `app.json` that affects native config must also be made by hand in
+`android/`.
 
-```bash
-# Build for iOS
-eas build --platform ios
-
-# Build for Android
-eas build --platform android
-
-# Build for both
-eas build --platform all
-```
-
-See [EAS Build documentation](https://docs.expo.dev/build/introduction/) for more details.
+iOS builds are not set up yet (no EAS config); see the [EAS Build documentation](https://docs.expo.dev/build/introduction/) to add them.
 
 ---
 

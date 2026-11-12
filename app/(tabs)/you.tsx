@@ -1,11 +1,11 @@
 /**
  * Settings tab (spec §5.6, route `you`): title, the person in use, reminders and app lock,
  * preferences (language, appearance, 24-hour time, parts of the day), people in this app (switch
- * with confirm + Undo toast; "Manage people" edits and removes), export and about.
+ * with confirm + Undo toast; "Manage people" edits and removes), export / delete everything and
+ * about (privacy, terms, licences, support, version from the native build).
  */
 import * as React from 'react';
 import { router, useFocusEffect } from 'expo-router';
-import Constants from 'expo-constants';
 import i18n, { getCurrentLocale } from '@/lib/i18n';
 import { useStore } from '@/store';
 import { updateProfile } from '@/lib/db/operations';
@@ -20,6 +20,9 @@ import { languageName, toAppLocale } from '@/components/onboarding';
 import { appLockLabel, getAppLockKind } from '@/components/you/app-lock';
 import { partsOfDayValue } from '@/components/you/compartment-times';
 import { YOU_ROUTES } from '@/components/you/routes';
+import { getAppVersion } from '@/lib/legal/version';
+import { WEBSITE_URL, isLinkSet } from '@/lib/legal/config';
+import { openExternalLink } from '@/lib/legal/support';
 import { useSwitchPerson, type ProfileLite } from '@/components/you/profile-actions';
 
 const EXAMPLE_TIME = new Date(2000, 0, 1, 20, 0);
@@ -107,7 +110,7 @@ export default function YouRoute() {
         appearanceLabel={appearanceLabel(appearance)}
         reminders={permission.state}
         lockLabel={lockLabel}
-        version={Constants.expoConfig?.version ?? '1.0.0'}
+        version={getAppVersion()}
         onEditProfile={() => router.push(YOU_ROUTES.editProfile(activeProfile.id))}
         onSelectProfile={handleSelect}
         onAddProfile={() => router.push(YOU_ROUTES.createProfile)}
@@ -119,7 +122,13 @@ export default function YouRoute() {
         onReminders={() => router.push(YOU_ROUTES.reminders)}
         onAppLock={() => router.push(YOU_ROUTES.appLock)}
         onExport={() => router.push(YOU_ROUTES.export)}
+        onDeleteAll={() => router.push(YOU_ROUTES.deleteAll)}
         onGoodToKnow={() => router.push(YOU_ROUTES.goodToKnow)}
+        onPrivacy={() => router.push(YOU_ROUTES.privacy)}
+        onTerms={() => router.push(YOU_ROUTES.terms)}
+        onLicenses={() => router.push(YOU_ROUTES.licenses)}
+        onSupport={() => router.push(YOU_ROUTES.support)}
+        onWebsite={isLinkSet(WEBSITE_URL) ? () => openExternalLink(WEBSITE_URL) : undefined}
       />
       <AppearanceSheet
         visible={appearanceOpen}

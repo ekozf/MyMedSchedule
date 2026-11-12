@@ -3,6 +3,8 @@
  * phone"), the next planned one ("Next: Metformin at 20:00"), one primary action that fits the
  * status ("Allow reminders" asks the phone; "Open phone settings" when blocked) and a secondary
  * "Send a test reminder" (a local notification 5 seconds from now).
+ * Android 12+ only: an "On-time reminders" card (exact alarms, "On" / "Off") with "Turn on", which
+ * opens the phone's "Alarms & reminders" page.
  */
 import * as React from 'react';
 import { View } from 'react-native';
@@ -14,6 +16,8 @@ import { formatDayLabel, useTimeFormat } from '@/lib/ui/format';
 import { openAppSettings, useNotificationPermission } from '@/lib/notifications/use-permission';
 import { scheduleTestReminder } from '@/lib/notifications/test-reminder';
 import { allowAndPlanReminders, nextReminder } from '@/components/you/reminders';
+import { useExactAlarmPermission } from '@/lib/notifications/use-exact-alarm';
+import { openExactAlarmSettingsSafely } from '@/lib/notifications/exact-alarm-prompt';
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`ui.you.reminders.${key}`, opts);
 
@@ -22,6 +26,7 @@ export default function RemindersRoute() {
   const toast = useToast();
   const { formatTime } = useTimeFormat();
   const { state } = useNotificationPermission();
+  const exactAlarm = useExactAlarmPermission();
   const medications = useStore((s) => s.medications);
   const [busy, setBusy] = React.useState<'allow' | 'test' | null>(null);
 
@@ -141,6 +146,66 @@ export default function RemindersRoute() {
       <Text variant="callout" weight="600" tabular style={{ marginTop: 20, paddingHorizontal: 4 }}>
         {nextText}
       </Text>
+      {exactAlarm.supported ? (
+        <Card style={{ marginTop: 24 }}>
+          <View style={{ gap: 12 }}>
+            <View
+              style={{ gap: 12 }}
+              accessible
+              accessibilityLiveRegion="polite"
+              accessibilityLabel={`${i18n.t('ui.alarms.settings.title')}: ${i18n.t(
+                exactAlarm.granted ? 'ui.alarms.settings.on' : 'ui.alarms.settings.off'
+              )}. ${i18n.t(
+                exactAlarm.granted
+                  ? 'ui.alarms.settings.explainOn'
+                  : 'ui.alarms.settings.explainOff'
+              )}`}>
+              <View
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <Text variant="headline" style={{ flexShrink: 1 }}>
+                  {i18n.t('ui.alarms.settings.title')}
+                </Text>
+                <View
+                  style={{
+                    borderRadius: 999,
+                    paddingHorizontal: 14,
+                    paddingVertical: 6,
+                    backgroundColor: exactAlarm.granted ? colors.done : colors.bg,
+                  }}>
+                  <Text
+                    variant="callout"
+                    weight="700"
+                    color={exactAlarm.granted ? colors.doneInk : colors.ink}>
+                    {i18n.t(
+                      exactAlarm.granted ? 'ui.alarms.settings.on' : 'ui.alarms.settings.off'
+                    )}
+                  </Text>
+                </View>
+              </View>
+              <Text variant="body" tone="secondary">
+                {i18n.t(
+                  exactAlarm.granted
+                    ? 'ui.alarms.settings.explainOn'
+                    : 'ui.alarms.settings.explainOff'
+                )}
+              </Text>
+            </View>
+            {exactAlarm.granted ? null : (
+              <Button
+                label={i18n.t('ui.alarms.settings.turnOn')}
+                variant="secondary"
+                size="sm"
+                onPress={() => void openExactAlarmSettingsSafely(exactAlarm.openSettings)}
+                style={{
+                  alignSelf: 'flex-start',
+                  backgroundColor: colors.bg,
+                  paddingHorizontal: 20,
+                }}
+              />
+            )}
+          </View>
+        </Card>
+      ) : null}
     </Screen>
   );
 }

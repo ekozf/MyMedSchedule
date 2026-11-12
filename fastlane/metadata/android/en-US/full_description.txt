@@ -1,0 +1,44 @@
+MyMedSchedule helps you remember your medicines. It works like the pill box you may already have: your day has four compartments, Morning, Midday, Evening and Night, and you get a reminder when it is time.
+
+Private by design
+• No account and no sign-up
+• Everything stays on your phone, in an encrypted database
+• No ads, no tracking, no analytics
+• Works fully offline
+
+A simple pill box
+• Your whole day at a glance: Morning, Midday, Evening, Night
+• One big button to mark a dose as taken
+• Large, easy-to-read text in the Atkinson Hyperlegible typeface
+• Light and dark mode
+
+For the whole family
+• Keep track for several people on one phone, such as a parent or a child
+• Each person has their own medicines, reminders and journal
+
+Schedules that fit real life
+• Every day, on chosen weekdays, every few days, or only when needed
+• Every few hours, on a set weekday of the month (like the 2nd Tuesday), or in cycles (like 21 days on, 7 days off)
+• Tapering doses that step down over time
+• Several times a day, each with its own amount
+
+Reminders
+• On-time reminders, also after your phone restarts
+• Take, snooze for 15 minutes or skip, right from the notification
+
+Supply and your own limits
+• Count your supply and get a reminder when you are running low
+• Keep track of expiry dates
+• Optional: set your own daily limit and the minimum time between doses. If a dose goes over what you entered, the app shows a gentle warning. It never stops you, and it does not check whether a dose is medically right.
+
+Journal and reports
+• See what you took or skipped, day by day
+• Forgot to tap? Log a past dose
+• Make a PDF report to share with your doctor. The PDF is not encrypted, and you choose where it goes.
+
+Lock and language
+• Lock the app with a PIN, or with your fingerprint or face if your phone supports it
+• Locks itself after one minute in the background
+• English, Nederlands and Türkçe
+
+Please note: MyMedSchedule is a reminder and a diary, not medical advice. It does not check your medicines for interactions. Always follow your doctor, your pharmacist and the leaflet.

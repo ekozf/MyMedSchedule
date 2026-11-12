@@ -1,9 +1,10 @@
 /**
  * "When you need it" on Today (docs/DESIGN.md §5.2): one bordered row per active as-needed
  * medicine with a "Log a dose" chip; the whole row is one button. Hidden when there are none.
+ * The count is for the day picked on Today ("2 taken today" / "1 taken" / none on a future day).
  *
  * @example
- * <AsNeededList items={[{ medication, takenToday: 1, lastAt: date }]} onLog={(m) => openSheet(m)} />
+ * <AsNeededList items={asNeededForDay(meds, logs, day)} dayKind="today" onLog={(m) => openSheet(m)} />
  */
 import * as React from 'react';
 import { View } from 'react-native';
@@ -12,38 +13,29 @@ import { PressableScale, SectionHeader, Text, radii, useTheme } from '@/componen
 import { formatDose, useTimeFormat } from '@/lib/ui/format';
 import type { Medication } from '@/types';
 import { medicineDisplayName } from '@/components/medicines/medicine-info';
+import { asNeededDayText, type AsNeededDay, type DayKind } from './logic';
 
-export interface AsNeededItem {
-  medication: Medication;
-  /** Logs today (taken or partial). */
-  takenToday: number;
-  lastAt: Date | null;
-}
+export type AsNeededItem = AsNeededDay;
 
 export interface AsNeededListProps {
   items: AsNeededItem[];
+  /** The picked day: the counts say "today" only on today. */
+  dayKind?: DayKind;
   onLog: (medication: Medication) => void;
 }
 
-export function AsNeededList({ items, onLog }: AsNeededListProps) {
+export function AsNeededList({ items, dayKind = 'today', onLog }: AsNeededListProps) {
   const { colors } = useTheme();
   const { formatTime } = useTimeFormat();
   if (items.length === 0) return null;
   return (
     <View style={{ gap: 10 }}>
       <SectionHeader title={i18n.t('ui.today.asNeeded.title')} />
-      {items.map(({ medication: m, takenToday, lastAt }) => {
+      {items.map((item) => {
+        const m = item.medication;
         const name = medicineDisplayName(m);
-        const today =
-          takenToday > 0
-            ? [
-                i18n.t('ui.today.asNeeded.takenToday', { count: takenToday }),
-                lastAt ? i18n.t('ui.today.asNeeded.lastAt', { time: formatTime(lastAt) }) : null,
-              ]
-                .filter(Boolean)
-                .join(', ')
-            : i18n.t('ui.today.asNeeded.noneToday');
-        const sub = `${formatDose(m.dosageAmount, m.dosageUnit)} · ${today}`;
+        const count = asNeededDayText(item, dayKind, formatTime);
+        const sub = [formatDose(m.dosageAmount, m.dosageUnit), count].filter(Boolean).join(' · ');
         return (
           <PressableScale
             key={m.id}

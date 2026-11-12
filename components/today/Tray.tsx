@@ -1,7 +1,8 @@
 /**
  * The 2×2 pill-box tray on Today (docs/DESIGN.md §5.2): Morning, Midday / Evening, Night.
  * Count = doses still to take ("1 dose to take"), or taken / total once finished; sub line names the
- * medicines (name plus strength), then the status ("Metformin 500 mg · from 20:00");
+ * medicines still to take (all of them once finished; name plus strength), then the status
+ * ("Metformin 500 mg · from 20:00");
  * `now` / `done` / `skipped` / `empty` states. Empty compartments are not pressable. A row whose
  * two compartments are both empty collapses to 84 tall (see `trayRowHeights`).
  *

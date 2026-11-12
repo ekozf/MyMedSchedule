@@ -4,6 +4,7 @@
  * wrong tries. A wrong PIN shakes the dots, shows them in red for 600 ms, then clears them. Biometric: auto-prompt on mount with a "Use PIN instead" fallback when a PIN is
  * stored. Biometric lock but the phone no longer has biometrics and there is no PIN: unlock with
  * the phone's own passcode instead (retry button stays). No lock: straight to Today (as before).
+ * Unlocking opens Today, or first the updated "Good to know" when its version changed.
  */
 import * as React from 'react';
 import { router } from 'expo-router';
@@ -72,7 +73,11 @@ export default function LockScreen() {
     unlockedRef.current = true;
     registerPinSuccess();
     setAuthenticated(true);
-    router.replace(ONBOARDING_ROUTES.dashboard);
+    // Today, or first the updated "Good to know" when it changed since the last agreement.
+    const { disclaimerUpToDate } = useStore.getState();
+    router.replace(
+      disclaimerUpToDate ? ONBOARDING_ROUTES.dashboard : ONBOARDING_ROUTES.disclaimerUpdated
+    );
   }, [setAuthenticated]);
 
   const promptPasscode = React.useCallback(async () => {

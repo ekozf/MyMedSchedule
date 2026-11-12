@@ -1,8 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import { getNextDose, type ScheduledDose } from '@/lib/schedule/calculator';
 import type { Medication } from '@/types';
-import i18n from '@/lib/i18n';
 import { addDays, startOfDay, isAfter, isBefore } from 'date-fns';
+import { doseReminderContent, refillReminderContent, REMINDER_COPY_VERSION } from './copy';
 
 const NEXT_DOSE_BUFFER_SIZE = 3;
 const MIN_SCHEDULE_LEAD_TIME_MS = 30_000; // avoid "instant delivery" loops / releasing past-due backlogs
@@ -11,18 +11,6 @@ function getDoseNotificationPriority(medication: Medication) {
   return medication.bypassDnd
     ? Notifications.AndroidNotificationPriority.MAX
     : Notifications.AndroidNotificationPriority.HIGH;
-}
-
-function getDoseNotificationBody(input: {
-  medicationName: string;
-  dosageAmount: number;
-  dosageUnit: string;
-}): string {
-  return i18n.t('notifications.doseReminderBody', {
-    medication: input.medicationName,
-    amount: input.dosageAmount,
-    unit: input.dosageUnit,
-  });
 }
 
 async function scheduleDoseNotification(input: {
@@ -41,21 +29,22 @@ async function scheduleDoseNotification(input: {
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: i18n.t('notifications.medicationReminder'),
-      body: getDoseNotificationBody({
-        medicationName: medication.name,
-        dosageAmount: dose.dosageAmount,
-        dosageUnit: dose.dosageUnit,
+      ...doseReminderContent({
+        name: medication.name,
+        strength: medication.strength,
+        amount: dose.dosageAmount,
+        unit: dose.dosageUnit,
       }),
       data: {
         kind: 'dose',
+        copy: REMINDER_COPY_VERSION,
         medicationId: medication.id,
         medicationName: medication.name,
         dosageAmount: dose.dosageAmount,
         dosageUnit: dose.dosageUnit,
         scheduledTime: dose.time.toISOString(),
-        imageUri: medication.imageUri,
-        notes: medication.notes,
+        // Only what the reminder buttons and the tap-to-open need. Notes and photo paths stay
+        // out: notification payloads are stored unencrypted by the OS.
       },
       sound: 'default',
       priority,
@@ -470,15 +459,16 @@ export async function scheduleRefillReminder(medication: Medication): Promise<vo
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: i18n.t('notifications.refillReminderTitle'),
-        body: i18n.t('notifications.refillReminderBody', {
-          medication: medication.name,
-          count: medication.inventoryCount,
+        ...refillReminderContent({
+          name: medication.name,
+          strength: medication.strength,
+          count: medication.inventoryCount ?? 0,
           unit: medication.dosageUnit,
         }),
         data: {
           type: 'refill',
           kind: 'refill',
+          copy: REMINDER_COPY_VERSION,
           medicationId: medication.id,
           medicationName: medication.name,
         },
@@ -526,6 +516,106 @@ async function cancelRefillNotification(medicationId: string): Promise<void> {
       notification.content.data?.medicationId === medicationId
     ) {
       await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+    }
+  }
+}
+
+function isRefillKind(data: any): boolean {
+  return data?.kind === 'refill' || data?.type === 'refill';
+}
+
+/**
+ * Reminders planned by older versions are replaced at start-up:
+ * - some carried medicine notes and the photo path in their data;
+ * - all with older texts ("Medication Reminder", see REMINDER_COPY_VERSION in ./copy).
+ * Dose reminders are cancelled (the next-3 top-up right after re-creates them with the new text),
+ * snoozes are re-made with the new text and without extra fields, refill reminders are planned
+ * again. Returns how many were replaced.
+ */
+export async function purgeLegacyReminderPayloads(): Promise<number> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const { getMedicationById } = await import('@/lib/db/operations');
+  const lookup = async (id: unknown): Promise<Medication | null> => {
+    if (typeof id !== 'string') return null;
+    try {
+      return (await getMedicationById(id)) ?? null;
+    } catch {
+      return null;
+    }
+  };
+  let cancelled = 0;
+  const refillMedicationIds = new Set<string>();
+  for (const notification of scheduled) {
+    const data: any = notification.content?.data;
+    if (!data) continue;
+    const hasExtras = 'notes' in data || 'imageUri' in data;
+    const isReminder = data.kind === 'snooze' || isDoseKind(data) || isRefillKind(data);
+    const oldCopy = isReminder && data.copy !== REMINDER_COPY_VERSION;
+    if (!hasExtras && !oldCopy) continue;
+    await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+    cancelled += 1;
+    if (data.kind === 'snooze') {
+      const time = getScheduledNotificationTime(notification);
+      if (!time || !isAfter(time, new Date())) continue;
+      const { notes: _notes, imageUri: _imageUri, ...rest } = data;
+      const medication = await lookup(data.medicationId);
+      try {
+        await Notifications.scheduleNotificationAsync({
+          identifier: notification.identifier,
+          content: {
+            ...doseReminderContent({
+              name: medication?.name ?? data.medicationName ?? '',
+              strength: medication?.strength,
+              amount: Number(data.dosageAmount),
+              unit: data.dosageUnit ?? medication?.dosageUnit ?? '',
+              snoozed: true,
+            }),
+            data: { ...rest, copy: REMINDER_COPY_VERSION },
+            sound: 'default',
+            categoryIdentifier: 'MEDICATION_REMINDER',
+          },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: time,
+            channelId: 'medication_reminders',
+          },
+        });
+      } catch (error) {
+        console.warn('Could not re-create a snoozed reminder:', error);
+      }
+    } else if (isRefillKind(data) && typeof data.medicationId === 'string') {
+      refillMedicationIds.add(data.medicationId);
+    }
+  }
+  for (const id of refillMedicationIds) {
+    const medication = await lookup(id);
+    if (!medication || !medication.isActive) continue;
+    try {
+      await scheduleRefillReminder(medication);
+    } catch (error) {
+      console.warn('Could not re-create a refill reminder:', error);
+    }
+  }
+  return cancelled;
+}
+
+/**
+ * Re-creates the next dose reminders (and refill reminders) of the active profile's medicines.
+ * Used when Android's "Alarms & reminders" access is granted: reminders scheduled before that were
+ * inexact, new ones are exact. Snoozed reminders are left as they are.
+ */
+export async function rescheduleDoseRemindersForActiveProfile(): Promise<void> {
+  const { getActiveProfile, getMedicationsByProfile } = await import('@/lib/db/operations');
+  const profile = await getActiveProfile();
+  if (!profile) return;
+  const medications = await getMedicationsByProfile(profile.id, true);
+  for (const medication of medications) {
+    if (!medication.isActive) continue;
+    try {
+      await scheduleNotificationsForMedication(medication);
+      await scheduleRefillReminder(medication);
+    } catch (error) {
+      console.warn('Could not reschedule reminders for a medicine:', error);
     }
   }
 }

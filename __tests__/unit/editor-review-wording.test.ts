@@ -113,7 +113,16 @@ describe('editor wording', () => {
       expect(at(medicinesUi[l] as Tree, 'supplySheet.startTracking')).toBeTruthy();
       expect(at(medicinesUi[l] as Tree, 'supply.lastChange')).toBeTruthy();
     }
-    expect(at(medicinesUi.en as Tree, 'setup.title')).toBe('Notes and dose limits');
+    // Distinct headings on the medicine page: "Supply and expiry", "Note", "Dose limits".
+    expect(at(medicinesUi.en as Tree, 'setup.title')).toBeUndefined();
+    for (const l of locales) {
+      const page = (k: string) => at(medicinesUi[l] as Tree, `page.${k}`);
+      expect(new Set([page('supplyExpiry'), page('notes'), page('safety')]).size).toBe(3);
+      expect(at(editorUi[l] as Tree, 'edit.expiryTitle')).toBeTruthy();
+      expect(at(editorUi[l] as Tree, 'review.supplyExpiry')).toBeTruthy();
+    }
+    expect(at(medicinesUi.en as Tree, 'page.notes')).toBe('Note');
+    expect(at(medicinesUi.en as Tree, 'page.safety')).toBe('Dose limits');
     expect(at(editorUi.en as Tree, 'nudge.body')).toBe(
       'Want to count how many you have left? We’ll show how many days remain.'
     );

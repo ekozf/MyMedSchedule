@@ -2,15 +2,22 @@ import { create } from 'zustand';
 import { Profile, Medication } from '@/types';
 import {
   getLatestDisclaimerAcknowledgment,
+  hasAcknowledgedDisclaimer,
   getActiveProfile,
   getAllProfiles,
   getMedicationsByProfile,
 } from '@/lib/db/operations';
 import * as SecureStore from 'expo-secure-store';
+import { DISCLAIMER_VERSION } from '@/components/onboarding/launch-route';
+
+/** SecureStore key for "onboarding finished" (also wiped by lib/data/wipe.ts). */
+export const ONBOARDING_COMPLETED_KEY = 'onboarding_completed';
 
 interface AppStore {
   // App state
   hasAcknowledgedDisclaimer: boolean;
+  /** The current "Good to know" version (DISCLAIMER_VERSION) has been agreed to. */
+  disclaimerUpToDate: boolean;
   hasCompletedOnboarding: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -25,6 +32,7 @@ interface AppStore {
 
   // Actions
   setDisclaimerAcknowledged: (acknowledged: boolean) => void;
+  setDisclaimerUpToDate: (upToDate: boolean) => void;
   setOnboardingCompleted: (completed: boolean) => Promise<void>;
   setAuthenticated: (authenticated: boolean) => void;
   setActiveProfile: (profile: Profile | null) => void;
@@ -37,11 +45,13 @@ interface AppStore {
   loadProfiles: () => Promise<void>;
   loadMedications: (profileId: string) => Promise<void>;
   refreshAll: () => Promise<void>;
+  /** Back to a fresh install's state (after "Delete all data"); app state counts as loaded. */
+  reset: () => void;
 }
 
-export const useStore = create<AppStore>((set, get) => ({
-  // Initial state
+const initialState = {
   hasAcknowledgedDisclaimer: false,
+  disclaimerUpToDate: false,
   hasCompletedOnboarding: false,
   isAuthenticated: false,
   isLoading: false,
@@ -49,15 +59,23 @@ export const useStore = create<AppStore>((set, get) => ({
   activeProfile: null,
   profiles: [],
   medications: [],
+} satisfies Partial<AppStore>;
+
+export const useStore = create<AppStore>((set, get) => ({
+  // Initial state
+  ...initialState,
+
+  reset: () => set({ ...initialState, isLoadingAppState: false }),
 
   // Basic setters
   setDisclaimerAcknowledged: (acknowledged) => set({ hasAcknowledgedDisclaimer: acknowledged }),
+  setDisclaimerUpToDate: (upToDate) => set({ disclaimerUpToDate: upToDate }),
   setOnboardingCompleted: async (completed) => {
     try {
       if (completed) {
-        await SecureStore.setItemAsync('onboarding_completed', 'true');
+        await SecureStore.setItemAsync(ONBOARDING_COMPLETED_KEY, 'true');
       } else {
-        await SecureStore.deleteItemAsync('onboarding_completed');
+        await SecureStore.deleteItemAsync(ONBOARDING_COMPLETED_KEY);
       }
       set({ hasCompletedOnboarding: completed });
     } catch (error) {
@@ -75,7 +93,7 @@ export const useStore = create<AppStore>((set, get) => ({
     set({ isLoadingAppState: true });
     try {
       // Check if onboarding was completed (saved to SecureStore)
-      const onboardingCompleted = await SecureStore.getItemAsync('onboarding_completed');
+      const onboardingCompleted = await SecureStore.getItemAsync(ONBOARDING_COMPLETED_KEY);
       if (onboardingCompleted === 'true') {
         set({ hasCompletedOnboarding: true });
       }
@@ -84,6 +102,12 @@ export const useStore = create<AppStore>((set, get) => ({
       const disclaimer = await getLatestDisclaimerAcknowledgment();
       if (disclaimer) {
         set({ hasAcknowledgedDisclaimer: true });
+      }
+      // An agreement to an older version asks again (after unlocking, see launch-route.ts).
+      try {
+        set({ disclaimerUpToDate: await hasAcknowledgedDisclaimer(DISCLAIMER_VERSION) });
+      } catch (error) {
+        console.warn('Could not check the disclaimer version:', error);
       }
 
       // Load active profile

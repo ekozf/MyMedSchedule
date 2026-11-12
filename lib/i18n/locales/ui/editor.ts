@@ -199,6 +199,7 @@ export default defineFragment({
       medicine: 'Medicine',
       schedule: 'Schedule',
       supply: 'Supply',
+      supplyExpiry: 'Supply and expiry',
       extras: 'Extras',
       name: 'Name',
       photo: 'Photo',
@@ -276,6 +277,8 @@ export default defineFragment({
       perDay: '{{amount}} a day',
       apart: '{{hours}} apart',
       expires: 'Expires {{date}}',
+      expiryTitle: 'When does it expire?',
+      expiryHelper: 'Use the date printed on the box.',
     },
     /** Pill Box screens (add flow chrome, time cards, sheets, toasts). */
     screens: {
@@ -549,6 +552,7 @@ export default defineFragment({
       medicine: 'Medicijn',
       schedule: 'Schema',
       supply: 'Voorraad',
+      supplyExpiry: 'Voorraad en houdbaarheid',
       extras: 'Extra’s',
       name: 'Naam',
       photo: 'Foto',
@@ -630,6 +634,8 @@ export default defineFragment({
       perDay: '{{amount}} per dag',
       apart: '{{hours}} ertussen',
       expires: 'Verloopt {{date}}',
+      expiryTitle: 'Tot wanneer is het houdbaar?',
+      expiryHelper: 'Gebruik de datum op de verpakking.',
     },
     screens: {
       pickTime: 'Kies een tijd',
@@ -900,6 +906,7 @@ export default defineFragment({
       medicine: 'İlaç',
       schedule: 'Program',
       supply: 'Stok',
+      supplyExpiry: 'Stok ve son kullanma',
       extras: 'Ek ayarlar',
       name: 'Ad',
       photo: 'Fotoğraf',
@@ -974,6 +981,8 @@ export default defineFragment({
       perDay: 'Günde {{amount}}',
       apart: 'Arada {{hours}}',
       expires: 'Son kullanma {{date}}',
+      expiryTitle: 'Son kullanma tarihi ne zaman?',
+      expiryHelper: 'Kutunun üzerindeki tarihi kullanın.',
     },
     screens: {
       pickTime: 'Saat seçin',

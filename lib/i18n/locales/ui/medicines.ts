@@ -9,7 +9,6 @@ export default defineFragment({
   en: {
     /** Medicine page: what's still unset after a quick add. */
     setup: {
-      title: 'Notes and dose limits',
       note: 'Add a note',
       limits: 'Add dose limits',
     },
@@ -235,8 +234,9 @@ export default defineFragment({
       noneSoon: 'Nothing planned soon',
       unitLeft: '{{unit}} left',
       atPace: '{{pace}} at your current pace',
-      notes: 'Notes',
-      safety: 'Safety',
+      notes: 'Note',
+      safety: 'Dose limits',
+      supplyExpiry: 'Supply and expiry',
       expiry: 'Expiry date',
       maxPerDay: 'Maximum in one day',
       minHours: 'Time between doses',
@@ -261,7 +261,6 @@ export default defineFragment({
   nl: {
     /** Medicine page: what's still unset after a quick add. */
     setup: {
-      title: 'Notities en dosisgrenzen',
       note: 'Notitie toevoegen',
       limits: 'Dosisgrenzen toevoegen',
     },
@@ -486,8 +485,9 @@ export default defineFragment({
       noneSoon: 'Binnenkort niets gepland',
       unitLeft: '{{unit}} over',
       atPace: '{{pace}} in je huidige tempo',
-      notes: 'Notities',
-      safety: 'Veiligheid',
+      notes: 'Notitie',
+      safety: 'Dosisgrenzen',
+      supplyExpiry: 'Voorraad en houdbaarheid',
       expiry: 'Houdbaar tot',
       maxPerDay: 'Maximaal op één dag',
       minHours: 'Tijd tussen doses',
@@ -512,7 +512,6 @@ export default defineFragment({
   tr: {
     /** Medicine page: what's still unset after a quick add. */
     setup: {
-      title: 'Notlar ve doz sınırları',
       note: 'Not ekleyin',
       limits: 'Doz sınırı ekleyin',
     },
@@ -736,8 +735,9 @@ export default defineFragment({
       noneSoon: 'Yakında planlanan yok',
       unitLeft: '{{unit}} kaldı',
       atPace: 'Şu anki kullanımla {{pace}}',
-      notes: 'Notlar',
-      safety: 'Güvenlik',
+      notes: 'Not',
+      safety: 'Doz sınırları',
+      supplyExpiry: 'Stok ve son kullanma',
       expiry: 'Son kullanma tarihi',
       maxPerDay: 'Bir günde en fazla',
       minHours: 'Dozlar arası süre',

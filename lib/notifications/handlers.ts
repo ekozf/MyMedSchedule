@@ -4,10 +4,12 @@ import {
   createIntakeLog,
   createIntakeLogAndUpdateInventory,
   getActiveProfile,
+  getMedicationById,
   hasIntakeLogForDose,
   InventoryInsufficientError,
 } from '@/lib/db/operations';
 import i18n from '@/lib/i18n';
+import { doseReminderContent, REMINDER_COPY_VERSION } from '@/lib/notifications/copy';
 import { ensureNext3DoseNotificationsForMedication } from '@/lib/notifications/scheduler';
 import { useStore } from '@/store';
 
@@ -50,13 +52,15 @@ export function todayFocusFromData(data: any): TodayFocus | null {
 
 /**
  * Record the dose and go to Today. When the app is locked nothing navigates here: the lock screen
- * opens Today after unlocking, and Today then reads the pending focus.
+ * opens Today after unlocking (via the updated disclaimer when needed), and Today then reads the
+ * pending focus.
  */
 export function openTodayFor(focus: TodayFocus): void {
   pendingTodayFocus = focus;
   todayFocusListeners.forEach((l) => l());
-  const { isAuthenticated, activeProfile } = useStore.getState();
-  if (!isAuthenticated || !activeProfile) return;
+  const { isAuthenticated, activeProfile, disclaimerUpToDate } = useStore.getState();
+  // Locked, or the updated "Good to know" still needs an answer: that screen leads to Today.
+  if (!isAuthenticated || !activeProfile || !disclaimerUpToDate) return;
   try {
     router.navigate('/(tabs)/dashboard' as Href);
   } catch (error) {
@@ -233,22 +237,48 @@ async function handleTakeAction(data: any) {
   }
 }
 
+/**
+ * The fields a reminder carries (and nothing else: older reminders also held notes and a photo
+ * path, which are dropped when they are snoozed).
+ */
+export function reminderPayload(data: any, kind: 'dose' | 'snooze') {
+  return {
+    kind,
+    copy: REMINDER_COPY_VERSION,
+    medicationId: data?.medicationId,
+    medicationName: data?.medicationName,
+    dosageAmount: data?.dosageAmount,
+    dosageUnit: data?.dosageUnit,
+    scheduledTime: data?.scheduledTime,
+  };
+}
+
 async function handleSnoozeAction(data: any) {
   try {
     const snoozeTime = new Date();
     snoozeTime.setMinutes(snoozeTime.getMinutes() + 15);
+
+    // The strength is not in the reminder's data: read it from the medicine (name as fallback).
+    let medication: Awaited<ReturnType<typeof getMedicationById>> | null = null;
+    try {
+      medication = data?.medicationId ? await getMedicationById(data.medicationId) : null;
+    } catch {
+      medication = null;
+    }
 
     // One snooze per dose: a fixed identifier means a repeated press replaces it instead of
     // stacking a second reminder.
     await Notifications.scheduleNotificationAsync({
       identifier: `snooze-${data.medicationId}-${data.scheduledTime}`,
       content: {
-        title: i18n.t('notifications.snoozedTitle'),
-        body: i18n.t('notifications.snoozedBody', { medication: data.medicationName }),
-        data: {
-          ...data,
-          kind: 'snooze',
-        },
+        ...doseReminderContent({
+          name: medication?.name ?? data.medicationName ?? '',
+          strength: medication?.strength,
+          amount: Number(data.dosageAmount),
+          unit: data.dosageUnit ?? medication?.dosageUnit ?? '',
+          snoozed: true,
+        }),
+        data: reminderPayload(data, 'snooze'),
         sound: 'default',
         categoryIdentifier: 'MEDICATION_REMINDER',
       },

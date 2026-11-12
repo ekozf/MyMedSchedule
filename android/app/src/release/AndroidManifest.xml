@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- MyMedSchedule is fully offline: no network access in release builds.
+         INTERNET is merged in by expo-file-system and firebase (via expo-notifications).
+         ACCESS_NETWORK_STATE is kept on purpose: expo-background-task schedules its WorkManager
+         job with a NetworkType.CONNECTED constraint, and WorkManager/JobScheduler need it to
+         evaluate that constraint. -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove"/>
+</manifest>

@@ -4,9 +4,9 @@
  * ("1 pill at 08:00 and 20:00, every day") above the `MiniTray` of its compartments with times
  * (neutral "scheduled" tone: green means taken on Today), Last taken (with which scheduled dose it
  * was recorded for) / Next dose (skipping doses already logged, same rule as Today), the supply
- * card ("Not tracking supply" with "Start tracking" while untracked), Notes, Safety (when set), a
- * quiet "Notes and dose limits" group with "Add a note" / "Add dose limits" (each row goes once
- * set, the group when both are) and More (See in Journal, Pause / Resume this medicine, Delete
+ * card ("Not tracking supply" with "Start tracking" while untracked) under "Supply and expiry"
+ * with the "Expiry date" row below it, "Note" (the note, or "Add a note ›"), "Dose limits" (the
+ * limits, or "Add dose limits ›"), "Reminder sound" (only when ringing on silent) and More (See in Journal, Pause / Resume this medicine, Delete
  * medicine). Status pill only when paused ("Paused"); an active medicine shows none.
  * Presentational: the route owns data loading and actions.
  *
@@ -25,7 +25,16 @@ import { View } from 'react-native';
 import i18n from '@/lib/i18n';
 import { formatDose, useTimeFormat } from '@/lib/ui/format';
 import { useCompartmentBoundaries } from '@/lib/settings/compartments';
-import { Button, ListGroup, ListRow, MedIcon, MiniTray, StatusPill, Text } from '@/components/ds';
+import {
+  Button,
+  ListGroup,
+  ListRow,
+  MedIcon,
+  MiniTray,
+  SectionHeader,
+  StatusPill,
+  Text,
+} from '@/components/ds';
 import type { InventoryAdjustment } from '@/lib/db/operations';
 import type { IntakeLog, Medication } from '@/types';
 import {
@@ -33,11 +42,10 @@ import {
   isExpired,
   loggedForLine,
   medicineDisplayName,
-  medicineHasLimits,
   nextUnloggedDose,
 } from './medicine-info';
 import { configOf, scheduleLine, scheduleTimes, traySlots } from './schedule-summary';
-import { SafetyGroup } from './SafetyCard';
+import { ExpiryRow, SafetyGroup, SoundGroup } from './SafetyCard';
 import { SupplyCard } from './SupplyCard';
 
 export interface MedicineDetailContentProps {
@@ -58,6 +66,8 @@ export interface MedicineDetailContentProps {
   onAddNote?: () => void;
   /** "Add dose limits" (open the limits editor). Row hidden when not given. */
   onAddLimits?: () => void;
+  /** The "Expiry date" row (open the expiry date editor). Row only shown when set if not given. */
+  onEditExpiry?: () => void;
   onSeeJournal: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
@@ -79,6 +89,7 @@ export function MedicineDetailContent({
   lastChange,
   onAddNote,
   onAddLimits,
+  onEditExpiry,
   onSeeJournal,
   onToggleActive,
   onDelete,
@@ -94,8 +105,6 @@ export function MedicineDetailContent({
   const nextDose = med.isActive && !med.isPrn ? nextUnloggedDose(med, logs, at) : null;
   const loggedFor = lastTaken ? loggedForLine(lastTaken, formatTime, at) : null;
   const notes = med.notes?.trim();
-  const addNote = !notes && !!onAddNote;
-  const addLimits = !medicineHasLimits(med) && !!onAddLimits;
 
   return (
     <View style={{ gap: 24 }}>
@@ -158,14 +167,19 @@ export function MedicineDetailContent({
         ) : null}
       </ListGroup>
 
-      <SupplyCard
-        medication={med}
-        onUpdate={onUpdateSupply}
-        onStartTracking={onStartTracking}
-        onEditRefill={onEditRefill}
-        lastChange={lastChange}
-        now={at}
-      />
+      {/* Supply and expiry: both are about the pack you have. */}
+      <View style={{ gap: 8 }}>
+        <SectionHeader title={t('page.supplyExpiry')} style={{ marginTop: 0, marginBottom: 0 }} />
+        <SupplyCard
+          medication={med}
+          onUpdate={onUpdateSupply}
+          onStartTracking={onStartTracking}
+          onEditRefill={onEditRefill}
+          lastChange={lastChange}
+          now={at}
+        />
+        <ExpiryRow medication={med} onEdit={onEditExpiry} now={at} />
+      </View>
 
       {notes ? (
         <ListGroup header={t('page.notes')}>
@@ -175,16 +189,14 @@ export function MedicineDetailContent({
             </Text>
           </View>
         </ListGroup>
-      ) : null}
-
-      <SafetyGroup medication={med} now={at} />
-
-      {addNote || addLimits ? (
-        <ListGroup header={t('setup.title')}>
-          {addNote ? <ListRow title={t('setup.note')} onPress={onAddNote} /> : null}
-          {addLimits ? <ListRow title={t('setup.limits')} onPress={onAddLimits} /> : null}
+      ) : onAddNote ? (
+        <ListGroup header={t('page.notes')}>
+          <ListRow title={t('setup.note')} onPress={onAddNote} />
         </ListGroup>
       ) : null}
+
+      <SafetyGroup medication={med} onAdd={onAddLimits} />
+      <SoundGroup medication={med} />
 
       <ListGroup header={t('page.more')}>
         <ListRow title={t('detail.seeJournal')} onPress={onSeeJournal} />

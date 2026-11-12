@@ -12,6 +12,7 @@ vi.mock('expo-secure-store', () => ({
 // Mock database operations
 vi.mock('@/lib/db/operations', () => ({
   getLatestDisclaimerAcknowledgment: vi.fn(() => Promise.resolve(null)),
+  hasAcknowledgedDisclaimer: vi.fn(() => Promise.resolve(false)),
   getActiveProfile: vi.fn(() => Promise.resolve(null)),
   getAllProfiles: vi.fn(() => Promise.resolve([])),
   getMedicationsByProfile: vi.fn(() => Promise.resolve([])),

@@ -17,11 +17,22 @@ export interface DisclaimerPage {
 }
 
 export const DISCLAIMER_PAGES: DisclaimerPage[] = [
-  { key: 'privacy', paragraphs: ['p1', 'p2', 'p3'] },
-  { key: 'medical', paragraphs: ['p1', 'p2', 'p3'] },
-  { key: 'technical', paragraphs: ['p1', 'p2'] },
+  { key: 'privacy', paragraphs: ['p1', 'p2', 'p3', 'p4'] },
+  { key: 'medical', paragraphs: ['p1', 'p2', 'p3', 'p4'] },
+  { key: 'technical', paragraphs: ['p1', 'p2', 'p3', 'p4'] },
   { key: 'responsibility', paragraphs: ['p1', 'p2', 'p3'] },
 ];
+
+/**
+ * What changed in the current DISCLAIMER_VERSION, for the "We updated this" page
+ * (`ui.onboarding.disclaimer.changes.<key>`). Replace the list with each bump.
+ */
+export const DISCLAIMER_CHANGES = ['privacy', 'limits', 'alarms'] as const;
+export type DisclaimerChangeKey = (typeof DISCLAIMER_CHANGES)[number];
+
+export function disclaimerChange(key: DisclaimerChangeKey): string {
+  return i18n.t(`ui.onboarding.disclaimer.changes.${key}`);
+}
 
 export function disclaimerTitle(page: DisclaimerPage): string {
   return i18n.t(`ui.onboarding.disclaimer.pages.${page.key}.title`);

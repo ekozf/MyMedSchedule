@@ -1,15 +1,16 @@
 /**
- * Step 6 "A few extras" (docs/DESIGN.md §5.4): "Note (shown with every dose)", then "Your optional
- * limits" with Most in one day, Time between doses, Expiry date (unset rows read "Not set" with no
- * description; once set, the row says what happens; each opens a stepper or calendar sheet with a
- * quiet "Remove limit" / "No limit"), with a one-line description under the limits title, and the
+ * Step 6 "A few extras" (docs/DESIGN.md §5.4): "Note (shown with every dose)", the "Expiry date"
+ * row (it is printed on the box, not a limit, so it has its own group), then "Dose limits from your
+ * prescription" with Most in one day and Time between doses (unset rows read "Not set" with no
+ * description; once set, the row says what happens; each opens a stepper sheet with a quiet
+ * "Remove limit" / "No limit"), with a one-line description under the limits title, and the
  * "Ring even on silent" switch in its own "Reminder sound" group.
- * Everything is optional. `part` shows just the note or just the limits (edit list rows "Note" /
- * "Limits"); the default shows all of it.
+ * Everything is optional. `part` shows just the note, just the limits or just the expiry date
+ * (edit list rows "Note" / "Dose limits" / "Expiry date"); the default shows all of it.
  *
  * @example
  * <ExtrasSection form={form} update={update} />
- * <ExtrasSection form={form} update={update} part="limits" />
+ * <ExtrasSection form={form} update={update} part="expiry" />
  */
 import * as React from 'react';
 import { View } from 'react-native';
@@ -29,7 +30,7 @@ export function ExtrasSection({
   update,
   issue,
   part = 'all',
-}: SectionProps & { issue?: StepIssue | null; part?: 'all' | 'note' | 'limits' }) {
+}: SectionProps & { issue?: StepIssue | null; part?: 'all' | 'note' | 'limits' | 'expiry' }) {
   const [calendarOpen, setCalendarOpen] = React.useState(false);
   const unit = form.dosageUnit;
   const s = doseStep(unit);
@@ -39,7 +40,7 @@ export function ExtrasSection({
 
   return (
     <View style={{ gap: 20 }}>
-      {part !== 'limits' ? (
+      {part === 'all' || part === 'note' ? (
         <TextField
           label={part === 'note' ? undefined : t('notes')}
           accessibilityLabel={t('notes')}
@@ -52,7 +53,17 @@ export function ExtrasSection({
         />
       ) : null}
 
-      {part !== 'note' ? (
+      {part === 'all' || part === 'expiry' ? (
+        <ListGroup>
+          <ListRow
+            title={t('expiry')}
+            value={expiry ? formatShortDate(expiry) : t('notSet')}
+            onPress={() => setCalendarOpen(true)}
+          />
+        </ListGroup>
+      ) : null}
+
+      {part === 'all' || part === 'limits' ? (
         <View style={{ gap: 8 }}>
           {/* The Limits page already has this as its title and subtitle. */}
           {part === 'all' ? (
@@ -90,11 +101,6 @@ export function ExtrasSection({
               format={(n) => i18n.t('ui.editor.count.hours', { count: n })}
               unit={(n) => i18n.t('ui.editor.count.hourUnit', { count: n })}
               onChange={(minHoursBetweenDoses) => update.set({ minHoursBetweenDoses })}
-            />
-            <ListRow
-              title={t('expiry')}
-              value={expiry ? formatShortDate(expiry) : t('notSet')}
-              onPress={() => setCalendarOpen(true)}
             />
           </ListGroup>
         </View>

@@ -26,6 +26,17 @@ bun install --frozen-lockfile
 bun run build:apk
 ```
 
+Without signing env vars this builds a **test** APK signed with the local
+debug key (the script passes `-PallowDebugSigningForRelease=true`; plain
+`./gradlew assembleRelease` refuses to run without a release key). To sign with
+the release/upload key instead, export `ANDROID_KEYSTORE_PATH`,
+`ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`
+first (see [releases.md](releases.md)).
+
+The application ID is `be.emirkaan.mymedschedule`. Builds made before the
+Play Store preparation used `com.anonymous.mymedschedule` and install as a
+separate app; uninstall the old one (`adb uninstall com.anonymous.mymedschedule`).
+
 The standalone, signed APK is written to:
 
 ```text
@@ -34,6 +45,10 @@ artifacts/MyMedSchedule-1.0.0.apk
 
 It includes the JavaScript bundle and native modules, including SQLCipher.
 It does not require Metro, Expo Go, an Expo account, or a connection to this Mac.
+Release builds have no INTERNET permission (it is stripped by
+`android/app/src/release/AndroidManifest.xml`); debug builds keep it for Metro.
+Release builds are minified with R8, so test release-only behaviour on a release
+build, not only in a debug build.
 It supports Android 7.0 (API 24) or newer, with ARM and x86 architectures.
 
 ## Install on a phone
@@ -49,8 +64,8 @@ enabled, and the phone connected and authorized:
 adb install -r MyMedSchedule-1.0.0.apk
 ```
 
-This is a testing build signed using `android/app/debug.keystore`, with the
-release JavaScript bundle. Keep that local key to install later builds as
+Without release signing env vars, this is a testing build signed using
+`android/app/debug.keystore`, with the release JavaScript bundle. Keep that local key to install later builds as
 updates without deleting app data. It is not a Play Store signing setup.
 
 ## Recreate the build tools on another Apple Silicon Mac
