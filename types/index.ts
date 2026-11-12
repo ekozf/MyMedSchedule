@@ -17,6 +17,8 @@ export interface ProfileSettings {
   compartmentBoundaries?: CompartmentBoundaries;
   /** Light / dark look. Default 'system' (follow the phone). */
   appearance?: Appearance;
+  /** The "Let reminders arrive on time" sheet (Android exact alarms) was shown once. */
+  exactAlarmPromptShown?: boolean;
 }
 
 export type Appearance = 'system' | 'light' | 'dark';

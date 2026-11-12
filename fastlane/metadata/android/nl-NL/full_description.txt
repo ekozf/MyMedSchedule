@@ -1,0 +1,44 @@
+MyMedSchedule helpt je je medicijnen te onthouden. De app werkt zoals de pillendoos die je misschien al hebt: je dag heeft vier vakjes, ochtend, middag, avond en nacht, en je krijgt een herinnering als het tijd is.
+
+Privé, zonder gedoe
+• Geen account en geen registratie
+• Alles blijft op je telefoon, in een versleutelde database
+• Geen advertenties, geen tracking, geen analytics
+• Werkt volledig offline
+
+Een overzichtelijke pillendoos
+• Je hele dag in één oogopslag: ochtend, middag, avond, nacht
+• Eén grote knop om een dosis als ingenomen af te vinken
+• Grote, goed leesbare letters in het lettertype Atkinson Hyperlegible
+• Lichte en donkere modus
+
+Voor het hele gezin
+• Houd het bij voor meerdere mensen op één telefoon, bijvoorbeeld een ouder of een kind
+• Iedereen heeft eigen medicijnen, herinneringen en een eigen dagboek
+
+Schema's die bij je leven passen
+• Elke dag, op vaste weekdagen, om de paar dagen of alleen als het nodig is
+• Om de zoveel uur, op een vaste weekdag van de maand (zoals de 2e dinsdag) of in cycli (zoals 21 dagen wel, 7 dagen niet)
+• Afbouwschema's waarbij de dosis stap voor stap omlaaggaat
+• Meerdere keren per dag, elk met een eigen hoeveelheid
+
+Herinneringen
+• Herinneringen op tijd, ook nadat je telefoon opnieuw is opgestart
+• Innemen, 15 minuten uitstellen of overslaan, direct vanuit de melding
+
+Voorraad en je eigen grenzen
+• Houd je voorraad bij en krijg een seintje als die bijna op is
+• Houd houdbaarheidsdatums bij
+• Optioneel: stel zelf een daglimiet en een minimale tijd tussen doses in. Ga je over wat je hebt ingevuld, dan krijg je een rustige waarschuwing. De app houdt je nooit tegen en controleert niet of een dosis medisch klopt.
+
+Dagboek en rapporten
+• Zie per dag wat je hebt ingenomen of overgeslagen
+• Vergeten af te vinken? Voeg een eerdere dosis toe
+• Maak een pdf-rapport om met je arts te delen. De pdf is niet versleuteld en jij bepaalt waar hij heen gaat.
+
+Vergrendeling en taal
+• Vergrendel de app met een pincode, of met je vingerafdruk of gezicht als je telefoon dat ondersteunt
+• Vergrendelt vanzelf na een minuut op de achtergrond
+• English, Nederlands en Türkçe
+
+Let op: MyMedSchedule is een herinnering en een dagboek, geen medisch advies. De app controleert je medicijnen niet op wisselwerkingen. Volg altijd je arts, je apotheker en de bijsluiter.

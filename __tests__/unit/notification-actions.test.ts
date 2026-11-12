@@ -10,6 +10,7 @@ vi.mock('@/lib/db/operations', () => ({
   createIntakeLog: vi.fn(),
   createIntakeLogAndUpdateInventory: vi.fn(),
   getActiveProfile: vi.fn(() => Promise.resolve({ id: 'p1' })),
+  getMedicationById: vi.fn(() => Promise.resolve(null)),
   hasIntakeLogForDose: vi.fn(() => Promise.resolve(false)),
   InventoryInsufficientError: class extends Error {},
 }));

@@ -256,7 +256,7 @@ export function refillValue(form: MedicineForm): string {
     : t('review.refillDosesLeft', { count });
 }
 
-/** "4 pills a day · 6 hours apart · Expires Fri 3 Jul", or null when no limit is set. */
+/** "4 pills a day · 6 hours apart", or null when no limit is set (the expiry date is not a limit). */
 export function limitsSummary(form: MedicineForm): string | null {
   const parts = [
     form.maxDailyDose !== null
@@ -265,7 +265,11 @@ export function limitsSummary(form: MedicineForm): string | null {
     form.minHoursBetweenDoses !== null
       ? t('edit.apart', { hours: t('count.hours', { count: form.minHoursBetweenDoses }) })
       : null,
-    form.expirationDate ? t('edit.expires', { date: formatShortDate(form.expirationDate) }) : null,
   ].filter(Boolean);
   return parts.length ? parts.join(' · ') : null;
+}
+
+/** The expiry date for the edit list and the review ("Fri 3 Jul 2027"), or "Not set". */
+export function expiryValue(form: Pick<MedicineForm, 'expirationDate'>): string {
+  return form.expirationDate ? formatShortDate(form.expirationDate) : t('review.notSet');
 }

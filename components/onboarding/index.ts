@@ -12,7 +12,9 @@ export {
 } from './LanguageSheet';
 export { DisclaimerView, type DisclaimerViewProps } from './DisclaimerView';
 export {
+  DISCLAIMER_CHANGES,
   DISCLAIMER_PAGES,
+  disclaimerChange,
   disclaimerParagraphs,
   disclaimerSummary,
   disclaimerTitle,
@@ -39,4 +41,10 @@ export {
   COOLDOWN_MS,
   PIN_ERROR_FLASH_MS,
 } from './pin-guard';
-export { ONBOARDING_ROUTES } from './routes';
+export { ONBOARDING_ROUTES, hrefForLaunchRoute } from './routes';
+export {
+  DISCLAIMER_VERSION,
+  launchRoute,
+  type LaunchRoute,
+  type LaunchState,
+} from './launch-route';

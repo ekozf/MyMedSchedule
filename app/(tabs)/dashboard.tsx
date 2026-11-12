@@ -5,6 +5,8 @@
  * Pull to refresh. A tapped dose reminder lands here with that dose's compartment open (see
  * `lib/notifications/handlers.ts`). Reminders: an "Allow reminders?" sheet before the OS dialog
  * once a scheduled medicine exists, and a "Reminders are off" banner while the phone blocks them.
+ * Android 12+: right after reminders are allowed, a one-time "Let reminders arrive on time" sheet
+ * (exact alarms), and a quieter "Reminders may arrive late" banner while they aren't allowed.
  * A supply count too low for a dose asks "Log anyway" / "Update supply first" (the supply sheet
  * opens here).
  */
@@ -54,6 +56,19 @@ import {
 } from '@/lib/notifications/use-permission';
 import { ReminderPermissionSheet } from '@/components/today/ReminderPermissionSheet';
 import { RemindersOffBanner } from '@/components/today/RemindersOffBanner';
+import { ExactAlarmSheet } from '@/components/today/ExactAlarmSheet';
+import { LateRemindersBanner } from '@/components/today/LateRemindersBanner';
+import {
+  checkExactAlarmPermission,
+  useExactAlarmPermission,
+} from '@/lib/notifications/use-exact-alarm';
+import {
+  exactAlarmSheet,
+  markExactAlarmPromptShown,
+  openExactAlarmSettingsSafely,
+  shouldOfferExactAlarm,
+  showLateRemindersBanner,
+} from '@/lib/notifications/exact-alarm-prompt';
 import { TodayHeader } from '@/components/today/TodayHeader';
 import { Tray } from '@/components/today/Tray';
 import { UpNext } from '@/components/today/UpNextCard';
@@ -68,6 +83,7 @@ import { useDoseActions } from '@/components/today/useDoseActions';
 import { doseName } from '@/components/today/names';
 import { medicineDisplayName, nextUnloggedDose } from '@/components/medicines/medicine-info';
 import {
+  asNeededForDay,
   buildEntries,
   computeDayStats,
   computeLateOverlap,
@@ -127,6 +143,10 @@ export default function TodayScreen() {
 
   const permission = useNotificationPermission();
   const [askReminders, setAskReminders] = React.useState(false);
+  const exactAlarm = useExactAlarmPermission();
+  const [askExactAlarm, setAskExactAlarm] = React.useState(false);
+  // Leaving Today with the sheet up must not leave "Count my supply" waiting for it.
+  React.useEffect(() => () => exactAlarmSheet.setOpen(false), []);
 
   // Dose keys with a log/undo running: every other log path for them is ignored.
   const inFlight = React.useRef(new Set<string>());
@@ -284,22 +304,11 @@ export default function TodayScreen() {
     };
   }, [laterDose, medsById, now, formatTime, allLogs]);
 
-  // As-needed medicines with today's count and their last log.
-  const prnItems = React.useMemo<AsNeededItem[]>(() => {
-    const todays = logsForDay(allLogs, now);
-    return medications
-      .filter((m) => m.isActive && m.isPrn)
-      .map((m) => {
-        const mine = todays.filter((l) => l.medicationId === m.id && l.action !== 'skipped');
-        const last = mine.reduce<Date | null>((acc, l) => {
-          const t = new Date(l.actualTime);
-          return !acc || t > acc ? t : acc;
-        }, null);
-        return { medication: m, takenToday: mine.length, lastAt: last };
-      });
-    // `now` matters per day only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [medications, allLogs, today.getTime()]);
+  // As-needed medicines with the picked day's count and their last log that day.
+  const prnItems = React.useMemo<AsNeededItem[]>(
+    () => asNeededForDay(medications, allLogs, selectedDate),
+    [medications, allLogs, selectedDate]
+  );
   const prnTodayLogs = React.useMemo(
     () => (prnMed ? logsForDay(allLogs, now).filter((l) => l.medicationId === prnMed.id) : []),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -408,6 +417,20 @@ export default function TodayScreen() {
     try {
       const granted = await requestNotificationPermissions({ prompt: true });
       if (granted) {
+        // Android 12+: offer on-time (exact) reminders once. Decided before planning so the
+        // "Count my supply" sheet knows to wait for it.
+        exactAlarm.refresh();
+        if (
+          shouldOfferExactAlarm({
+            supported: exactAlarm.supported,
+            granted: checkExactAlarmPermission(),
+            alreadyShown: !!useStore.getState().activeProfile?.settings?.exactAlarmPromptShown,
+          })
+        ) {
+          exactAlarmSheet.setOpen(true);
+          setAskExactAlarm(true);
+          void markExactAlarmPromptShown();
+        }
         // Plan (again) now that the channel exists and reminders can show.
         for (const m of medications) {
           if (!m.isActive) continue;
@@ -420,6 +443,16 @@ export default function TodayScreen() {
     }
     notifyPermissionChanged();
   };
+  const openExactAlarmSettings = () => {
+    void openExactAlarmSettingsSafely(exactAlarm.openSettings);
+  };
+  const showLateBanner =
+    !askExactAlarm &&
+    showLateRemindersBanner({
+      notificationState: permission.state,
+      supported: exactAlarm.supported,
+      granted: exactAlarm.granted,
+    });
 
   // --- compartment sheet ----------------------------------------------------------------------
   const openCompartment = React.useCallback(
@@ -684,9 +717,11 @@ export default function TodayScreen() {
                 blocked={permission.state === 'denied'}
                 onTurnOn={turnOnReminders}
               />
+            ) : hasScheduled && isToday && showLateBanner ? (
+              <LateRemindersBanner onFix={openExactAlarmSettings} />
             ) : null}
 
-            <AsNeededList items={prnItems} onLog={openPrn} />
+            <AsNeededList items={prnItems} dayKind={dayKind} onLog={openPrn} />
           </>
         )}
       </View>
@@ -765,6 +800,15 @@ export default function TodayScreen() {
         times={reminderTimes}
         onClose={() => setAskReminders(false)}
         onAnswer={onReminderAnswer}
+      />
+
+      <ExactAlarmSheet
+        visible={askExactAlarm}
+        onClose={() => setAskExactAlarm(false)}
+        onAnswer={(allow) => {
+          exactAlarmSheet.setOpen(false);
+          if (allow) openExactAlarmSettings();
+        }}
       />
     </Screen>
   );

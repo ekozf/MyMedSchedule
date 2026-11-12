@@ -21,7 +21,7 @@ export async function scheduleTestReminder(body: string): Promise<boolean> {
   if (!granted) return false;
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: i18n.t('notifications.medicationReminder'),
+      title: i18n.t('notifications.testTitle'),
       body,
       data: { kind: 'test' },
       sound: 'default',

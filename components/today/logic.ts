@@ -326,8 +326,10 @@ export type DoseNamer = (entry: DoseEntry) => string;
 const plainName: DoseNamer = (e) => e.dose.medicationName;
 
 /**
- * The medicines in a compartment, in time order, each name once: up to `max` names joined with
- * ", ", then "+N" for the rest ("Metformin" · "Metformin, Lisinopril +1").
+ * The medicines a compartment's tile names, in time order, each name once: up to `max` names
+ * joined with ", ", then "+N" for the rest ("Metformin" · "Metformin, Lisinopril +1"). While doses
+ * are still to take only those are named (the count above says "1 dose to take", so a medicine
+ * already taken or skipped would read as still to take); once finished, all of them.
  */
 export function compartmentNames(
   g: CompartmentGroup,
@@ -342,7 +344,7 @@ export function compartmentNames(
 function distinctNames(g: CompartmentGroup, nameOf: DoseNamer = plainName): string[] {
   const seen = new Set<string>();
   const names: string[] = [];
-  for (const e of g.entries) {
+  for (const e of isGroupDone(g) ? g.entries : g.pending) {
     const n = nameOf(e);
     if (!seen.has(n)) {
       seen.add(n);
@@ -731,4 +733,54 @@ export interface DoseUpdateRequest {
   notes: string;
   /** New "taken at" time; ignored when within a minute of the current one. */
   actualTime?: Date;
+}
+
+/** An as-needed medicine on the picked day: how often it was taken (taken or partial), and when last. */
+export interface AsNeededDay {
+  medication: Medication;
+  taken: number;
+  lastAt: Date | null;
+}
+
+/** "When you need it" rows for the day picked on Today (not always today). */
+export function asNeededForDay(
+  medications: Medication[],
+  logs: IntakeLog[],
+  day: Date
+): AsNeededDay[] {
+  const dayLogs = logsForDay(logs, day);
+  return medications
+    .filter((m) => m.isActive && m.isPrn)
+    .map((m) => {
+      const mine = dayLogs.filter((l) => l.medicationId === m.id && l.action !== 'skipped');
+      const lastAt = mine.reduce<Date | null>((acc, l) => {
+        const t = new Date(l.actualTime);
+        return !acc || t > acc ? t : acc;
+      }, null);
+      return { medication: m, taken: mine.length, lastAt };
+    });
+}
+
+/**
+ * The count line of an as-needed row: "2 taken today, last at 14:00" / "None today" on today,
+ * "1 taken, last at 09:10" / "None taken" on a past day, nothing on a future day.
+ */
+export function asNeededDayText(
+  item: Pick<AsNeededDay, 'taken' | 'lastAt'>,
+  kind: DayKind,
+  fmt: Fmt
+): string | null {
+  if (kind === 'future') return null;
+  const today = kind === 'today';
+  if (item.taken === 0) {
+    return i18n.t(today ? 'ui.today.asNeeded.noneToday' : 'ui.today.asNeeded.noneOnDay');
+  }
+  return [
+    i18n.t(today ? 'ui.today.asNeeded.takenToday' : 'ui.today.asNeeded.takenOnDay', {
+      count: item.taken,
+    }),
+    item.lastAt ? i18n.t('ui.today.asNeeded.lastAt', { time: fmt(item.lastAt) }) : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
 }

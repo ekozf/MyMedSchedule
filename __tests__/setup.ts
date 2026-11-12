@@ -37,6 +37,40 @@ vi.mock('expo-secure-store', () => ({
   deleteItemAsync: vi.fn(),
 }));
 
+// Real hashing / randomness from Node, so PIN hashes and DB keys behave like on a device.
+vi.mock('expo-crypto', async () => {
+  const nodeCrypto = await import('node:crypto');
+  const algorithms: Record<string, string> = {
+    'SHA-1': 'sha1',
+    'SHA-256': 'sha256',
+    'SHA-384': 'sha384',
+    'SHA-512': 'sha512',
+    MD5: 'md5',
+  };
+  return {
+    CryptoDigestAlgorithm: {
+      SHA1: 'SHA-1',
+      SHA256: 'SHA-256',
+      SHA384: 'SHA-384',
+      SHA512: 'SHA-512',
+      MD5: 'MD5',
+    },
+    CryptoEncoding: { HEX: 'hex', BASE64: 'base64' },
+    getRandomBytes: (n: number) => new Uint8Array(nodeCrypto.randomBytes(n)),
+    getRandomBytesAsync: async (n: number) => new Uint8Array(nodeCrypto.randomBytes(n)),
+    randomUUID: () => nodeCrypto.randomUUID(),
+    digest: async (algorithm: string, data: ArrayBufferView) => {
+      const h = nodeCrypto
+        .createHash(algorithms[algorithm])
+        .update(Buffer.from(data.buffer, data.byteOffset, data.byteLength))
+        .digest();
+      return h.buffer.slice(h.byteOffset, h.byteOffset + h.byteLength);
+    },
+    digestStringAsync: async (algorithm: string, data: string) =>
+      nodeCrypto.createHash(algorithms[algorithm]).update(data).digest('hex'),
+  };
+});
+
 vi.mock('expo-local-authentication', () => ({
   hasHardwareAsync: vi.fn(() => Promise.resolve(true)),
   isEnrolledAsync: vi.fn(() => Promise.resolve(true)),

@@ -5,9 +5,12 @@
  * To add a fragment: create `./<name>.ts` with `defineFragment({ en, nl, tr })` and list it below.
  */
 import { mergeLocale } from '../merge';
+import about from './about';
+import alarms from './alarms';
 import common from './common';
 import compartments from './compartments';
 import editor from './editor';
+import legal from './legal';
 import journal from './journal';
 import medicines from './medicines';
 import onboarding from './onboarding';
@@ -27,6 +30,9 @@ const fragments = {
   journal,
   you,
   onboarding,
+  alarms,
+  about,
+  legal,
 };
 
 type Fragments = typeof fragments;

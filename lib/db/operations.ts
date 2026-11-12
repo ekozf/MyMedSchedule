@@ -10,6 +10,7 @@ import {
   disclaimerAcknowledgments,
 } from './schema';
 import type { Profile, ProfileSettings, Medication, IntakeLog } from '@/types';
+import { deletePhotoIfManaged, isManagedPhotoUri } from '@/lib/media/photos';
 
 export class InventoryInsufficientError extends Error {
   public readonly medicationId: string;
@@ -52,6 +53,39 @@ function assertSufficientInventory(params: {
 // Generate UUID compatible with Expo Go
 function generateUUID(): string {
   return Crypto.randomUUID();
+}
+
+// ============================================================================
+// Photo files (lib/media/photos.ts)
+// ============================================================================
+
+/**
+ * Deletes a photo file from our photos folder once no medicine or profile points at it any more.
+ * Files outside that folder (older records still pointing at the picker cache) are left alone.
+ * Never throws: a leftover file is tidied up at the next start (`getReferencedPhotoUris`).
+ */
+async function releasePhoto(uri: string | null | undefined): Promise<void> {
+  if (!uri || !isManagedPhotoUri(uri)) return;
+  try {
+    const db = getDatabase();
+    const [med, prof] = await Promise.all([
+      db.select({ id: medications.id }).from(medications).where(eq(medications.imageUri, uri)).limit(1),
+      db.select({ id: profiles.id }).from(profiles).where(eq(profiles.avatarUri, uri)).limit(1),
+    ]);
+    if (med.length === 0 && prof.length === 0) deletePhotoIfManaged(uri);
+  } catch (error) {
+    console.warn('Could not release photo:', error);
+  }
+}
+
+/** Every photo URI still stored (medicines + profiles), for `pruneOrphanPhotos`. */
+export async function getReferencedPhotoUris(): Promise<string[]> {
+  const db = getDatabase();
+  const [meds, profs] = await Promise.all([
+    db.select({ uri: medications.imageUri }).from(medications),
+    db.select({ uri: profiles.avatarUri }).from(profiles),
+  ]);
+  return [...meds, ...profs].map((r) => r.uri).filter((u): u is string => !!u);
 }
 
 // ============================================================================
@@ -186,12 +220,35 @@ export async function updateProfile(
 
   await db.update(profiles).set(updateData).where(eq(profiles.id, id));
 
+  if (input.avatarUri !== undefined && existing.avatarUri && existing.avatarUri !== input.avatarUri) {
+    await releasePhoto(existing.avatarUri);
+  }
+
   return getProfileById(id);
 }
 
+/**
+ * Deletes a profile with all its medicines, journal entries, supply history and disclaimer
+ * records (foreign keys aren't enforced, so the cascade is done here), and their photo files.
+ */
 export async function deleteProfile(id: string): Promise<boolean> {
   const db = getDatabase();
-  const result = await db.delete(profiles).where(eq(profiles.id, id));
+  const existing = await getProfileById(id);
+  const meds = await db
+    .select({ id: medications.id, imageUri: medications.imageUri })
+    .from(medications)
+    .where(eq(medications.profileId, id));
+
+  for (const med of meds) {
+    await db.delete(inventoryAdjustments).where(eq(inventoryAdjustments.medicationId, med.id));
+  }
+  await db.delete(intakeLogs).where(eq(intakeLogs.profileId, id));
+  await db.delete(medications).where(eq(medications.profileId, id));
+  await db.delete(disclaimerAcknowledgments).where(eq(disclaimerAcknowledgments.profileId, id));
+  await db.delete(profiles).where(eq(profiles.id, id));
+
+  for (const med of meds) await releasePhoto(med.imageUri);
+  await releasePhoto(existing?.avatarUri);
   return true;
 }
 
@@ -486,14 +543,23 @@ export async function updateMedication(
 
   await db.update(medications).set(updateData).where(eq(medications.id, id));
 
+  if (input.imageUri !== undefined && existing.imageUri && existing.imageUri !== input.imageUri) {
+    await releasePhoto(existing.imageUri);
+  }
+
   return getMedicationById(id);
 }
 
+/** Deletes a medicine with its journal entries, supply history and photo file. */
 export async function deleteMedication(id: string): Promise<boolean> {
   const db = getDatabase();
-  // Foreign keys aren't enforced, so remove the supply history explicitly.
+  const existing = await getMedicationById(id);
+  // Foreign keys aren't enforced, so remove the history explicitly ("removes the medicine, its
+  // reminders and its history").
   await db.delete(inventoryAdjustments).where(eq(inventoryAdjustments.medicationId, id));
+  await db.delete(intakeLogs).where(eq(intakeLogs.medicationId, id));
   await db.delete(medications).where(eq(medications.id, id));
+  await releasePhoto(existing?.imageUri);
   return true;
 }
 

@@ -230,7 +230,7 @@ export default function MedicineDetailScreen() {
     }
   };
 
-  const openSection = (section: 'supply' | 'note' | 'limits') => {
+  const openSection = (section: 'supply' | 'note' | 'limits' | 'expiry') => {
     if (!medication) return;
     router.push({
       pathname: '/medication/edit/[id]/[section]',
@@ -292,6 +292,7 @@ export default function MedicineDetailScreen() {
         onEditRefill={() => openSection('supply')}
         onAddNote={() => openSection('note')}
         onAddLimits={() => openSection('limits')}
+        onEditExpiry={() => openSection('expiry')}
         onSeeJournal={() =>
           router.push({ pathname: '/(tabs)/history', params: { medicationId: medication.id } })
         }

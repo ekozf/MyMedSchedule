@@ -25,25 +25,38 @@ import {
   setupNotificationCategories,
   handleNotificationResponse,
 } from '@/lib/notifications';
-import { ensureNext3DoseNotificationsForAllActiveMedications } from '@/lib/notifications/scheduler';
+import {
+  ensureNext3DoseNotificationsForAllActiveMedications,
+  purgeLegacyReminderPayloads,
+  rescheduleDoseRemindersForActiveProfile,
+} from '@/lib/notifications/scheduler';
+import { checkExactAlarmPermission } from '@/lib/notifications/use-exact-alarm';
+import { useAutoLock } from '@/lib/auth/auto-lock';
+import { hydratePinGuard } from '@/components/onboarding/pin-guard';
+import { getReferencedPhotoUris } from '@/lib/db/operations';
+import { pruneOrphanPhotos } from '@/lib/media/photos';
 import { registerNext3UpkeepTask } from '@/lib/notifications/upkeep';
 import { registerNotificationActionTask } from '@/lib/notifications/background-actions';
-import { initializeLocale } from '@/lib/i18n';
+import { initializeLocale, onLocaleChange } from '@/lib/i18n';
 import { applyAppearance } from '@/lib/settings/appearance';
 import { useLocaleVersion } from '@/lib/ui/use-locale';
 import { ActionSheetProvider, ConfirmProvider, OverlayHost, ToastProvider } from '@/components/ds';
+import { Splash } from '@/components/Splash';
 
 export {
   // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
 
-// Keep the splash screen up until the bundled fonts are ready (or failed to load).
+// Keep the native splash up until the JS splash (components/Splash.tsx) has drawn the same glyph.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
   const { loadAppState } = useStore();
+  const isLoadingAppState = useStore((s) => s.isLoadingAppState);
+  // Locks the app after a minute in the background (when a PIN / biometric lock is set).
+  useAutoLock();
   // Appearance (System / Light / Dark) of the person in use, applied at start and on change.
   const appearance = useStore((s) => s.activeProfile?.settings?.appearance);
   useEffect(() => {
@@ -65,8 +78,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontError) console.warn('Fonts failed to load, using the system font:', fontError);
-    if (fontsReady) SplashScreen.hideAsync().catch(() => {});
-  }, [fontsReady, fontError]);
+  }, [fontError]);
 
   useEffect(() => {
     // Initialize database and load app state
@@ -74,14 +86,33 @@ export default function RootLayout() {
       try {
         // Initialize language first so all UI text appears in the correct language
         await initializeLocale();
+        // PIN attempt counters survive restarts (read before the lock screen can be used).
+        hydratePinGuard();
 
         await initDatabase();
         await loadAppState();
+
+        // Photos picked in a form that was then cancelled. Runs right at start, before any
+        // form can be open with a freshly picked (not yet saved) photo.
+        try {
+          pruneOrphanPhotos(await getReferencedPhotoUris());
+        } catch (error) {
+          console.warn('Could not tidy up photos:', error);
+        }
 
         // Setup notifications
         setupNotificationHandler();
         await setupNotificationCategories();
         await registerNotificationActionTask();
+
+        // Reminders planned by older versions (notes / photo paths in their data, or older
+        // texts): replace them, with the current texts.
+        try {
+          await purgeLegacyReminderPayloads();
+        } catch (error) {
+          console.warn('Could not replace old reminders:', error);
+        }
+        checkExactAlarmPermission();
 
         // Best-effort upkeep: top up next-3 at app start
         await ensureNext3DoseNotificationsForAllActiveMedications();
@@ -102,19 +133,44 @@ export default function RootLayout() {
     const appStateSubscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         ensureNext3DoseNotificationsForAllActiveMedications();
+        // Exact-alarm access granted in the phone's settings: make upcoming reminders exact.
+        checkExactAlarmPermission();
       }
+    });
+
+    // New language: reminder buttons (Take / Snooze / Skip) and the planned reminders' texts follow.
+    const offLocale = onLocaleChange(() => {
+      setupNotificationCategories().catch((error) =>
+        console.warn('Could not update the reminder buttons:', error)
+      );
+      rescheduleDoseRemindersForActiveProfile().catch((error) =>
+        console.warn('Could not update the planned reminders:', error)
+      );
     });
 
     return () => {
       subscription.remove();
       appStateSubscription.remove();
+      offLocale();
     };
   }, []);
 
   const scheme = colorScheme === 'dark' ? 'dark' : 'light';
 
-  if (!fontsReady) return null;
+  // The JS splash (icon + wordmark) covers the start until fonts, language, database and app state
+  // are ready, then fades out over the first screen.
+  const appReady = fontsReady && !isLoadingAppState;
 
+  // One stable tree, so the splash isn't remounted when the app below it appears.
+  return (
+    <View style={{ flex: 1 }}>
+      {fontsReady ? <AppRoot scheme={scheme} localeVersion={localeVersion} /> : null}
+      <Splash ready={appReady} fontReady={fontsLoaded && !fontError} />
+    </View>
+  );
+}
+
+function AppRoot({ scheme, localeVersion }: { scheme: 'light' | 'dark'; localeVersion: number }) {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

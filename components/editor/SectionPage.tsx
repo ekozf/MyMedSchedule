@@ -1,7 +1,7 @@
 /**
  * One editor page with its own Save: the add flow's supply / extras pages (opened from the review)
- * and every page behind the edit list ("Name and photo", "Amount", "Schedule", "Supply", "Note",
- * "Limits"), plus "Remind me when running low" (just the refill reminder, from the medicine page). It edits a draft of the form; Save validates that page and hands the draft to
+ * and every page behind the edit list ("Name and photo", "Amount", "Schedule", "Supply", "Expiry
+ * date", "Note", "Limits"), plus "Remind me when running low" (just the refill reminder, from the medicine page). It edits a draft of the form; Save validates that page and hands the draft to
  * `onSave`, back discards it (asking first when something changed).
  *
  * Supply: Save with the count still at 0 first shows the sentence about a count of 0 (not tracked
@@ -47,6 +47,7 @@ export const SECTION_COPY: Record<SectionId, { title: string; helper: string }> 
   extras: { title: 'extras.title', helper: 'extras.helper' },
   note: { title: 'edit.noteTitle', helper: 'extras.notesHelper' },
   limits: { title: 'extras.safety', helper: 'extras.safetyHint' },
+  expiry: { title: 'edit.expiryTitle', helper: 'edit.expiryHelper' },
 };
 
 export interface SectionPageProps {
@@ -156,12 +157,13 @@ export function SectionPage({
     case 'extras':
     case 'note':
     case 'limits':
+    case 'expiry':
       content = (
         <ExtrasSection
           form={form}
           update={update}
           issue={issue}
-          part={section === 'extras' ? 'all' : section === 'note' ? 'note' : 'limits'}
+          part={section === 'extras' ? 'all' : section}
         />
       );
       break;

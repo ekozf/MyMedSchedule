@@ -4,6 +4,8 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('@/lib/db/operations', () => ({ updateProfile: vi.fn() }));
 vi.mock('@/store', () => ({ useStore: vi.fn() }));
 import {
+  asNeededDayText,
+  asNeededForDay,
   buildEntries,
   compartmentSheetSubtitle,
   compartmentSub,
@@ -307,6 +309,28 @@ describe('tile names', () => {
     expect(compartmentTileSubA11y(three, fmt)).toBe('Metformin, Lisinopril, Aspirin, 3 late');
   });
 
+  it('while doses are left, names only the medicines still to take', () => {
+    const a = dose('Metformin', at(12));
+    const b = dose('Omeprazole', at(12, 30));
+    const c = dose('Aspirin', at(12, 30));
+    const g = groupByCompartment(
+      entries([a, b, c], [log(a, 'taken'), log(c, 'skipped')], at(12, 10)),
+      B
+    )[1];
+    expect(g.id).toBe('midday');
+    expect(g.pending.length).toBe(1);
+    expect(compartmentNames(g)).toBe('Omeprazole');
+    expect(compartmentTileSub(g, fmt)).toBe('Omeprazole · from 12:30');
+    expect(compartmentTileSubA11y(g, fmt)).toBe('Omeprazole, From 12:30');
+
+    // Finished: every medicine of the compartment again ("all taken").
+    const done = groupByCompartment(
+      entries([a, b], [log(a, 'taken'), log(b, 'taken')], at(13)),
+      B
+    )[1];
+    expect(compartmentTileSub(done, fmt)).toBe('Metformin, Omeprazole · all taken');
+  });
+
   it('each medicine is named once', () => {
     const twice = groupByCompartment(
       entries([dose('Metformin', at(18)), { ...dose('Metformin', at(20)) }], [], now),
@@ -454,5 +478,37 @@ describe('Up next, status line, greeting', () => {
     expect(greetingKey(at(12), true)).toBe('ui.today.greeting.afternoon');
     expect(greetingKey(at(18), true)).toBe('ui.today.greeting.evening');
     expect(greetingKey(at(9), false)).toBe('ui.today.greeting.hello');
+  });
+});
+
+describe('"When you need it" follows the picked day', () => {
+  const prn = { id: 'ibu', name: 'Ibuprofen', isActive: true, isPrn: true } as unknown as Medication;
+  const prnLog = (actual: Date, action: IntakeLog['action'] = 'taken'): IntakeLog => ({
+    id: `ibu-${actual.toISOString()}`,
+    medicationId: 'ibu',
+    profileId: 'p',
+    actualTime: actual,
+    action,
+    dosageAmount: 1,
+    createdAt: actual,
+    updatedAt: actual,
+  });
+  const yesterday = new Date(2026, 10, 8);
+  const logs = [prnLog(at(9, 10, yesterday)), prnLog(at(15, 0, yesterday)), prnLog(at(10)), prnLog(at(11), 'skipped')];
+
+  it('counts the picked day only (skips not counted)', () => {
+    expect(asNeededForDay([prn], logs, DAY)[0]).toMatchObject({ taken: 1, lastAt: at(10) });
+    expect(asNeededForDay([prn], logs, yesterday)[0]).toMatchObject({
+      taken: 2,
+      lastAt: at(15, 0, yesterday),
+    });
+  });
+
+  it('says "today" only on today, nothing on a future day', () => {
+    expect(asNeededDayText({ taken: 1, lastAt: at(10) }, 'today', fmt)).toBe('1 taken today, last at 10:00');
+    expect(asNeededDayText({ taken: 0, lastAt: null }, 'today', fmt)).toBe('None today');
+    expect(asNeededDayText({ taken: 2, lastAt: at(15) }, 'past', fmt)).toBe('2 taken, last at 15:00');
+    expect(asNeededDayText({ taken: 0, lastAt: null }, 'past', fmt)).toBe('None taken');
+    expect(asNeededDayText({ taken: 0, lastAt: null }, 'future', fmt)).toBeNull();
   });
 });

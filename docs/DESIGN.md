@@ -377,9 +377,11 @@ early is not shown as next). As-needed: primary "Log a dose". Supply card (when 
 current pace", bar, rows "Pack size" and "Refill reminder"; at the refill threshold or 0 a
 warning box says so and the number and bar turn `late`. "Update supply" is a filled 48-tall
 secondary button (`field2` on the `field` card, `ink` text). With no refill reminder set the card
-ends in a "Remind me when running low ›" row (chevron). "Notes and dose limits" group, and "Dose
-limits from your prescription" when set (Maximum in one day, Time between doses, Expiry date, Ring
-even on silent). A quiet "Finish setting
+ends in a "Remind me when running low ›" row (chevron). The card sits under a "Supply and expiry"
+label with an "Expiry date" row right below it (date + "Expires in 40 days", or "Not set ›").
+Then "Note" (the note, or "Add a note ›"), "Dose limits" (Maximum in one day, Time between doses,
+or "Add dose limits ›") and "Reminder sound" (only when "Ring even on silent" is on): one heading
+per subject, no second "Notes and dose limits" group. A quiet "Finish setting
 up" group while the supply is untracked or no note/limits are set: "Track your supply" (opens the
 supply sheet in Set the total) and "Add a note or limits"; each row goes once done. "More" group:
 "See in Journal", "Pause this medicine / Reminders stop. Resume any time." (or "Resume this
@@ -453,8 +455,9 @@ medicine?".
      count this medicine's supply. Tap Save again to keep it that way, or enter how many you
      have."
    - **Notes and dose limits page** ("A few extras" / "All optional. Skip anything you're not
-     sure about."): "Note (shown with every dose)", "Dose limits from your prescription" (Maximum
-     in one day, Time between doses, Expiry date; each opens a stepper or calendar sheet with "Remove limit" / "No limit"), and a
+     sure about."): "Note (shown with every dose)", an "Expiry date" row (a calendar sheet; it is
+     printed on the box, not a limit), "Dose limits from your prescription" (Maximum in one day,
+     Time between doses; each opens a stepper sheet with "Remove limit" / "No limit"), and a
      "Reminder sound" group with the "Ring even on silent" switch.
 
    Primary "Save medicine". Notification permission is asked as before. After saving: back to
@@ -472,8 +475,8 @@ A schedule changed later starts at the beginning of that day, so an edit never h
 already logged earlier that day.
 
 **Edit medicine** is a summary list, not a long form: NavHeader, `title1` "Edit Metformin", then
-groups Medicine (Name and photo, Strength, Amount each time), Schedule (type + times), Supply
-(Supply, Refill reminder), Notes and dose limits (Note, Dose limits, and the "Reminder sound" switch, which saves straight
+groups Medicine (Name and photo, Strength, Amount each time), Schedule (type + times), Supply and
+expiry (Supply, Refill reminder, Expiry date; the review step has the same group), Notes and dose limits (Note, Dose limits, and the "Reminder sound" switch, which saves straight
 away). Each row opens its section page (`/medication/edit/[id]/[section]`, the same controls as
 the add steps) with its own Save; back with changes asks "Discard your changes?". Changing the
 type asks "Change how often?" / "The times and days you set now will be replaced." Saves only

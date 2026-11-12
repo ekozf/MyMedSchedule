@@ -2,7 +2,8 @@
  * Settings tab body (spec §5.6, route `you`): the title "Settings", the person in use as one row
  * (avatar 48, name, "Edit name or photo", chevron), then Reminders and privacy (reminders, app
  * lock), Preferences (language, appearance, 24-hour time, parts of the day), People in this app
- * (tap to switch; "Manage people" edits and removes), Your data and About.
+ * (tap to switch; "Manage people" edits and removes), Your data (export, delete everything) and
+ * About (privacy, terms, good to know, licences, support, website when set, version, "Made by").
  * Presentational: the route passes data and callbacks.
  *
  * @example
@@ -11,7 +12,8 @@
 import * as React from 'react';
 import { View } from 'react-native';
 import i18n from '@/lib/i18n';
-import { Avatar, ListGroup, ListRow, SectionHeader, TabHeader } from '@/components/ds';
+import { Avatar, ListGroup, ListRow, SectionHeader, TabHeader, Text } from '@/components/ds';
+import { PUBLISHER_NAME } from '@/lib/legal/config';
 import type { Profile } from '@/types';
 import { PeopleRow } from './PeopleRow';
 import type { ProfileLite } from './profile-actions';
@@ -43,10 +45,18 @@ export interface YouViewProps {
   onReminders: () => void;
   onAppLock: () => void;
   onExport: () => void;
+  onDeleteAll: () => void;
   onGoodToKnow: () => void;
+  onPrivacy: () => void;
+  onTerms: () => void;
+  onLicenses: () => void;
+  onSupport: () => void;
+  /** Only passed when a website URL is set; the row is hidden otherwise. */
+  onWebsite?: () => void;
 }
 
 const t = (key: string, opts?: Record<string, unknown>) => i18n.t(`ui.you.${key}`, opts);
+const a = (key: string, opts?: Record<string, unknown>) => i18n.t(`ui.about.rows.${key}`, opts);
 
 export function YouView({
   profile,
@@ -70,7 +80,13 @@ export function YouView({
   onReminders,
   onAppLock,
   onExport,
+  onDeleteAll,
   onGoodToKnow,
+  onPrivacy,
+  onTerms,
+  onLicenses,
+  onSupport,
+  onWebsite,
 }: YouViewProps) {
   // The store's profile list can still be empty on the first render; the active profile is
   // always known, so the People row shows the same single person from the start.
@@ -146,16 +162,32 @@ export function YouView({
 
       <ListGroup header={t('data.header')}>
         <ListRow title={t('data.export')} subtitle={t('data.exportSubtitle')} onPress={onExport} />
+        <ListRow
+          title={a('deleteAll')}
+          subtitle={a('deleteAllSubtitle')}
+          destructive
+          onPress={onDeleteAll}
+        />
       </ListGroup>
 
-      <ListGroup header={t('about.header')}>
-        <ListRow
-          title={t('about.goodToKnow')}
-          subtitle={t('about.goodToKnowSubtitle')}
-          onPress={onGoodToKnow}
-        />
-        <ListRow title={t('about.version')} value={version} />
-      </ListGroup>
+      <View style={{ gap: 12 }}>
+        <ListGroup header={t('about.header')}>
+          <ListRow title={a('privacy')} onPress={onPrivacy} />
+          <ListRow title={a('terms')} onPress={onTerms} />
+          <ListRow
+            title={t('about.goodToKnow')}
+            subtitle={t('about.goodToKnowSubtitle')}
+            onPress={onGoodToKnow}
+          />
+          <ListRow title={a('licenses')} onPress={onLicenses} />
+          <ListRow title={a('support')} onPress={onSupport} />
+          {onWebsite ? <ListRow title={a('website')} onPress={onWebsite} /> : null}
+          <ListRow title={t('about.version')} value={version} />
+        </ListGroup>
+        <Text variant="footnote" tone="secondary" align="center">
+          {a('madeBy', { name: PUBLISHER_NAME })}
+        </Text>
+      </View>
     </View>
   );
 }

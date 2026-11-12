@@ -81,15 +81,20 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+def releaseSigningEnvVars = ['ANDROID_KEYSTORE_PATH', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD']
+def missingReleaseSigningEnvVars = releaseSigningEnvVars.findAll { !System.getenv(it) }
+def releaseSigningAvailable = missingReleaseSigningEnvVars.isEmpty()
+def allowDebugSigningForRelease = (findProperty('allowDebugSigningForRelease') ?: 'false').toBoolean()
+
 android {
     ndkVersion rootProject.ext.ndkVersion
 
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anonymous.mymedschedule'
+    namespace 'be.emirkaan.mymedschedule'
     defaultConfig {
-        applicationId 'com.anonymous.mymedschedule'
+        applicationId 'be.emirkaan.mymedschedule'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI passes the release version as -PappVersionCode / -PappVersionName.
@@ -105,9 +110,9 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-        // Used when the release workflow provides a keystore through env vars.
-        // Without it, release builds fall back to the local testing key.
-        if (System.getenv('ANDROID_KEYSTORE_PATH')) {
+        // Release signing comes from env vars (CI secrets, or a local upload keystore).
+        // Release builds fail if these are missing; see the check below the android block.
+        if (releaseSigningAvailable) {
             release {
                 storeFile file(System.getenv('ANDROID_KEYSTORE_PATH'))
                 storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
@@ -121,15 +126,20 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.findByName('release') ?: signingConfigs.debug
+            // Signed with the release (Play upload) key. Only when explicitly opted in with
+            // -PallowDebugSigningForRelease=true does a local test build use the debug key.
+            signingConfig releaseSigningAvailable ? signingConfigs.release : signingConfigs.debug
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
             def enablePngCrunchInRelease = findProperty('android.enablePngCrunchInReleaseBuilds') ?: 'true'
             crunchPngs enablePngCrunchInRelease.toBoolean()
+            // Ship native debug symbols inside the AAB so Play Console can symbolicate native crashes.
+            // SYMBOL_TABLE (function names) rather than FULL: FULL made the AAB ~244 MB (~800 MB of DWARF).
+            ndk {
+                debugSymbolLevel 'SYMBOL_TABLE'
+            }
         }
     }
     packagingOptions {
@@ -140,6 +150,24 @@ android {
     }
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+}
+
+// Never let a release artifact be silently signed with the debug key. The check runs only when a
+// release task is actually requested, so Gradle sync and debug builds keep working without secrets.
+gradle.taskGraph.whenReady { graph ->
+    def buildsRelease = graph.allTasks.any { task ->
+        task.project == project && (task.name ==~ /(assemble|bundle|package|sign|install)Release.*/)
+    }
+    if (buildsRelease && !releaseSigningAvailable && !allowDebugSigningForRelease) {
+        throw new GradleException(
+            "Release signing is not configured. Missing env vars: ${missingReleaseSigningEnvVars.join(', ')}.\n" +
+            "Set ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD " +
+            "to sign with the upload key (see docs/releases.md), or pass -PallowDebugSigningForRelease=true " +
+            "for a local test build signed with the debug key (never upload that to Google Play).")
+    }
+    if (buildsRelease && !releaseSigningAvailable && allowDebugSigningForRelease) {
+        logger.warn("WARNING: release build is signed with the DEBUG key (-PallowDebugSigningForRelease=true). Do not upload it to Google Play.")
     }
 }
 

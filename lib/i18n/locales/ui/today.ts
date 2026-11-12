@@ -173,6 +173,9 @@ export default defineFragment({
       a11y: 'Log a dose of {{name}}',
       noneToday: 'None today',
       takenToday: { one: '1 taken today', other: '{{count}} taken today' },
+      /** Another day picked in the day picker. */
+      noneOnDay: 'None taken',
+      takenOnDay: { one: '1 taken', other: '{{count}} taken' },
       lastAt: 'last at {{time}}',
     },
     asNeededSheet: {
@@ -411,6 +414,8 @@ export default defineFragment({
       a11y: 'Een dosis {{name}} registreren',
       noneToday: 'Vandaag nog niet',
       takenToday: { one: 'Vandaag 1 keer', other: 'Vandaag {{count}} keer' },
+      noneOnDay: 'Niet ingenomen',
+      takenOnDay: { one: '1 keer ingenomen', other: '{{count}} keer ingenomen' },
       lastAt: 'laatst om {{time}}',
     },
     asNeededSheet: {
@@ -648,6 +653,8 @@ export default defineFragment({
       a11y: '{{name}} için doz kaydet',
       noneToday: 'Bugün alınmadı',
       takenToday: { one: 'Bugün 1 kez alındı', other: 'Bugün {{count}} kez alındı' },
+      noneOnDay: 'Alınmadı',
+      takenOnDay: { one: '1 kez alındı', other: '{{count}} kez alındı' },
       lastAt: 'en son {{time}}',
     },
     asNeededSheet: {

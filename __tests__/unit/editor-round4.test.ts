@@ -14,7 +14,7 @@ import {
   wantsSupplyNudge,
   type MedicineForm,
 } from '@/components/editor/form-model';
-import { limitsSummary, refillValue } from '@/components/editor/describe';
+import { expiryValue, limitsSummary, refillValue } from '@/components/editor/describe';
 import {
   getSupplyState,
   medicineHasExtras,
@@ -108,6 +108,12 @@ describe('edit pages', () => {
     expect(limitsSummary(named({ maxDailyDose: 4, minHoursBetweenDoses: 6 }))).toBe(
       '4 pills a day · 6 hours apart'
     );
+    // The expiry date is not a limit: it has its own row ("Supply and expiry").
+    expect(limitsSummary(named({ expirationDate: new Date(2027, 0, 1) }))).toBeNull();
+    expect(expiryValue(named())).toBe('Not set');
+    expect(expiryValue(named({ expirationDate: new Date(2027, 0, 1) }))).toBe('Fri 1 Jan 2027');
+    expect(isSectionId('expiry')).toBe(true);
+    expect(sectionStep('expiry')).toBe('extras');
   });
 });
 

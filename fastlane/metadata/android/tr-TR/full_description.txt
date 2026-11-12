@@ -1,0 +1,44 @@
+MyMedSchedule ilaçlarınızı hatırlamanıza yardımcı olur. Belki zaten kullandığınız ilaç kutusu gibi çalışır: gününüz dört bölmeye ayrılır, sabah, öğle, akşam ve gece, ve zamanı geldiğinde bir hatırlatma alırsınız.
+
+Gizliliğiniz önce gelir
+• Hesap yok, kayıt yok
+• Her şey telefonunuzda, şifreli bir veritabanında kalır
+• Reklam yok, izleme yok, analiz yok
+• Tamamen çevrimdışı çalışır
+
+Sade bir ilaç kutusu
+• Bütün gününüz tek bakışta: sabah, öğle, akşam, gece
+• Bir dozu alındı olarak işaretlemek için tek büyük düğme
+• Atkinson Hyperlegible yazı tipiyle büyük ve kolay okunan yazılar
+• Açık ve koyu mod
+
+Tüm aile için
+• Birden fazla kişiyi tek telefonda takip edin; örneğin annenizi, babanızı veya çocuğunuzu
+• Herkesin kendi ilaçları, hatırlatmaları ve günlüğü olur
+
+Hayatınıza uyan planlar
+• Her gün, seçtiğiniz günlerde, birkaç günde bir veya yalnızca gerektiğinde
+• Birkaç saatte bir, ayın belirli bir gününde (örneğin ikinci salı) veya döngüler halinde (örneğin 21 gün kullanım, 7 gün ara)
+• Dozun zamanla adım adım azaldığı azaltma planları
+• Günde birkaç kez, her biri kendi miktarıyla
+
+Hatırlatmalar
+• Telefonunuz yeniden başladıktan sonra da zamanında hatırlatmalar
+• Bildirimden doğrudan alın, 15 dakika erteleyin veya atlayın
+
+Stok ve kendi sınırlarınız
+• Stokunuzu takip edin, azaldığında hatırlatma alın
+• Son kullanma tarihlerini takip edin
+• İsteğe bağlı: günlük üst sınırınızı ve dozlar arasındaki en kısa süreyi kendiniz belirleyin. Girdiğiniz değer aşılırsa uygulama nazik bir uyarı gösterir. Sizi asla engellemez ve bir dozun tıbbi açıdan doğru olup olmadığını kontrol etmez.
+
+Günlük ve raporlar
+• Gün gün neyi aldığınızı veya atladığınızı görün
+• İşaretlemeyi mi unuttunuz? Geçmiş bir dozu sonradan ekleyin
+• Doktorunuzla paylaşmak için PDF rapor oluşturun. PDF şifreli değildir ve nereye gideceğine siz karar verirsiniz.
+
+Kilit ve dil
+• Uygulamayı PIN ile veya telefonunuz destekliyorsa parmak izi ya da yüz tanıma ile kilitleyin
+• Arka planda bir dakika kaldıktan sonra kendiliğinden kilitlenir
+• English, Nederlands ve Türkçe
+
+Not: MyMedSchedule bir hatırlatıcı ve günlüktür, tıbbi tavsiye değildir. İlaçlarınızı etkileşimler açısından kontrol etmez. Her zaman doktorunuza, eczacınıza ve prospektüse uyun.

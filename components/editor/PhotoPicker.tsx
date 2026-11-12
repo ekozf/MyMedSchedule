@@ -2,6 +2,8 @@
  * Medicine photo row (docs/DESIGN.md §5.4 step 1): an 88 px dashed square (or the photo), "Add a
  * photo" and "Optional. Helps you recognise the box." Tapping opens the take / choose / remove
  * action sheet, asking for camera or library permission first and explaining when it is denied.
+ * The picked photo is copied into the app's private photos folder (lib/media/photos.ts); the old
+ * file is deleted when the medicine is saved without it (lib/db/operations.ts).
  *
  * @example
  * <PhotoRow uri={form.imageUri} onChange={(imageUri) => update.set({ imageUri })} />
@@ -11,6 +13,8 @@ import { Image, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera, ImagePlus, Images, Trash2 } from 'lucide-react-native';
 import i18n from '@/lib/i18n';
+import { withAutoLockSuspended } from '@/lib/auth/auto-lock';
+import { keepPickedPhoto } from '@/lib/media/photos';
 import {
   Icon,
   PressableScale,
@@ -50,11 +54,13 @@ export function usePhotoPicker(uri: string | null, onChange: (uri: string | null
           });
           return;
         }
-        const result =
+        const result = await withAutoLockSuspended(() =>
           source === 'camera'
-            ? await ImagePicker.launchCameraAsync(PICKER_OPTIONS)
-            : await ImagePicker.launchImageLibraryAsync(PICKER_OPTIONS);
-        if (!result.canceled && result.assets[0]) onChange(result.assets[0].uri);
+            ? ImagePicker.launchCameraAsync(PICKER_OPTIONS)
+            : ImagePicker.launchImageLibraryAsync(PICKER_OPTIONS)
+        );
+        // Copied out of the picker cache into the app's private photos folder.
+        if (!result.canceled && result.assets[0]) onChange(await keepPickedPhoto(result.assets[0].uri));
       } catch (error) {
         console.error('Error picking medicine photo:', error);
         toast.show({ title: t('error') });

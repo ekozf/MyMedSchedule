@@ -1,39 +1,123 @@
 import * as SQLite from 'expo-sqlite';
 import * as SecureStore from 'expo-secure-store';
+import * as Crypto from 'expo-crypto';
+import { File } from 'expo-file-system';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import * as schema from './schema';
 
-const DB_NAME = 'mymedschedule.db';
-const DB_KEY_NAME = 'db_encryption_key';
+export const DB_NAME = 'mymedschedule.db';
+export const DB_KEY_NAME = 'db_encryption_key';
+
+/**
+ * SQLCipher passphrase format. New keys are 64 hex chars (32 random bytes from the platform CSPRNG);
+ * keys from older versions are also 64 hex chars (but came from Math.random) and stay untouched,
+ * since replacing a key would lock the existing database. See `pragmaKeyStatement`.
+ */
+const DB_KEY_PATTERN = /^[0-9a-f]{32,128}$/i;
+
+export function isValidDatabaseKey(key: string | null | undefined): boolean {
+  return typeof key === 'string' && DB_KEY_PATTERN.test(key);
+}
+
+/** 32 bytes from the platform CSPRNG, hex encoded. */
+export function generateDatabaseKey(): string {
+  const bytes = Crypto.getRandomBytes(32);
+  let hex = '';
+  for (let i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, '0');
+  return hex;
+}
 
 // Generate or retrieve encryption key
 async function getOrCreateDatabaseKey(): Promise<string> {
-  let key = await SecureStore.getItemAsync(DB_KEY_NAME);
+  const stored = await SecureStore.getItemAsync(DB_KEY_NAME);
 
-  if (!key) {
-    // Generate random key
-    key = Array.from({ length: 32 }, () =>
-      Math.floor(Math.random() * 256)
-        .toString(16)
-        .padStart(2, '0')
-    ).join('');
-
-    await SecureStore.setItemAsync(DB_KEY_NAME, key);
+  if (stored) {
+    if (!isValidDatabaseKey(stored)) {
+      // Not expected (every version wrote hex), but replacing the key would make the existing
+      // database unreadable, so keep it — `pragmaKeyStatement` quotes it safely.
+      console.warn('Database key is not hex; using it as-is.');
+    }
+    return stored;
   }
 
+  const key = generateDatabaseKey();
+  await SecureStore.setItemAsync(DB_KEY_NAME, key);
   return key;
 }
 
+/**
+ * `PRAGMA key` can't take bound parameters, so the key is interpolated: hex keys go in as-is,
+ * anything else has its single quotes doubled (SQL string literal escaping) and NULs removed.
+ */
+export function pragmaKeyStatement(key: string): string {
+  const safe = isValidDatabaseKey(key) ? key : key.replace(/\0/g, '').replace(/'/g, "''");
+  return `PRAGMA key = '${safe}';`;
+}
+
 let dbInstance: ReturnType<typeof drizzle> | null = null;
+let rawDb: SQLite.SQLiteDatabase | null = null;
+let initPromise: Promise<ReturnType<typeof drizzle>> | null = null;
 
-export async function initDatabase() {
-  if (dbInstance) return dbInstance;
+/**
+ * Opens (and creates / migrates) the encrypted database. Concurrent callers share one open.
+ * After `closeDatabase()` it opens again, creating a fresh key + file if they were deleted.
+ */
+export function initDatabase() {
+  if (dbInstance) return Promise.resolve(dbInstance);
+  if (!initPromise) {
+    initPromise = openDatabase().finally(() => {
+      initPromise = null;
+    });
+  }
+  return initPromise;
+}
 
+/** Closes the database (if open) so its file can be deleted. `getDatabase()` throws until the next `initDatabase()`. */
+export function closeDatabase(): void {
+  const db = rawDb;
+  dbInstance = null;
+  rawDb = null;
+  if (db) {
+    try {
+      db.closeSync();
+    } catch (error) {
+      console.warn('Could not close the database:', error);
+    }
+  }
+}
+
+/**
+ * Closes the database and deletes its file plus SQLite's side files (-wal, -shm, -journal).
+ * The key in SecureStore is left alone (the caller decides). Errors for files that don't exist are
+ * ignored.
+ */
+export function deleteDatabaseFiles(): void {
+  closeDatabase();
+  try {
+    SQLite.deleteDatabaseSync(DB_NAME);
+  } catch (error) {
+    // Missing file is fine; anything else is retried below by deleting the file directly.
+    console.warn('deleteDatabaseSync:', error);
+  }
+  const dir: string | undefined = (SQLite as any).defaultDatabaseDirectory;
+  if (!dir) return;
+  const base = dir.startsWith('file://') ? dir : `file://${dir}`;
+  for (const suffix of ['', '-wal', '-shm', '-journal']) {
+    try {
+      const file = new File(`${base}/${DB_NAME}${suffix}`);
+      if (file.exists) file.delete();
+    } catch (error) {
+      console.warn(`Could not delete ${DB_NAME}${suffix}:`, error);
+    }
+  }
+}
+
+async function openDatabase() {
   const key = await getOrCreateDatabaseKey();
   const db = SQLite.openDatabaseSync(DB_NAME);
 
-  // Set encryption key for SQLCipher
-  db.execSync(`PRAGMA key = '${key}';`);
+  // Set encryption key for SQLCipher.
+  db.execSync(pragmaKeyStatement(key));
 
   // Create tables if they don't exist
   db.execSync(`
@@ -160,6 +244,7 @@ export async function initDatabase() {
     console.warn('Migration check completed (errors are normal for new databases):', error);
   }
 
+  rawDb = db;
   dbInstance = drizzle(db, { schema });
 
   return dbInstance;
